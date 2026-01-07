@@ -1,0 +1,50 @@
+version: '3.8'
+
+# این فایل برای استفاده در محیط‌هایی است که از WSL2 یا Linux استفاده می‌کنند
+# و می‌خواهند از network_mode: host برای دسترسی مستقیم به شبکه استفاده کنند
+
+services:
+  backend:
+    image: kiosk-backend:latest
+    container_name: kiosk_backend
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - backend_media:/app/media
+      - backend_db:/app
+    # استفاده از network میزبان برای دسترسی مستقیم به POS و Printer
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "check", "--database", "default"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    image: kiosk-frontend:latest
+    container_name: kiosk_frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=/api
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  nginx:
+    image: kiosk-nginx:latest
+    container_name: kiosk_nginx
+    # در network_mode: host نیازی به port mapping نیست
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  backend_media:
+  backend_db:
+

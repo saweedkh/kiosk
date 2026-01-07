@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    image: kiosk-backend:latest
+    container_name: kiosk_backend
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - backend_media:/app/media
+      - backend_db:/app
+    networks:
+      - kiosk_network
+    # برای دسترسی به POS و Printer در شبکه محلی
+    # در Windows: از network_mode: host استفاده نمی‌شود، اما extra_hosts کمک می‌کند
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # برای دسترسی کامل به شبکه میزبان (در Linux/WSL2)
+    # network_mode: host  # اگر از WSL2 استفاده می‌کنید، این خط را uncomment کنید
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "check", "--database", "default"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    image: kiosk-frontend:latest
+    container_name: kiosk_frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=/api
+    networks:
+      - kiosk_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  nginx:
+    image: kiosk-nginx:latest
+    container_name: kiosk_nginx
+    ports:
+      - "80:80"
+    networks:
+      - kiosk_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+
+networks:
+  kiosk_network:
+    driver: bridge
+
+volumes:
+  backend_media:
+  backend_db:
+

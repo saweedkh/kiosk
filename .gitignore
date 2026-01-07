@@ -1,0 +1,62 @@
+# Delivery package
+delivery-package/
+*.zip
+kiosk-app.zip
+
+# Docker images
+images/
+*.tar
+
+# Environment files
+.env
+.env.local
+.env*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python (Backend)
+kiosk_backend/__pycache__/
+kiosk_backend/*.py[cod]
+kiosk_backend/*$py.class
+kiosk_backend/*.so
+kiosk_backend/.Python
+kiosk_backend/venv/
+kiosk_backend/env/
+kiosk_backend/.venv
+kiosk_backend/db.sqlite3
+kiosk_backend/media/
+kiosk_backend/staticfiles/
+kiosk_backend/logs/*.log
+kiosk_backend/.pytest_cache/
+kiosk_backend/.mypy_cache/
+kiosk_backend/dist/
+kiosk_backend/build/
+
+# Node.js (Frontend)
+kiosk_frontend/node_modules/
+kiosk_frontend/.next/
+kiosk_frontend/out/
+kiosk_frontend/.env
+kiosk_frontend/.env.local
+kiosk_frontend/.env*.local
+kiosk_frontend/.vercel
+kiosk_frontend/.turbo
+kiosk_frontend/.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker
+.docker/
+
+# Ignore .git in subdirectories (we want to manage everything in this repo)
+# But keep the code from backend and frontend
+kiosk_backend/.git/
+kiosk_frontend/.git/
+

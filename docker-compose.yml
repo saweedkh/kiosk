@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./kiosk_backend
+      dockerfile: Dockerfile
+    container_name: kiosk_backend
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DJANGO_SETTINGS_MODULE=config.settings
+    volumes:
+      - backend_media:/app/media
+      - backend_db:/app
+    networks:
+      - kiosk_network
+    # برای دسترسی به POS و Printer در شبکه محلی
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "check", "--database", "default"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./kiosk_frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_BASE_URL=/api
+    container_name: kiosk_frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=/api
+    networks:
+      - kiosk_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: kiosk_nginx
+    ports:
+      - "80:80"
+    networks:
+      - kiosk_network
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+
+networks:
+  kiosk_network:
+    driver: bridge
+
+volumes:
+  backend_media:
+  backend_db:
+

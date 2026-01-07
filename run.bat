@@ -19,13 +19,28 @@ if errorlevel 1 (
 echo Docker is running...
 echo.
 
+REM Stop any running containers first
+echo Stopping any running containers...
+docker-compose down 2>nul
+
+REM Remove old images to avoid conflicts
+echo Removing old images (if exist)...
+docker rmi kiosk-backend:latest kiosk-frontend:latest kiosk-nginx:latest 2>nul
+
 REM Load Docker images
 echo Loading Docker images...
 if exist images\backend.tar (
     echo Loading backend image...
     docker load -i images\backend.tar
+    if errorlevel 1 (
+        echo ERROR: Failed to load backend image!
+        echo The image file may be corrupted. Please rebuild it using build-images.bat
+        pause
+        exit /b 1
+    )
 ) else (
     echo ERROR: images\backend.tar not found!
+    echo Please run build-images.bat first to create the images.
     pause
     exit /b 1
 )
@@ -33,8 +48,15 @@ if exist images\backend.tar (
 if exist images\frontend.tar (
     echo Loading frontend image...
     docker load -i images\frontend.tar
+    if errorlevel 1 (
+        echo ERROR: Failed to load frontend image!
+        echo The image file may be corrupted. Please rebuild it using build-images.bat
+        pause
+        exit /b 1
+    )
 ) else (
     echo ERROR: images\frontend.tar not found!
+    echo Please run build-images.bat first to create the images.
     pause
     exit /b 1
 )
@@ -42,8 +64,15 @@ if exist images\frontend.tar (
 if exist images\nginx.tar (
     echo Loading nginx image...
     docker load -i images\nginx.tar
+    if errorlevel 1 (
+        echo ERROR: Failed to load nginx image!
+        echo The image file may be corrupted. Please rebuild it using build-images.bat
+        pause
+        exit /b 1
+    )
 ) else (
     echo ERROR: images\nginx.tar not found!
+    echo Please run build-images.bat first to create the images.
     pause
     exit /b 1
 )
@@ -52,14 +81,27 @@ echo.
 echo Starting containers...
 REM استفاده از docker-compose.yml (که در پکیج تحویلی وجود دارد)
 docker-compose -f docker-compose.yml up -d
+if errorlevel 1 (
+    echo ERROR: Failed to start containers!
+    echo.
+    echo Troubleshooting steps:
+    echo 1. Check if Docker Desktop is running properly
+    echo 2. Try running: docker-compose -f docker-compose.yml down
+    echo 3. Then run this script again
+    echo 4. If problem persists, run: fix-docker-safe.bat
+    pause
+    exit /b 1
+)
 
 REM Wait a moment for containers to initialize
 timeout /t 3 /nobreak >nul
 
+REM Verify containers are running
+docker-compose -f docker-compose.yml ps | findstr "Up" >nul
 if errorlevel 1 (
-    echo ERROR: Failed to start containers!
-    pause
-    exit /b 1
+    echo WARNING: Some containers may not have started properly
+    echo Checking container status...
+    docker-compose -f docker-compose.yml ps
 )
 
 echo.

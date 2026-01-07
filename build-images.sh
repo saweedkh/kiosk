@@ -12,18 +12,18 @@ echo "=========================================="
 # Create images directory
 mkdir -p images
 
-# Build Docker images
+# Build Docker images (without cache to ensure latest code is used)
 echo ""
-echo "Building backend image..."
-docker build -t kiosk-backend:latest ./kiosk_backend
+echo "Building backend image (no cache)..."
+docker build --no-cache -t kiosk-backend:latest ./kiosk_backend
 
 echo ""
-echo "Building frontend image..."
-docker build -t kiosk-frontend:latest ./kiosk_frontend
+echo "Building frontend image (no cache)..."
+docker build --no-cache -t kiosk-frontend:latest ./kiosk_frontend
 
 echo ""
-echo "Building nginx image..."
-docker build -t kiosk-nginx:latest ./nginx
+echo "Building nginx image (no cache)..."
+docker build --no-cache -t kiosk-nginx:latest ./nginx
 
 # Save images as .tar files
 echo ""

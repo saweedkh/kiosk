@@ -189,14 +189,19 @@ class POSMessageBuilder:
             # Join all parts (NO separator - this is key!)
             message = "".join(parts)
             
-            # Log the message we're building
+            # Log the message we're building with detailed amount info
             LogService.log_info(
                 'payment',
                 'pos_message_built',
                 details={
                     'message_length': len(message),
                     'tag_count': len(parts),
-                    'message_preview': message[:100] if len(message) > 100 else message
+                    'message': message,  # Full message for debugging
+                    'message_preview': message[:100] if len(message) > 100 else message,
+                    'amount': amount,
+                    'amount_str': amount_str,
+                    'amount_length': amount_length,
+                    'amount_format': f"AM{amount_length_str}{amount_str}"
                 }
             )
             
@@ -280,13 +285,21 @@ class POSMessageBuilder:
             message_bytes = message_bytes + b'\x00'
             LogService.log_info('payment', 'pos_message_format_null')
         
+        # Decode message for logging (if possible)
+        try:
+            message_str = message_bytes.decode('ascii', errors='replace')
+        except:
+            message_str = str(message_bytes)
+        
         LogService.log_info(
             'payment',
             'pos_message_final',
             details={
                 'message_length': len(message_bytes),
+                'message': message_str,  # Full message as string
                 'message_preview': message_bytes[:100].hex() if len(message_bytes) > 100 else message_bytes.hex(),
-                'format_type': format_type
+                'format_type': format_type,
+                'use_simple_format': use_simple_format
             }
         )
         

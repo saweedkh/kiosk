@@ -67,9 +67,6 @@ jobs:
     - name: Copy NETWORK_ACCESS documentation
       run: cp NETWORK_ACCESS.md delivery-package/
     
-    - name: Copy alternative docker-compose
-      run: cp docker-compose.production.host-network.yml delivery-package/
-    
     - name: Copy env.example file
       run: cp kiosk_backend/env.example delivery-package/.env.example
     

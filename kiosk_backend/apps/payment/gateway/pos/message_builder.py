@@ -142,9 +142,14 @@ class POSMessageBuilder:
             # PR - Payment Request Type (00 = normal payment)
             parts.append("PR00")
             
-            # AM - Amount (12 digits, zero-padded)
-            amount_str = str(amount).zfill(12)
-            parts.append(f"AM{amount_str}")
+            # AM - Amount (فرمت صحیح: AM{length}{amount})
+            # طول مبلغ به صورت 3 رقم zero-padded بعد از AM می‌آید
+            # مثال: 100000 -> AM006100000 (6 رقم)
+            # مثال: 123123000 -> AM009123123000 (9 رقم)
+            amount_str = str(amount)
+            amount_length = len(amount_str)
+            amount_length_str = str(amount_length).zfill(3)
+            parts.append(f"AM{amount_length_str}{amount_str}")
             
             # TE - Terminal ID (8 digits, zero-padded)
             if self.terminal_id:

@@ -12,8 +12,10 @@ echo "=========================================="
 PACKAGE_NAME="kiosk-app"
 PACKAGE_DIR="./delivery-package"
 
-# Clean up old package if exists
+# Clean up old package and ZIP if exists
+echo "Cleaning up old package..."
 rm -rf "$PACKAGE_DIR"
+rm -f "${PACKAGE_NAME}.zip"
 mkdir -p "$PACKAGE_DIR"
 
 # Build images first
@@ -91,28 +93,82 @@ fi
 
 # Verify all files are copied
 echo ""
+echo "=========================================="
 echo "Verifying copied files..."
+echo "=========================================="
+echo ""
+echo "Checking .bat files:"
 if ls "$PACKAGE_DIR"/*.bat >/dev/null 2>&1; then
-    echo "Found .bat files in package"
+    ls "$PACKAGE_DIR"/*.bat
 else
-    echo "WARNING: No .bat files found in package directory!"
+    echo "ERROR: No .bat files found in package directory!"
+    exit 1
 fi
+echo ""
+echo "Checking .md files:"
 if ls "$PACKAGE_DIR"/*.md >/dev/null 2>&1; then
-    echo "Found .md files in package"
+    ls "$PACKAGE_DIR"/*.md
 else
-    echo "WARNING: No .md files found in package directory!"
+    echo "ERROR: No .md files found in package directory!"
+    exit 1
 fi
+echo ""
+echo "Checking specific new files:"
+if [ -f "$PACKAGE_DIR/rebuild-and-run.bat" ]; then
+    echo "[OK] rebuild-and-run.bat exists"
+else
+    echo "[ERROR] rebuild-and-run.bat NOT FOUND!"
+    exit 1
+fi
+if [ -f "$PACKAGE_DIR/setup-startup.bat" ]; then
+    echo "[OK] setup-startup.bat exists"
+else
+    echo "[ERROR] setup-startup.bat NOT FOUND!"
+    exit 1
+fi
+if [ -f "$PACKAGE_DIR/TROUBLESHOOTING.md" ]; then
+    echo "[OK] TROUBLESHOOTING.md exists"
+else
+    echo "[ERROR] TROUBLESHOOTING.md NOT FOUND!"
+    exit 1
+fi
+echo ""
+echo "=========================================="
 
 # Create ZIP file
 echo ""
+echo "=========================================="
 echo "Step 3: Creating ZIP archive..."
+echo "=========================================="
+echo ""
+echo "Deleting old ZIP file if exists..."
+rm -f "${PACKAGE_NAME}.zip"
+
+echo "Creating new ZIP file..."
 cd "$PACKAGE_DIR"
 zip -r "../${PACKAGE_NAME}.zip" .
 cd ..
+
+# Verify ZIP file was created
+if [ ! -f "${PACKAGE_NAME}.zip" ]; then
+    echo "ERROR: ZIP file was not created!"
+    exit 1
+fi
+
+# Verify files are in ZIP
+echo ""
+echo "Verifying files in ZIP..."
+unzip -l "${PACKAGE_NAME}.zip" | grep -E "(rebuild-and-run|setup-startup|TROUBLESHOOTING)" || echo "WARNING: Some files may not be in ZIP!"
 
 echo ""
 echo "=========================================="
 echo "Package created successfully!"
 echo "File: ${PACKAGE_NAME}.zip"
 echo "=========================================="
+echo ""
+echo "IMPORTANT: Please verify that these files are in the ZIP:"
+echo "  - rebuild-and-run.bat"
+echo "  - setup-startup.bat"
+echo "  - TROUBLESHOOTING.md"
+echo ""
 

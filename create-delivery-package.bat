@@ -10,8 +10,10 @@ echo.
 set PACKAGE_NAME=kiosk-app
 set PACKAGE_DIR=delivery-package
 
-REM Clean up old package if exists
+REM Clean up old package and ZIP if exists
+echo Cleaning up old package...
 if exist "%PACKAGE_DIR%" rmdir /s /q "%PACKAGE_DIR%"
+if exist "%PACKAGE_NAME%.zip" del /f /q "%PACKAGE_NAME%.zip"
 mkdir "%PACKAGE_DIR%"
 
 REM Build images first
@@ -107,23 +109,55 @@ if errorlevel 1 (
 
 REM Verify all files are copied
 echo.
+echo ==========================================
 echo Verifying copied files...
-dir "%PACKAGE_DIR%\*.bat" /b >nul 2>&1
+echo ==========================================
+echo.
+echo Checking .bat files:
+dir "%PACKAGE_DIR%\*.bat" /b
 if errorlevel 1 (
-    echo WARNING: No .bat files found in package directory!
-) else (
-    echo Found .bat files in package
+    echo ERROR: No .bat files found in package directory!
+    pause
+    exit /b 1
 )
-dir "%PACKAGE_DIR%\*.md" /b >nul 2>&1
+echo.
+echo Checking .md files:
+dir "%PACKAGE_DIR%\*.md" /b
 if errorlevel 1 (
-    echo WARNING: No .md files found in package directory!
-) else (
-    echo Found .md files in package
+    echo ERROR: No .md files found in package directory!
+    pause
+    exit /b 1
 )
+echo.
+echo Checking specific new files:
+if exist "%PACKAGE_DIR%\rebuild-and-run.bat" (
+    echo [OK] rebuild-and-run.bat exists
+) else (
+    echo [ERROR] rebuild-and-run.bat NOT FOUND!
+)
+if exist "%PACKAGE_DIR%\setup-startup.bat" (
+    echo [OK] setup-startup.bat exists
+) else (
+    echo [ERROR] setup-startup.bat NOT FOUND!
+)
+if exist "%PACKAGE_DIR%\TROUBLESHOOTING.md" (
+    echo [OK] TROUBLESHOOTING.md exists
+) else (
+    echo [ERROR] TROUBLESHOOTING.md NOT FOUND!
+)
+echo.
+echo ==========================================
 
 REM Create ZIP file (requires PowerShell)
 echo.
+echo ==========================================
 echo Step 3: Creating ZIP archive...
+echo ==========================================
+echo.
+echo Deleting old ZIP file if exists...
+if exist "%PACKAGE_NAME%.zip" del /f /q "%PACKAGE_NAME%.zip"
+
+echo Creating new ZIP file...
 powershell -Command "Compress-Archive -Path '%PACKAGE_DIR%\*' -DestinationPath '%PACKAGE_NAME%.zip' -Force"
 if errorlevel 1 (
     echo ERROR: Failed to create ZIP file!
@@ -131,10 +165,28 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Verify ZIP file was created
+if not exist "%PACKAGE_NAME%.zip" (
+    echo ERROR: ZIP file was not created!
+    pause
+    exit /b 1
+)
+
+REM Verify files are in ZIP
+echo.
+echo Verifying files in ZIP...
+powershell -Command "$zip = [System.IO.Compression.ZipFile]::OpenRead('%PACKAGE_NAME%.zip'); $files = $zip.Entries | Select-Object -ExpandProperty FullName; Write-Host 'Files in ZIP:'; $files | ForEach-Object { Write-Host $_ }; $zip.Dispose()"
+
 echo.
 echo ==========================================
 echo Package created successfully!
 echo File: %PACKAGE_NAME%.zip
 echo ==========================================
+echo.
+echo IMPORTANT: Please verify that these files are in the ZIP:
+echo   - rebuild-and-run.bat
+echo   - setup-startup.bat
+echo   - TROUBLESHOOTING.md
+echo.
 pause
 

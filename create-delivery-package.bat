@@ -32,10 +32,13 @@ copy docker-compose.production.yml "%PACKAGE_DIR%\docker-compose.yml" >nul
 REM Copy run scripts
 copy run.bat "%PACKAGE_DIR%\" >nul
 copy stop.bat "%PACKAGE_DIR%\" >nul
+copy rebuild-and-run.bat "%PACKAGE_DIR%\" >nul
+copy setup-startup.bat "%PACKAGE_DIR%\" >nul
 
 REM Copy README and documentation
 copy README.txt "%PACKAGE_DIR%\" >nul
 copy NETWORK_ACCESS.md "%PACKAGE_DIR%\" >nul
+copy TROUBLESHOOTING.md "%PACKAGE_DIR%\" >nul
 
 REM Copy database management scripts and documentation (only .bat files for Windows)
 copy backup-database.bat "%PACKAGE_DIR%\" >nul

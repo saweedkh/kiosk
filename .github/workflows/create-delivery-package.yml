@@ -61,6 +61,9 @@ jobs:
     - name: Copy stop script
       run: cp stop.bat delivery-package/
     
+    - name: Copy startup setup script
+      run: cp setup-startup.bat delivery-package/
+    
     - name: Copy README
       run: cp README.txt delivery-package/
     

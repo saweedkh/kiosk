@@ -13,31 +13,50 @@
 نصب و راه‌اندازی:
 -----------------
 1. فایل ZIP را Extract کنید
-2. Docker Desktop را اجرا کنید و مطمئن شوید که در حال اجرا است
-3. (اختیاری) فایل .env را ویرایش کنید و تنظیمات POS و Printer را تغییر دهید
-   - فایل .env.example را ببینید برای لیست کامل تنظیمات
+2. Google Chrome را نصب کنید (اگر نصب نشده است)
+   دانلود از: https://www.google.com/chrome/
+3. Docker Desktop را اجرا کنید و مطمئن شوید که در حال اجرا است
+   (دانلود از: https://www.docker.com/products/docker-desktop)
+4. فایل .env را بسازید:
+   - فایل .env.example را کپی کنید و نام آن را به .env تغییر دهید
+   - (در Windows: راست کلیک روی .env.example → Copy → Paste → Rename به .env)
+   - یا در Command Prompt: copy .env.example .env
+5. (اختیاری) فایل .env را ویرایش کنید و تنظیمات POS و Printer را تغییر دهید
    - اگر از POS یا Printer استفاده می‌کنید، IP و Port را تنظیم کنید
-4. فایل run.bat را دوبار کلیک کنید
-5. منتظر بمانید تا سیستم راه‌اندازی شود (چند دقیقه طول می‌کشد)
-6. مرورگر را باز کنید و به آدرس زیر بروید:
-   http://localhost
+6. فایل run.bat را دوبار کلیک کنید
+   - این فایل Docker containers را راه‌اندازی می‌کند
+   - سپس Google Chrome را به صورت خودکار در حالت Kiosk (Fullscreen) باز می‌کند
+   - کاربر نمی‌تواند از مرورگر خارج شود (فقط با Ctrl+Alt+Del)
 
 توقف برنامه:
 -----------
 برای توقف برنامه، فایل stop.bat را اجرا کنید.
 
-راه‌اندازی مرورگر در حالت کیوسک:
----------------------------------
-برای راه‌اندازی مرورگر در حالت Fullscreen (کیوسک):
+راه‌اندازی خودکار در Startup:
+-----------------------------
+برای اینکه برنامه به صورت خودکار هنگام روشن شدن سیستم اجرا شود:
 
-Microsoft Edge:
-msedge.exe --kiosk http://localhost --edge-kiosk-type=fullscreen
+1. فایل setup-startup.bat را با دسترسی Administrator اجرا کنید
+   - راست کلیک روی setup-startup.bat → Run as administrator
+2. این اسکریپت یک Scheduled Task ایجاد می‌کند که run.bat را هنگام boot اجرا می‌کند
+3. برای حذف راه‌اندازی خودکار:
+   - Command Prompt را با دسترسی Administrator باز کنید
+   - دستور زیر را اجرا کنید:
+     schtasks /delete /tn "KioskApp" /f
 
-Google Chrome:
-chrome.exe --kiosk http://localhost
+محدود کردن دسترسی کاربر:
+------------------------
+برای محدود کردن دسترسی کاربر به سیستم:
 
-Firefox:
-firefox.exe -kiosk http://localhost
+1. یک حساب کاربری محدود (Limited User) ایجاد کنید
+2. از Group Policy استفاده کنید تا دسترسی به Task Manager، Registry Editor و ... را محدود کنید
+3. از نرم‌افزارهای Kiosk Mode استفاده کنید (مثل Deep Freeze یا SteadyState)
+4. Chrome در حالت Kiosk اجرا می‌شود و کاربر نمی‌تواند:
+   - از مرورگر خارج شود (فقط با Ctrl+Alt+Del)
+   - به تنظیمات Chrome دسترسی داشته باشد
+   - Extension نصب کند
+   - Password ذخیره کند
+   - Notifications دریافت کند
 
 تنظیمات POS و Printer:
 ---------------------

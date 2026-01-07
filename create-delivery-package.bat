@@ -44,6 +44,10 @@ copy access-database.bat "%PACKAGE_DIR%\" >nul
 copy DATABASE_MANAGEMENT.md "%PACKAGE_DIR%\" >nul
 echo Copied database management scripts and documentation
 
+REM Copy Docker fix scripts (only .bat files for Windows)
+copy fix-docker-safe.bat "%PACKAGE_DIR%\" >nul
+echo Copied Docker fix scripts
+
 REM Copy .env file if exists
 if exist ".env" (
     copy .env "%PACKAGE_DIR%\" >nul

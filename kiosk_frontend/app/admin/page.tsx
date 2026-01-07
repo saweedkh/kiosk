@@ -15,7 +15,6 @@ export default function AdminPage() {
   const router = useRouter()
   const { logout, user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'categories' | 'products' | 'reports' | 'settings'>('categories')
-  const [showExitGuide, setShowExitGuide] = useState(false)
 
   const handleLogout = () => {
     // Clear localStorage first
@@ -63,16 +62,8 @@ export default function AdminPage() {
                 <div className="text-sm text-text-secondary dark:text-gray-400">
                   {user?.username}
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setShowExitGuide(true)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
-                >
-                  راهنمای خروج از Kiosk
-                </Button>
                 <Button variant="outline" size="sm" onClick={handleLogout}>
-                  خروج از حساب
+                  خروج
                 </Button>
               </div>
             </div>
@@ -128,45 +119,6 @@ export default function AdminPage() {
         </header>
 
         <main className="container mx-auto px-4 py-8">
-          {showExitGuide && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-card dark:bg-card-dark p-6 rounded-lg max-w-2xl mx-4">
-                <h2 className="text-2xl font-bold mb-4 text-text dark:text-text-dark">
-                  راهنمای خروج از حالت Kiosk
-                </h2>
-                <div className="space-y-4 text-text dark:text-text-dark">
-                  <div>
-                    <h3 className="font-bold text-lg mb-2">برای کیوسک لمسی (بدون موس و کیبورد):</h3>
-                    <ul className="list-disc list-inside space-y-2 mr-4">
-                      <li>راه‌اندازی مجدد سیستم (Restart) - دکمه Power را فشار دهید و نگه دارید</li>
-                      <li>دسترسی فیزیکی به سیستم - اگر به سیستم دسترسی دارید، Task Manager را باز کنید (Ctrl+Shift+Esc) و Chrome را ببندید</li>
-                      <li>دسترسی از راه دور - از طریق Remote Desktop یا TeamViewer به سیستم وصل شوید</li>
-                      <li>دکمه Reset فیزیکی - اگر دستگاه دکمه Reset دارد، از آن استفاده کنید</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg mb-2">برای کیوسک با کیبورد:</h3>
-                    <ul className="list-disc list-inside space-y-2 mr-4">
-                      <li>Ctrl+Alt+Del - برای باز کردن Task Manager</li>
-                      <li>Alt+F4 - برای بستن Chrome (اگر focus روی آن باشد)</li>
-                      <li>Ctrl+Shift+Esc - برای باز کردن مستقیم Task Manager</li>
-                    </ul>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-border dark:border-border-dark">
-                    <p className="text-sm text-text-secondary dark:text-gray-400">
-                      توجه: برای امنیت بیشتر، توصیه می‌شود که Task Manager را از طریق Group Policy غیرفعال کنید.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-6 flex justify-end">
-                  <Button onClick={() => setShowExitGuide(false)}>
-                    بستن
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'categories' && <CategoriesManager />}
 
           {activeTab === 'products' && <ProductsManager />}

@@ -34,8 +34,6 @@ export default function CustomerPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cartClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentModalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const cornerTapCountRef = useRef(0);
-  const cornerTapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { getTotalItems, items, getTotalPrice, clearCart } = useCartStore();
@@ -108,90 +106,8 @@ export default function CustomerPage() {
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
       }
-      if (cornerTapTimeoutRef.current) {
-        clearTimeout(cornerTapTimeoutRef.current);
-      }
     };
   }, []);
-
-  // Gesture detection for opening admin panel (5 taps in top-right corner)
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      if (typeof window === 'undefined') return;
-      
-      const touch = e.touches[0];
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-      
-      // Check if touch is in top-right corner (last 100px from right, first 100px from top)
-      const isInCorner = touch.clientX > windowWidth - 100 && touch.clientY < 100;
-      
-      if (isInCorner) {
-        cornerTapCountRef.current += 1;
-        
-        // Reset counter after 2 seconds
-        if (cornerTapTimeoutRef.current) {
-          clearTimeout(cornerTapTimeoutRef.current);
-        }
-        
-        cornerTapTimeoutRef.current = setTimeout(() => {
-          cornerTapCountRef.current = 0;
-        }, 2000);
-        
-        // If 5 taps detected, open admin panel
-        if (cornerTapCountRef.current >= 5) {
-          cornerTapCountRef.current = 0;
-          router.push('/admin');
-        }
-      } else {
-        // Reset counter if touch is not in corner
-        cornerTapCountRef.current = 0;
-        if (cornerTapTimeoutRef.current) {
-          clearTimeout(cornerTapTimeoutRef.current);
-        }
-      }
-    };
-
-    // Also handle mouse clicks for testing (same corner)
-    const handleClick = (e: MouseEvent) => {
-      if (typeof window === 'undefined') return;
-      
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-      
-      const isInCorner = e.clientX > windowWidth - 100 && e.clientY < 100;
-      
-      if (isInCorner) {
-        cornerTapCountRef.current += 1;
-        
-        if (cornerTapTimeoutRef.current) {
-          clearTimeout(cornerTapTimeoutRef.current);
-        }
-        
-        cornerTapTimeoutRef.current = setTimeout(() => {
-          cornerTapCountRef.current = 0;
-        }, 2000);
-        
-        if (cornerTapCountRef.current >= 5) {
-          cornerTapCountRef.current = 0;
-          router.push('/admin');
-        }
-      } else {
-        cornerTapCountRef.current = 0;
-        if (cornerTapTimeoutRef.current) {
-          clearTimeout(cornerTapTimeoutRef.current);
-        }
-      }
-    };
-
-    window.addEventListener('touchstart', handleTouchStart);
-    window.addEventListener('click', handleClick);
-
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('click', handleClick);
-    };
-  }, [router]);
 
   // تابع helper برای رفرش صفحه
   const refreshPage = () => {

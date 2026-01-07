@@ -65,8 +65,15 @@ class POSMessageBuilder:
         # مثال: 100000 -> AM006100000 (6 رقم)
         # مثال: 123123000 -> AM009123123000 (9 رقم)
         # نمونه از کاربر: RQ039PR006000000AM009123123000CU003364PD0011
-        amount_str = str(amount)
+        # IMPORTANT: Ensure amount is integer and convert to string properly
+        amount_int = int(amount)  # Force integer conversion
+        amount_str = str(amount_int)  # Convert to string
         amount_length = len(amount_str)
+        
+        # Validate: amount should not be empty
+        if not amount_str or amount_length == 0:
+            raise ValueError(f"Invalid amount: {amount} (converted to: {amount_str})")
+        
         # طول را به صورت 3 رقم zero-padded اضافه می‌کنیم
         amount_length_str = str(amount_length).zfill(3)
         am_format = f"AM{amount_length_str}{amount_str}"
@@ -77,7 +84,8 @@ class POSMessageBuilder:
             'payment',
             'pos_amount_format_simple',
             details={
-                'amount': amount,
+                'amount_original': amount,
+                'amount_int': amount_int,
                 'amount_str': amount_str,
                 'amount_length': amount_length,
                 'amount_length_str': amount_length_str,
@@ -161,7 +169,14 @@ class POSMessageBuilder:
             # طول مبلغ به صورت 3 رقم zero-padded بعد از AM می‌آید
             # مثال: 100000 -> AM006100000 (6 رقم)
             # مثال: 123123000 -> AM009123123000 (9 رقم)
-            amount_str = str(amount)
+            # IMPORTANT: Ensure amount is integer and convert to string properly
+            amount_int = int(amount)  # Force integer conversion
+            amount_str = str(amount_int)  # Convert to string
+            
+            # Validate: amount should not be empty
+            if not amount_str:
+                raise ValueError(f"Invalid amount: {amount} (converted to: {amount_str})")
+            
             amount_length = len(amount_str)
             amount_length_str = str(amount_length).zfill(3)
             am_format = f"AM{amount_length_str}{amount_str}"
@@ -172,7 +187,8 @@ class POSMessageBuilder:
                 'payment',
                 'pos_amount_format_full',
                 details={
-                    'amount': amount,
+                    'amount_original': amount,
+                    'amount_int': amount_int,
                     'amount_str': amount_str,
                     'amount_length': amount_length,
                     'amount_length_str': amount_length_str,

@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Vazir';
+  src: url('/font/Vazir.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src: url('/font/Vazir-Thin.ttf') format('truetype');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src: url('/font/Vazir-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src: url('/font/Vazir-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src: url('/font/Vazir-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazir';
+  src: url('/font/Vazir-Black.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-vazir: 'Vazir', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-vazir);
+  direction: rtl;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Jalali DatePicker Custom Styles - ساده و تمیز */
+.jdp-container {
+  font-family: var(--font-vazir) !important;
+  direction: rtl !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  border: 1px solid #e5e7eb !important;
+  background: white !important;
+  padding: 1rem !important;
+  z-index: 9999 !important;
+}
+
+.dark .jdp-container {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+.jdp-day.selected {
+  background: #3b82f6 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+.jdp-day.today {
+  background: #eff6ff !important;
+  color: #1e40af !important;
+  font-weight: 600 !important;
+}
+
+.dark .jdp-day.today {
+  background: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+.jdp-day:hover:not(.disabled-day):not(.not-in-month) {
+  background: #f3f4f6 !important;
+}
+
+.dark .jdp-day:hover:not(.disabled-day):not(.not-in-month) {
+  background: #374151 !important;
+}
+
+.jdp-day-name {
+  font-weight: 500 !important;
+  color: #6b7280 !important;
+}
+
+.dark .jdp-day-name {
+  color: #9ca3af !important;
+}
+
+.jdp-footer {
+  border-top: 1px solid #e5e7eb !important;
+  padding-top: 0.75rem !important;
+  margin-top: 0.75rem !important;
+}
+
+.dark .jdp-footer {
+  border-top-color: #374151 !important;
+}
+
+.jdp-btn-today {
+  background: #3b82f6 !important;
+  color: white !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  font-weight: 500 !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+.jdp-btn-today:hover {
+  background: #2563eb !important;
+}
+
+.jdp-btn-empty,
+.jdp-btn-close {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  font-weight: 500 !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+.dark .jdp-btn-empty,
+.dark .jdp-btn-close {
+  background: #374151 !important;
+  color: #e5e7eb !important;
+}
+
+.jdp-btn-empty:hover,
+.jdp-btn-close:hover {
+  background: #e5e7eb !important;
+}
+
+.dark .jdp-btn-empty:hover,
+.dark .jdp-btn-close:hover {
+  background: #4b5563 !important;
+}
+

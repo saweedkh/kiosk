@@ -1,0 +1,6562 @@
+openapi: 3.0.3
+info:
+  title: Kiosk Backend API
+  version: 1.0.0
+  description: API documentation for Kiosk Backend - Store management system with
+    card reader payment integration
+paths:
+  /api/kiosk/admin/auth/login/:
+    post:
+      operationId: admin_login
+      description: Authenticate admin user and create a session. Returns user information
+        on successful login.
+      summary: Admin Login
+      tags:
+      - Admin - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginErrorSwaggerSerializer_401'
+          description: Error response (401)
+  /api/kiosk/admin/auth/logout/:
+    post:
+      operationId: admin_logout
+      description: Logout the current admin user and destroy the session.
+      summary: Admin Logout
+      tags:
+      - Admin - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutResponseRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LogoutResponseRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LogoutResponseRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLogoutSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLogoutErrorSwaggerSerializer_401'
+          description: Error response (401)
+  /api/kiosk/admin/auth/user/:
+    get:
+      operationId: admin_user_info
+      description: Get information about the currently authenticated admin user.
+      summary: Get Current User Info
+      tags:
+      - Admin - Auth
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserInfoSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserInfoErrorSwaggerSerializer_401'
+          description: Error response (401)
+  /api/kiosk/admin/categories/:
+    get:
+      operationId: admin_categories_list
+      description: Get a paginated list of all categories with filtering support.
+        Admin only.
+      summary: List Categories (Admin)
+      parameters:
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+        description: فعال
+      - in: query
+        name: name
+        schema:
+          type: string
+        description: نام
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: parent
+        schema:
+          type: integer
+        description: دسته والد
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Admin - Categories
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        200-paginated:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminCategoryListListPaginatedSwaggerList'
+          description: Paginated list response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryListErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryListErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryListErrorSwaggerSerializer_403'
+          description: Error response (403)
+    post:
+      operationId: admin_categories_create
+      description: Create a new category. Admin only.
+      summary: Create Category (Admin)
+      tags:
+      - Admin - Categories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryCreateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryCreateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryCreateErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryCreateErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/categories/{id}/:
+    get:
+      operationId: admin_categories_retrieve
+      description: Retrieve detailed information about a category. Admin only.
+      summary: Get Category Details (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Categories
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryRetrieveErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryRetrieveErrorSwaggerSerializer_403'
+          description: Error response (403)
+    put:
+      operationId: admin_categories_update
+      description: Update category information (full update). Admin only.
+      summary: Update Category (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Categories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryUpdateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryUpdateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryUpdateErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryUpdateErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryUpdateErrorSwaggerSerializer_403'
+          description: Error response (403)
+    patch:
+      operationId: admin_categories_partial_update
+      description: Partially update category information. Admin only.
+      summary: Partially Update Category (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Categories
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminCategoryRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryPartialUpdateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryPartialUpdateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryPartialUpdateErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryPartialUpdateErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryPartialUpdateErrorSwaggerSerializer_403'
+          description: Error response (403)
+    delete:
+      operationId: admin_categories_delete
+      description: Delete a category. Admin only.
+      summary: Delete Category (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Categories
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/kiosk/admin/orders/:
+    get:
+      operationId: admin_orders_list
+      description: Get a paginated list of all orders with filtering support. Admin
+        only.
+      summary: List Orders (Admin)
+      parameters:
+      - in: query
+        name: amount_max
+        schema:
+          type: integer
+        description: حداکثر مبلغ
+      - in: query
+        name: amount_min
+        schema:
+          type: integer
+        description: حداقل مبلغ
+      - in: query
+        name: order_number
+        schema:
+          type: string
+        description: شماره سفارش
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: payment_status
+        schema:
+          type: string
+        description: وضعیت پرداخت
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+          title: وضعیت
+          enum:
+          - cancelled
+          - completed
+          - paid
+          - pending
+          - processing
+        description: |-
+          وضعیت
+
+          * `pending` - در انتظار
+          * `processing` - در حال پردازش
+          * `paid` - پرداخت شده
+          * `completed` - تکمیل شده
+          * `cancelled` - لغو شده
+      tags:
+      - Admin - Orders
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        200-paginated:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminOrderListListPaginatedSwaggerList'
+          description: Paginated list response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderListErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderListErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderListErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/orders/{id}/:
+    get:
+      operationId: admin_orders_retrieve
+      description: Retrieve detailed information about an order including all items.
+        Admin only.
+      summary: Get Order Details (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Orders
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderRetrieveErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderRetrieveErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/orders/{id}/update-status/:
+    put:
+      operationId: admin_orders_update_status
+      description: Update the status of an order. Admin only.
+      summary: Update Order Status (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderStatusRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderUpdateStatusSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderUpdateStatusErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderUpdateStatusErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderUpdateStatusErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrderUpdateStatusErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/products/:
+    get:
+      operationId: admin_products_list
+      description: Get a paginated list of all products with filtering support. Admin
+        only.
+      summary: List Products (Admin)
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: integer
+        description: دسته‌بندی
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+        description: فعال
+      - in: query
+        name: is_in_stock
+        schema:
+          type: boolean
+        description: موجود در انبار
+      - in: query
+        name: name
+        schema:
+          type: string
+        description: نام
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: price_max
+        schema:
+          type: integer
+        description: حداکثر قیمت
+      - in: query
+        name: price_min
+        schema:
+          type: integer
+        description: حداقل قیمت
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Admin - Products
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        200-paginated:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminProductListListPaginatedSwaggerList'
+          description: Paginated list response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductListErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductListErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductListErrorSwaggerSerializer_403'
+          description: Error response (403)
+    post:
+      operationId: admin_products_create
+      description: Create a new product. Admin only.
+      summary: Create Product (Admin)
+      tags:
+      - Admin - Products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminProductRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductCreateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductCreateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductCreateErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductCreateErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/products/{id}/:
+    get:
+      operationId: admin_products_retrieve
+      description: Retrieve detailed information about a product. Admin only.
+      summary: Get Product Details (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Products
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductRetrieveErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductRetrieveErrorSwaggerSerializer_403'
+          description: Error response (403)
+    put:
+      operationId: admin_products_update
+      description: Update product information (full update). Admin only.
+      summary: Update Product (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminProductRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateErrorSwaggerSerializer_403'
+          description: Error response (403)
+    patch:
+      operationId: admin_products_partial_update
+      description: Partially update product information. Admin only.
+      summary: Partially Update Product (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminProductRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminProductRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminProductRequest'
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductPartialUpdateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductPartialUpdateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductPartialUpdateErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductPartialUpdateErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductPartialUpdateErrorSwaggerSerializer_403'
+          description: Error response (403)
+    delete:
+      operationId: admin_products_delete
+      description: Delete a product. Admin only.
+      summary: Delete Product (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Products
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/kiosk/admin/products/{id}/update-stock/:
+    put:
+      operationId: admin_products_update_stock
+      description: Update product stock quantity and create stock history record.
+        Admin only.
+      summary: Update Product Stock (Admin)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Admin - Products
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStockRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UpdateStockRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UpdateStockRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateStockSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateStockErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateStockErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateStockErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProductUpdateStockErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/reports/daily/:
+    get:
+      operationId: admin_reports_daily
+      description: Generate daily report with statistics including sales, orders,
+        and transactions for a specific date.
+      summary: Daily Report
+      tags:
+      - Admin - Reports
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyReportErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/reports/products/:
+    get:
+      operationId: admin_reports_product
+      description: Generate product report with statistics including total products,
+        active products, and low stock products.
+      summary: Product Report
+      tags:
+      - Admin - Reports
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReportSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReportErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReportErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/reports/sales/:
+    get:
+      operationId: admin_reports_sales
+      description: Generate sales report with statistics including total sales, total
+        orders, and average order value.
+      summary: Sales Report
+      tags:
+      - Admin - Reports
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesReportSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesReportErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesReportErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/reports/stock/:
+    get:
+      operationId: admin_reports_stock
+      description: Generate stock report with inventory statistics including stock
+        levels and stock value.
+      summary: Stock Report
+      tags:
+      - Admin - Reports
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockReportSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockReportErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockReportErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/admin/reports/transactions/:
+    get:
+      operationId: admin_reports_transaction
+      description: Generate payment transaction report with statistics including success/failure
+        rates and total amounts.
+      summary: Transaction Report
+      tags:
+      - Admin - Reports
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionReportSwagger'
+          description: Successful response
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionReportErrorSwaggerSerializer_401'
+          description: Error response (401)
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionReportErrorSwaggerSerializer_403'
+          description: Error response (403)
+  /api/kiosk/orders/invoices/{id}/:
+    get:
+      operationId: invoices_retrieve
+      description: Retrieve detailed information about a specific invoice.
+      summary: Get Invoice Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Invoices
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+  /api/kiosk/orders/invoices/{id}/download-json/:
+    get:
+      operationId: invoices_download_json
+      description: Get the JSON representation of an invoice.
+      summary: Download Invoice JSON
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Invoices
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceDownloadJSONSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceDownloadJSONErrorSwaggerSerializer_404'
+          description: Error response (404)
+  /api/kiosk/orders/invoices/{id}/download-pdf/:
+    get:
+      operationId: invoices_download_pdf
+      description: Download the PDF file of an invoice.
+      summary: Download Invoice PDF
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Invoices
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/kiosk/orders/invoices/order/{order_id}/create/:
+    post:
+      operationId: invoices_create
+      description: Create an invoice for an order. Generates both PDF and JSON formats.
+      summary: Create Invoice
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Invoices
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceCreateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceCreateErrorSwaggerSerializer_400'
+          description: Error response (400)
+  /api/kiosk/orders/order-items/order/{order_id}/items/:
+    get:
+      operationId: order_items_list
+      description: Get all items for a specific order.
+      summary: List Order Items
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: integer
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Orders
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        200-all:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrderItemListListAllOutputSwaggerList'
+          description: Unpaginated list response
+  /api/kiosk/orders/orders/create/:
+    post:
+      operationId: orders_create
+      description: Create an order from items data sent from frontend. Stock will
+        be decreased only after payment is completed.
+      summary: Create Order
+      tags:
+      - Orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCreateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCreateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCreateErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCreateErrorSwaggerSerializer_500'
+          description: Error response (500)
+  /api/kiosk/payment/payment/initiate/:
+    post:
+      operationId: payment_initiate
+      description: Initiate a payment transaction with the payment gateway for an
+        order. Returns transaction details including transaction ID.
+      summary: Initiate Payment
+      tags:
+      - Payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInitiateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentInitiateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentInitiateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitiateSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitiateErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitiateErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentInitiateErrorSwaggerSerializer_500'
+          description: Error response (500)
+  /api/kiosk/payment/payment/status/:
+    post:
+      operationId: payment_status
+      description: Get the current payment status from the payment gateway for a transaction.
+      summary: Get Payment Status
+      tags:
+      - Payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentStatusRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentStatusRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentStatusRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusSwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusErrorSwaggerSerializer_500'
+          description: Error response (500)
+  /api/kiosk/payment/payment/verify/:
+    post:
+      operationId: payment_verify
+      description: Verify a payment transaction with the payment gateway. Updates
+        order status based on verification result.
+      summary: Verify Payment
+      tags:
+      - Payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentVerifyRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentVerifySwagger'
+          description: Successful response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentVerifyErrorSwaggerSerializer_400'
+          description: Error response (400)
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentVerifyErrorSwaggerSerializer_404'
+          description: Error response (404)
+        '500':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentVerifyErrorSwaggerSerializer_500'
+          description: Error response (500)
+  /api/kiosk/payment/transactions/:
+    get:
+      operationId: transactions_list
+      description: Get a list of payment transactions. Supports filtering by order_id,
+        status, and gateway.
+      summary: List Transactions
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Transactions
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        200-paginated:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTransactionListListPaginatedSwaggerList'
+          description: Paginated list response
+  /api/kiosk/payment/transactions/{id}/:
+    get:
+      operationId: transactions_retrieve
+      description: Retrieve detailed information about a specific payment transaction.
+      summary: Get Transaction Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Transactions
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+  /api/kiosk/products/categories/:
+    get:
+      operationId: categories_list
+      description: Get a list of all active categories.
+      summary: List Categories
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Categories
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        200-all:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCategoryListListAllOutputSwaggerList'
+          description: Unpaginated list response
+  /api/kiosk/products/categories/{id}/:
+    get:
+      operationId: categories_retrieve
+      description: Retrieve detailed information about a specific active category.
+      summary: Get Category Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Categories
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+  /api/kiosk/products/categories/{id}/products/:
+    get:
+      operationId: categories_products
+      description: Get all active products with stock in a specific category.
+      summary: Get Category Products
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Categories
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        200-all:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryProductsListAllOutputSwagger'
+          description: Unpaginated list response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryProductsErrorSwaggerSerializer_404'
+          description: Error response (404)
+  /api/kiosk/products/products/:
+    get:
+      operationId: products_list
+      description: Get a paginated list of active products with optional filtering
+        by category, price range, and stock availability.
+      summary: List Products
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: number
+        description: دسته‌بندی
+      - in: query
+        name: in_stock
+        schema:
+          type: boolean
+        description: موجود در انبار
+      - in: query
+        name: is_active
+        schema:
+          type: boolean
+      - in: query
+        name: max_price
+        schema:
+          type: integer
+        description: حداکثر قیمت
+      - in: query
+        name: min_price
+        schema:
+          type: integer
+        description: حداقل قیمت
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Products
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        200-paginated:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProductListListPaginatedSwaggerList'
+          description: Paginated list response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListErrorSwaggerSerializer_400'
+          description: Error response (400)
+  /api/kiosk/products/products/{id}/:
+    get:
+      operationId: products_retrieve
+      description: Retrieve detailed information about a specific product including
+        category, stock quantity, and stock history.
+      summary: Get Product Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Products
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductRetrieveSwagger'
+          description: Successful response
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductRetrieveErrorSwaggerSerializer_404'
+          description: Error response (404)
+  /api/kiosk/products/products/search/:
+    get:
+      operationId: products_search
+      description: Search for products by name or description. Returns a list of active
+        products matching the search query.
+      summary: Search Products
+      tags:
+      - Products
+      security:
+      - jwtAuth: []
+      - jwtAuth: []
+      - {}
+      responses:
+        200-all:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearchListAllOutputSwagger'
+          description: Unpaginated list response
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearchErrorSwaggerSerializer_400'
+          description: Error response (400)
+components:
+  schemas:
+    AdminCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        parent:
+          type: integer
+          nullable: true
+          title: دسته والد
+        parent_name:
+          type: string
+          readOnly: true
+          title: نام دسته والد
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: ترتیب نمایش
+        is_active:
+          type: boolean
+          title: فعال
+        children_count:
+          type: integer
+          readOnly: true
+          title: تعداد زیردسته
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - name
+    AdminCategoryCreateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminCategoryCreate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryCreateErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminCategoryCreate` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryCreateErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminCategoryCreate` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryCreateSwagger:
+      type: object
+      description: Standard success response for `AdminCategoryCreate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminCategory'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminCategoryList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: ترتیب نمایش
+        is_active:
+          type: boolean
+          title: فعال
+      required:
+      - name
+    AdminCategoryListErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminCategoryList` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryListErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminCategoryList` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryListErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminCategoryList` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryListListPaginatedSwagger:
+      type: object
+      description: Paginated list response for `AdminCategoryList`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminCategoryListPaginatedResult'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminCategoryListPaginatedResult:
+      type: object
+      description: Serializer for paginated data structures in API responses.
+      properties:
+        count:
+          type: integer
+          description: Total number of available items.
+        next:
+          type: string
+          nullable: true
+          description: URL to the next page of results (if available).
+        previous:
+          type: string
+          nullable: true
+          description: URL to the previous page of results (if available)
+        page_size:
+          type: integer
+          description: Number of items per page.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategoryList'
+      required:
+      - count
+      - page_size
+      - results
+    AdminCategoryPartialUpdateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminCategoryPartialUpdate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryPartialUpdateErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminCategoryPartialUpdate` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryPartialUpdateErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminCategoryPartialUpdate` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryPartialUpdateErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminCategoryPartialUpdate` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryPartialUpdateSwagger:
+      type: object
+      description: Standard success response for `AdminCategoryPartialUpdate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminCategory'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: نام
+          maxLength: 255
+        parent:
+          type: integer
+          nullable: true
+          title: دسته والد
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: ترتیب نمایش
+        is_active:
+          type: boolean
+          title: فعال
+      required:
+      - name
+    AdminCategoryRetrieveErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminCategoryRetrieve` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryRetrieveErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminCategoryRetrieve` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminCategoryRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryRetrieveSwagger:
+      type: object
+      description: Standard success response for `AdminCategoryRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminCategory'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminCategoryUpdateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminCategoryUpdate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryUpdateErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminCategoryUpdate` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryUpdateErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminCategoryUpdate` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryUpdateErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminCategoryUpdate` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminCategoryUpdateSwagger:
+      type: object
+      description: Standard success response for `AdminCategoryUpdate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminCategory'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminLoginErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminLogin` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminLoginErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminLogin` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminLoginSwagger:
+      type: object
+      description: Standard success response for `AdminLogin`.
+      properties:
+        result:
+          $ref: '#/components/schemas/LoginResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminLogoutErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminLogout` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminLogoutSwagger:
+      type: object
+      description: Standard success response for `AdminLogout`.
+      properties:
+        result:
+          $ref: '#/components/schemas/LogoutResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+          title: شماره سفارش
+        session_key:
+          type: string
+          readOnly: true
+          title: کلید Session
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status075Enum'
+          title: وضعیت
+        payment_status:
+          type: string
+          title: وضعیت پرداخت
+          maxLength: 20
+        total_amount:
+          type: integer
+          readOnly: true
+          title: مبلغ کل
+        transaction_id:
+          type: string
+          readOnly: true
+          nullable: true
+          title: شناسه تراکنش
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrderItem'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    AdminOrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        product:
+          type: integer
+          title: محصول
+        product_name:
+          type: string
+          readOnly: true
+          title: نام محصول
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: تعداد
+        unit_price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت واحد
+        subtotal:
+          type: string
+          readOnly: true
+      required:
+      - product
+      - quantity
+      - unit_price
+    AdminOrderList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+          title: شماره سفارش
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status075Enum'
+          title: وضعیت
+        payment_status:
+          type: string
+          title: وضعیت پرداخت
+          maxLength: 20
+        total_amount:
+          type: integer
+          readOnly: true
+          title: مبلغ کل
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+    AdminOrderListErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminOrderList` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderListErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminOrderList` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderListErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminOrderList` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderListListPaginatedSwagger:
+      type: object
+      description: Paginated list response for `AdminOrderList`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminOrderListPaginatedResult'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminOrderListPaginatedResult:
+      type: object
+      description: Serializer for paginated data structures in API responses.
+      properties:
+        count:
+          type: integer
+          description: Total number of available items.
+        next:
+          type: string
+          nullable: true
+          description: URL to the next page of results (if available).
+        previous:
+          type: string
+          nullable: true
+          description: URL to the previous page of results (if available)
+        page_size:
+          type: integer
+          description: Number of items per page.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrderList'
+      required:
+      - count
+      - page_size
+      - results
+    AdminOrderRetrieveErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminOrderRetrieve` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderRetrieveErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminOrderRetrieve` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminOrderRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderRetrieveSwagger:
+      type: object
+      description: Standard success response for `AdminOrderRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminOrder'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminOrderUpdateStatusErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminOrderUpdateStatus` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderUpdateStatusErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminOrderUpdateStatus` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderUpdateStatusErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminOrderUpdateStatus` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderUpdateStatusErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminOrderUpdateStatus` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminOrderUpdateStatusSwagger:
+      type: object
+      description: Standard success response for `AdminOrderUpdateStatus`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminOrder'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        description:
+          type: string
+          title: توضیحات
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category:
+          type: integer
+          nullable: true
+          title: دسته‌بندی
+        category_name:
+          type: string
+          readOnly: true
+          title: نام دسته‌بندی
+        image:
+          type: string
+          format: uri
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_active:
+          type: boolean
+          title: فعال
+        is_in_stock:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - name
+      - price
+    AdminProductCreateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminProductCreate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductCreateErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminProductCreate` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductCreateErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminProductCreate` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductCreateSwagger:
+      type: object
+      description: Standard success response for `AdminProductCreate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminProduct'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminProductList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category_name:
+          type: string
+          readOnly: true
+          title: نام دسته‌بندی
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_active:
+          type: boolean
+          title: فعال
+        is_in_stock:
+          type: string
+          readOnly: true
+      required:
+      - name
+      - price
+    AdminProductListErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminProductList` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductListErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminProductList` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductListErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminProductList` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductListListPaginatedSwagger:
+      type: object
+      description: Paginated list response for `AdminProductList`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminProductListPaginatedResult'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminProductListPaginatedResult:
+      type: object
+      description: Serializer for paginated data structures in API responses.
+      properties:
+        count:
+          type: integer
+          description: Total number of available items.
+        next:
+          type: string
+          nullable: true
+          description: URL to the next page of results (if available).
+        previous:
+          type: string
+          nullable: true
+          description: URL to the previous page of results (if available)
+        page_size:
+          type: integer
+          description: Number of items per page.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProductList'
+      required:
+      - count
+      - page_size
+      - results
+    AdminProductPartialUpdateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminProductPartialUpdate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductPartialUpdateErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminProductPartialUpdate` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductPartialUpdateErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminProductPartialUpdate` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductPartialUpdateErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminProductPartialUpdate` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductPartialUpdateSwagger:
+      type: object
+      description: Standard success response for `AdminProductPartialUpdate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminProduct'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: نام
+          maxLength: 255
+        description:
+          type: string
+          title: توضیحات
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category:
+          type: integer
+          nullable: true
+          title: دسته‌بندی
+        image:
+          type: string
+          format: binary
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_active:
+          type: boolean
+          title: فعال
+      required:
+      - name
+      - price
+    AdminProductRetrieveErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminProductRetrieve` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductRetrieveErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminProductRetrieve` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminProductRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductRetrieveSwagger:
+      type: object
+      description: Standard success response for `AdminProductRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminProduct'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminProductUpdateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminProductUpdate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminProductUpdate` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminProductUpdate` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminProductUpdate` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateStockErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `AdminProductUpdateStock` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateStockErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminProductUpdateStock` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateStockErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `AdminProductUpdateStock` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateStockErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `AdminProductUpdateStock` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminProductUpdateStockSwagger:
+      type: object
+      description: Standard success response for `AdminProductUpdateStock`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminProduct'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminProductUpdateSwagger:
+      type: object
+      description: Standard success response for `AdminProductUpdate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/AdminProduct'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    AdminUserInfoErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `AdminUserInfo` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    AdminUserInfoSwagger:
+      type: object
+      description: Standard success response for `AdminUserInfo`.
+      properties:
+        result:
+          $ref: '#/components/schemas/UserInfoResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        parent:
+          type: integer
+          nullable: true
+          title: دسته والد
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: ترتیب نمایش
+        is_active:
+          type: boolean
+          title: فعال
+        children_count:
+          type: integer
+          readOnly: true
+          title: تعداد زیردسته
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - name
+    CategoryList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: ترتیب نمایش
+        is_active:
+          type: boolean
+          title: فعال
+      required:
+      - name
+    CategoryListListAllOutputSwagger:
+      type: object
+      description: Unpaginated list response for `CategoryList`.
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryList'
+          description: List of objects.
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    CategoryProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category_name:
+          type: string
+          readOnly: true
+          title: نام دسته‌بندی
+        image:
+          type: string
+          format: uri
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_in_stock:
+          type: string
+          readOnly: true
+      required:
+      - name
+      - price
+    CategoryProductsErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `CategoryProducts` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    CategoryProductsListAllOutputSwagger:
+      type: object
+      description: Unpaginated list response for `CategoryProducts`.
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryProduct'
+          description: List of objects.
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    CategoryRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `CategoryRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    CategoryRetrieveSwagger:
+      type: object
+      description: Standard success response for `CategoryRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/Category'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    DailyReportErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `DailyReport` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    DailyReportErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `DailyReport` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    DailyReportResponse:
+      type: object
+      description: Serializer for daily report response.
+      properties:
+        date:
+          type: string
+          format: date
+          description: Report date
+        total_sales:
+          type: integer
+          description: Total sales for the day
+        total_orders:
+          type: integer
+          description: Number of orders for the day
+        total_transactions:
+          type: integer
+          description: Number of transactions for the day
+        orders:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: List of orders
+      required:
+      - date
+      - orders
+      - total_orders
+      - total_sales
+      - total_transactions
+    DailyReportSwagger:
+      type: object
+      description: Standard success response for `DailyReport`.
+      properties:
+        result:
+          $ref: '#/components/schemas/DailyReportResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        invoice_number:
+          type: string
+          readOnly: true
+          title: شماره فاکتور
+        order:
+          type: integer
+          title: سفارش
+        order_number:
+          type: string
+          readOnly: true
+          title: شماره سفارش
+        pdf_file:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+          title: فایل PDF
+        json_data:
+          readOnly: true
+          nullable: true
+          title: داده JSON
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - order
+    InvoiceCreateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `InvoiceCreate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    InvoiceCreateSwagger:
+      type: object
+      description: Standard success response for `InvoiceCreate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/Invoice'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    InvoiceDownloadJSONErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `InvoiceDownloadJSON` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    InvoiceDownloadJSONSwagger:
+      type: object
+      description: Standard success response for `InvoiceDownloadJSON`.
+      properties:
+        result:
+          $ref: '#/components/schemas/InvoiceJSONResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    InvoiceJSONResponse:
+      type: object
+      description: Serializer for invoice JSON download response.
+      properties:
+        data:
+          description: Invoice JSON data
+      required:
+      - data
+    InvoiceRequest:
+      type: object
+      properties:
+        order:
+          type: integer
+          title: سفارش
+      required:
+      - order
+    InvoiceRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `InvoiceRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    InvoiceRetrieveSwagger:
+      type: object
+      description: Standard success response for `InvoiceRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/Invoice'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          title: نام کاربری
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          title: رمز عبور
+      required:
+      - password
+      - username
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: توکن دسترسی
+        refresh_token:
+          type: string
+          description: توکن رفرش
+        user_info:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          description: اطلاعات کاربری
+      required:
+      - access_token
+      - refresh_token
+      - user_info
+    LogoutResponse:
+      type: object
+      description: Serializer for logout response.
+      properties:
+        message:
+          type: string
+          description: پیام خروج با موفقیت
+      required:
+      - message
+    LogoutResponseRequest:
+      type: object
+      description: Serializer for logout response.
+      properties:
+        message:
+          type: string
+          minLength: 1
+          description: پیام خروج با موفقیت
+      required:
+      - message
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+          title: شماره سفارش
+        session_key:
+          type: string
+          readOnly: true
+          title: کلید Session
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status075Enum'
+          readOnly: true
+          title: وضعیت
+        payment_status:
+          type: string
+          readOnly: true
+          title: وضعیت پرداخت
+        total_amount:
+          type: integer
+          readOnly: true
+          title: مبلغ کل
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    OrderCreateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `OrderCreate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    OrderCreateErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `OrderCreate` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    OrderCreateErrorSwaggerSerializer_500:
+      type: object
+      description: Error response for `OrderCreate` with HTTP 500.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 500
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    OrderCreateRequest:
+      type: object
+      description: Serializer for order creation from frontend.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemCreateRequest'
+          title: آیتم‌های سفارش
+      required:
+      - items
+    OrderCreateSwagger:
+      type: object
+      description: Standard success response for `OrderCreate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/Order'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        order:
+          type: integer
+          title: سفارش
+        product:
+          type: integer
+          title: محصول
+        product_name:
+          type: string
+          readOnly: true
+          title: نام محصول
+        product_price:
+          type: integer
+          readOnly: true
+          title: قیمت محصول
+        quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: تعداد
+        unit_price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت واحد
+        subtotal:
+          type: integer
+          readOnly: true
+          title: جمع
+      required:
+      - order
+      - product
+      - quantity
+      - unit_price
+    OrderItemCreateRequest:
+      type: object
+      description: Serializer for order item creation.
+      properties:
+        product_id:
+          type: integer
+          title: شناسه محصول
+        quantity:
+          type: integer
+          minimum: 1
+          title: تعداد
+      required:
+      - product_id
+      - quantity
+    OrderItemListListAllOutputSwagger:
+      type: object
+      description: Unpaginated list response for `OrderItemList`.
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: List of objects.
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    PaginatedAdminCategoryListListPaginatedSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategoryListListPaginatedSwagger'
+    PaginatedAdminOrderListListPaginatedSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminOrderListListPaginatedSwagger'
+    PaginatedAdminProductListListPaginatedSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminProductListListPaginatedSwagger'
+    PaginatedCategoryListListAllOutputSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryListListAllOutputSwagger'
+    PaginatedOrderItemListListAllOutputSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemListListAllOutputSwagger'
+    PaginatedProductListListPaginatedSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductListListPaginatedSwagger'
+    PaginatedTransactionListListPaginatedSwaggerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionListListPaginatedSwagger'
+    PatchedAdminCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: نام
+          maxLength: 255
+        parent:
+          type: integer
+          nullable: true
+          title: دسته والد
+        display_order:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: ترتیب نمایش
+        is_active:
+          type: boolean
+          title: فعال
+    PatchedAdminProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: نام
+          maxLength: 255
+        description:
+          type: string
+          title: توضیحات
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category:
+          type: integer
+          nullable: true
+          title: دسته‌بندی
+        image:
+          type: string
+          format: binary
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_active:
+          type: boolean
+          title: فعال
+    PaymentInitiateErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `PaymentInitiate` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentInitiateErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `PaymentInitiate` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentInitiateErrorSwaggerSerializer_500:
+      type: object
+      description: Error response for `PaymentInitiate` with HTTP 500.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 500
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentInitiateRequest:
+      type: object
+      properties:
+        order_id:
+          type: integer
+          title: شناسه سفارش
+        amount:
+          type: integer
+          minimum: 1
+          title: مبلغ
+      required:
+      - amount
+      - order_id
+    PaymentInitiateSwagger:
+      type: object
+      description: Standard success response for `PaymentInitiate`.
+      properties:
+        result:
+          $ref: '#/components/schemas/PaymentResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        transaction_id:
+          type: string
+          readOnly: true
+          title: شناسه تراکنش
+        order_id:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: شناسه سفارش
+        amount:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: مبلغ
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusF6eEnum'
+          readOnly: true
+          title: وضعیت
+        gateway_name:
+          type: string
+          readOnly: true
+          nullable: true
+          title: نام Gateway
+        gateway_response_data:
+          readOnly: true
+          nullable: true
+          title: داده پاسخ Gateway
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+    PaymentStatusErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `PaymentStatus` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentStatusErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `PaymentStatus` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentStatusErrorSwaggerSerializer_500:
+      type: object
+      description: Error response for `PaymentStatus` with HTTP 500.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 500
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentStatusRequest:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          minLength: 1
+          title: شناسه تراکنش
+      required:
+      - transaction_id
+    PaymentStatusSwagger:
+      type: object
+      description: Standard success response for `PaymentStatus`.
+      properties:
+        result:
+          $ref: '#/components/schemas/PaymentResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    PaymentVerifyErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `PaymentVerify` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentVerifyErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `PaymentVerify` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentVerifyErrorSwaggerSerializer_500:
+      type: object
+      description: Error response for `PaymentVerify` with HTTP 500.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 500
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    PaymentVerifyRequest:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          minLength: 1
+          title: شناسه تراکنش
+      required:
+      - transaction_id
+    PaymentVerifySwagger:
+      type: object
+      description: Standard success response for `PaymentVerify`.
+      properties:
+        result:
+          $ref: '#/components/schemas/PaymentResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    ProductDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        description:
+          type: string
+          title: توضیحات
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category:
+          type: integer
+          nullable: true
+          title: دسته‌بندی
+        category_name:
+          type: string
+          readOnly: true
+          title: نام دسته‌بندی
+        image:
+          type: string
+          format: uri
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_active:
+          type: boolean
+          title: فعال
+        is_in_stock:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - name
+      - price
+    ProductList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category_name:
+          type: string
+          readOnly: true
+          title: نام دسته‌بندی
+        image:
+          type: string
+          format: uri
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_in_stock:
+          type: string
+          readOnly: true
+      required:
+      - name
+      - price
+    ProductListErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `ProductList` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    ProductListListPaginatedSwagger:
+      type: object
+      description: Paginated list response for `ProductList`.
+      properties:
+        result:
+          $ref: '#/components/schemas/ProductListPaginatedResult'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    ProductListPaginatedResult:
+      type: object
+      description: Serializer for paginated data structures in API responses.
+      properties:
+        count:
+          type: integer
+          description: Total number of available items.
+        next:
+          type: string
+          nullable: true
+          description: URL to the next page of results (if available).
+        previous:
+          type: string
+          nullable: true
+          description: URL to the previous page of results (if available)
+        page_size:
+          type: integer
+          description: Number of items per page.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductList'
+      required:
+      - count
+      - page_size
+      - results
+    ProductReportErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `ProductReport` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    ProductReportErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `ProductReport` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    ProductReportResponse:
+      type: object
+      description: Serializer for product report response.
+      properties:
+        total_products:
+          type: integer
+          description: Total number of products
+        active_products:
+          type: integer
+          description: Number of active products
+        products:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: List of products
+      required:
+      - active_products
+      - products
+      - total_products
+    ProductReportSwagger:
+      type: object
+      description: Standard success response for `ProductReport`.
+      properties:
+        result:
+          $ref: '#/components/schemas/ProductReportResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    ProductRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `ProductRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    ProductRetrieveSwagger:
+      type: object
+      description: Standard success response for `ProductRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/ProductDetail'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    ProductSearch:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: نام
+          maxLength: 255
+        price:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: قیمت
+        category_name:
+          type: string
+          readOnly: true
+          title: نام دسته‌بندی
+        image:
+          type: string
+          format: uri
+          nullable: true
+          title: تصویر
+        stock_quantity:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          title: موجودی
+        is_in_stock:
+          type: string
+          readOnly: true
+      required:
+      - name
+      - price
+    ProductSearchErrorSwaggerSerializer_400:
+      type: object
+      description: Error response for `ProductSearch` with HTTP 400.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 400
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    ProductSearchListAllOutputSwagger:
+      type: object
+      description: Unpaginated list response for `ProductSearch`.
+      properties:
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductSearch'
+          description: List of objects.
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    SalesReportErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `SalesReport` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    SalesReportErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `SalesReport` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    SalesReportResponse:
+      type: object
+      description: Serializer for sales report response.
+      properties:
+        total_sales:
+          type: integer
+          description: Total sales amount
+        total_orders:
+          type: integer
+          description: Total number of orders
+        average_order_value:
+          type: number
+          format: double
+          description: Average order value
+        orders:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: List of orders
+      required:
+      - average_order_value
+      - orders
+      - total_orders
+      - total_sales
+    SalesReportSwagger:
+      type: object
+      description: Standard success response for `SalesReport`.
+      properties:
+        result:
+          $ref: '#/components/schemas/SalesReportResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    Status075Enum:
+      enum:
+      - pending
+      - processing
+      - paid
+      - completed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - در انتظار
+        * `processing` - در حال پردازش
+        * `paid` - پرداخت شده
+        * `completed` - تکمیل شده
+        * `cancelled` - لغو شده
+    StatusF6eEnum:
+      enum:
+      - pending
+      - processing
+      - success
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - در انتظار
+        * `processing` - در حال پردازش
+        * `success` - موفق
+        * `failed` - ناموفق
+        * `cancelled` - لغو شده
+    StockReportErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `StockReport` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    StockReportErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `StockReport` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    StockReportResponse:
+      type: object
+      description: Serializer for stock report response.
+      properties:
+        total_stock_value:
+          type: integer
+          description: Total stock value
+        total_items:
+          type: integer
+          description: Total number of items
+        stock_details:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: Stock details
+      required:
+      - stock_details
+      - total_items
+      - total_stock_value
+    StockReportSwagger:
+      type: object
+      description: Standard success response for `StockReport`.
+      properties:
+        result:
+          $ref: '#/components/schemas/StockReportResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        transaction_id:
+          type: string
+          readOnly: true
+          title: شناسه تراکنش
+        order_id:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: شناسه سفارش
+        order_details:
+          readOnly: true
+          nullable: true
+          title: جزئیات سفارش
+        amount:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: مبلغ
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusF6eEnum'
+          readOnly: true
+          title: وضعیت
+        payment_method:
+          type: string
+          nullable: true
+          title: روش پرداخت
+          maxLength: 50
+        gateway_name:
+          type: string
+          readOnly: true
+          nullable: true
+          title: نام Gateway
+        error_message:
+          type: string
+          readOnly: true
+          nullable: true
+          title: پیام خطا
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+    TransactionList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        transaction_id:
+          type: string
+          readOnly: true
+          title: شناسه تراکنش
+        order_id:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          title: شناسه سفارش
+        amount:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          title: مبلغ
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusF6eEnum'
+          readOnly: true
+          title: وضعیت
+        gateway_name:
+          type: string
+          readOnly: true
+          nullable: true
+          title: نام Gateway
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+    TransactionListListPaginatedSwagger:
+      type: object
+      description: Paginated list response for `TransactionList`.
+      properties:
+        result:
+          $ref: '#/components/schemas/TransactionListPaginatedResult'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    TransactionListPaginatedResult:
+      type: object
+      description: Serializer for paginated data structures in API responses.
+      properties:
+        count:
+          type: integer
+          description: Total number of available items.
+        next:
+          type: string
+          nullable: true
+          description: URL to the next page of results (if available).
+        previous:
+          type: string
+          nullable: true
+          description: URL to the previous page of results (if available)
+        page_size:
+          type: integer
+          description: Number of items per page.
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionList'
+      required:
+      - count
+      - page_size
+      - results
+    TransactionReportErrorSwaggerSerializer_401:
+      type: object
+      description: Error response for `TransactionReport` with HTTP 401.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 401
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    TransactionReportErrorSwaggerSerializer_403:
+      type: object
+      description: Error response for `TransactionReport` with HTTP 403.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 403
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    TransactionReportResponse:
+      type: object
+      description: Serializer for transaction report response.
+      properties:
+        total_transactions:
+          type: integer
+          description: Total number of transactions
+        successful_transactions:
+          type: integer
+          description: Number of successful transactions
+        failed_transactions:
+          type: integer
+          description: Number of failed transactions
+        total_amount:
+          type: integer
+          description: Total transaction amount
+        transactions:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          description: List of transactions
+      required:
+      - failed_transactions
+      - successful_transactions
+      - total_amount
+      - total_transactions
+      - transactions
+    TransactionReportSwagger:
+      type: object
+      description: Standard success response for `TransactionReport`.
+      properties:
+        result:
+          $ref: '#/components/schemas/TransactionReportResponse'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    TransactionRetrieveErrorSwaggerSerializer_404:
+      type: object
+      description: Error response for `TransactionRetrieve` with HTTP 404.
+      properties:
+        result:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          default: []
+          description: Empty list for error responses.
+        status:
+          type: integer
+          default: 404
+          description: HTTP status code.
+        success:
+          type: boolean
+          default: false
+          description: Indicates failure (always false).
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Error messages grouped by field.
+      required:
+      - messages
+    TransactionRetrieveSwagger:
+      type: object
+      description: Standard success response for `TransactionRetrieve`.
+      properties:
+        result:
+          $ref: '#/components/schemas/Transaction'
+        status:
+          type: integer
+          description: HTTP status code (e.g., 200, 400).
+        success:
+          type: boolean
+          description: Indicates if the request was successful. True if the request
+            was successful.
+        messages:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Dictionary of message types mapped to lists of messages.
+      required:
+      - messages
+      - result
+      - status
+      - success
+    UpdateOrderStatusRequest:
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status075Enum'
+          title: وضعیت
+      required:
+      - status
+    UpdateStockRequest:
+      type: object
+      properties:
+        stock_quantity:
+          type: integer
+          minimum: 0
+          title: موجودی
+        notes:
+          type: string
+          title: یادداشت
+      required:
+      - stock_quantity
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          title: نام کاربری
+          description: الزامی. 150 کاراکتر یا کمتر. فقط شامل حروف، اعداد، و علامات
+            @/./+/-/_
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: آدرس ایمیل
+        first_name:
+          type: string
+          title: نام
+          maxLength: 150
+        last_name:
+          type: string
+          title: نام خانوادگی
+          maxLength: 150
+        is_staff:
+          type: boolean
+          readOnly: true
+          title: وضعیت کارمندی
+          description: نشان می‌دهد که آیا این کاربر می‌تواند وارد این وبگاه مدیریت
+            شود یا خیر.
+        is_active:
+          type: boolean
+          readOnly: true
+          title: فعال
+          description: نشان می‌دهد که آیا این کاربر اجازهٔ فعالیت دارد یا خیر. به
+            جای حذف کاربر این تیک را بردارید.
+    UserInfoResponse:
+      type: object
+      description: Serializer for user info response.
+      properties:
+        user:
+          allOf:
+          - $ref: '#/components/schemas/User'
+          description: اطلاعات کاربری
+      required:
+      - user
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: Products
+  description: Product listing and details endpoints
+- name: Categories
+  description: Category listing endpoints
+- name: Orders
+  description: Order management endpoints
+- name: Invoices
+  description: Invoice generation and download endpoints
+- name: Payment
+  description: Payment processing endpoints
+- name: Transactions
+  description: Payment transaction endpoints
+- name: Admin - Auth
+  description: Admin authentication endpoints
+- name: Admin - Products
+  description: Admin product management endpoints
+- name: Admin - Categories
+  description: Admin category management endpoints
+- name: Admin - Orders
+  description: Admin order management endpoints
+- name: Admin - Reports
+  description: Admin reporting endpoints

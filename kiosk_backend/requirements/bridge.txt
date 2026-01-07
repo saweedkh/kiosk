@@ -1,0 +1,7 @@
+# Requirements for POS Bridge Service (Windows)
+# Install with: pip install -r requirements/bridge.txt
+
+Flask==3.0.0
+flask-cors==4.0.0
+pythonnet==3.0.3
+

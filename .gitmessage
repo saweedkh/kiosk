@@ -1,0 +1,10 @@
+# Kiosk Project Commit Message
+
+# Type: feat, fix, docs, style, refactor, test, chore
+# Scope: backend, frontend, docker, deployment, docs
+
+# Example:
+# feat(backend): Add new payment gateway
+# fix(docker): Resolve network access issue
+# docs: Update deployment guide
+

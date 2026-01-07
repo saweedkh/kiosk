@@ -59,4 +59,6 @@ kiosk_frontend/.cache/
 # But keep the code from backend and frontend
 kiosk_backend/.git/
 kiosk_frontend/.git/
+kiosk_backend/.git
+kiosk_frontend/.git
 

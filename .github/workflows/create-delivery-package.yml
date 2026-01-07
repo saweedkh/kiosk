@@ -25,15 +25,15 @@ jobs:
     
     - name: Build backend image
       run: |
-        docker build -t kiosk-backend:latest ./kiosk_backend
+        docker build --no-cache -t kiosk-backend:latest ./kiosk_backend
     
     - name: Build frontend image
       run: |
-        docker build -t kiosk-frontend:latest ./kiosk_frontend
+        docker build --no-cache -t kiosk-frontend:latest ./kiosk_frontend
     
     - name: Build nginx image
       run: |
-        docker build -t kiosk-nginx:latest ./nginx
+        docker build --no-cache -t kiosk-nginx:latest ./nginx
     
     - name: Create images directory
       run: mkdir -p images
@@ -55,20 +55,31 @@ jobs:
     - name: Copy docker-compose file
       run: cp docker-compose.production.yml delivery-package/docker-compose.yml
     
-    - name: Copy run script
-      run: cp run.bat delivery-package/
+    - name: Copy run scripts
+      run: |
+        cp run.bat delivery-package/
+        cp stop.bat delivery-package/
+        cp rebuild-and-run.bat delivery-package/
+        cp setup-startup.bat delivery-package/
     
-    - name: Copy stop script
-      run: cp stop.bat delivery-package/
+    - name: Copy documentation
+      run: |
+        cp README.txt delivery-package/
+        cp NETWORK_ACCESS.md delivery-package/
+        cp TROUBLESHOOTING.md delivery-package/
     
-    - name: Copy startup setup script
-      run: cp setup-startup.bat delivery-package/
+    - name: Copy database management scripts
+      run: |
+        cp backup-database.bat delivery-package/
+        cp restore-database.bat delivery-package/
+        cp access-database.bat delivery-package/
+        cp DATABASE_MANAGEMENT.md delivery-package/
     
-    - name: Copy README
-      run: cp README.txt delivery-package/
+    - name: Copy Docker fix scripts
+      run: cp fix-docker-safe.bat delivery-package/
     
-    - name: Copy NETWORK_ACCESS documentation
-      run: cp NETWORK_ACCESS.md delivery-package/
+    - name: Copy alternative docker-compose
+      run: cp docker-compose.production.host-network.yml delivery-package/
     
     - name: Copy env.example file
       run: cp kiosk_backend/env.example delivery-package/.env.example
@@ -82,12 +93,25 @@ jobs:
     - name: Install zip utility
       run: sudo apt-get update && sudo apt-get install -y zip
     
+    - name: Verify files before ZIP
+      run: |
+        echo "Verifying files in delivery-package..."
+        ls -la delivery-package/*.bat
+        ls -la delivery-package/*.md
+        echo "Checking specific files:"
+        [ -f delivery-package/rebuild-and-run.bat ] && echo "[OK] rebuild-and-run.bat" || echo "[ERROR] rebuild-and-run.bat NOT FOUND!"
+        [ -f delivery-package/setup-startup.bat ] && echo "[OK] setup-startup.bat" || echo "[ERROR] setup-startup.bat NOT FOUND!"
+        [ -f delivery-package/TROUBLESHOOTING.md ] && echo "[OK] TROUBLESHOOTING.md" || echo "[ERROR] TROUBLESHOOTING.md NOT FOUND!"
+    
     - name: Create ZIP archive
       run: |
+        rm -f kiosk-app.zip
         cd delivery-package
         zip -r ../kiosk-app.zip .
         cd ..
         ls -lh kiosk-app.zip
+        echo "Verifying files in ZIP:"
+        unzip -l kiosk-app.zip | grep -E "(rebuild-and-run|setup-startup|TROUBLESHOOTING)" || echo "WARNING: Some files may not be in ZIP!"
     
     - name: Upload delivery package artifact
       uses: actions/upload-artifact@v4
@@ -106,8 +130,10 @@ jobs:
           
           این پکیج شامل:
           - Docker Images (backend, frontend, nginx)
-          - فایل‌های راه‌اندازی (run.bat, stop.bat)
-          - مستندات (README.txt, NETWORK_ACCESS.md)
+          - فایل‌های راه‌اندازی (run.bat, stop.bat, rebuild-and-run.bat, setup-startup.bat)
+          - مستندات (README.txt, NETWORK_ACCESS.md, TROUBLESHOOTING.md)
+          - اسکریپت‌های مدیریت دیتابیس (backup-database.bat, restore-database.bat, access-database.bat)
+          - اسکریپت‌های رفع مشکل Docker (fix-docker-safe.bat)
           - تنظیمات Docker Compose
           
           برای نصب و راه‌اندازی، فایل README.txt را مطالعه کنید.

@@ -161,12 +161,13 @@ export default function CustomerPage() {
       };
     } else {
       // اگر وضعیت success یا failed نیست یا مودال بسته است، timeout را پاک کن
-      if (paymentModalTimeoutRef.current) {
+      // اما فقط اگر وضعیت waiting نیست (تا مودال بسته نشود)
+      if (paymentStatus !== "waiting" && paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
         paymentModalTimeoutRef.current = null;
       }
     }
-  }, [paymentStatus, isPaymentModalOpen, clearCart]);
+  }, [paymentStatus, isPaymentModalOpen]);
 
   // پاک کردن خودکار سبد خرید بعد از 10 دقیقه عدم استفاده
   useEffect(() => {
@@ -328,8 +329,17 @@ export default function CustomerPage() {
           setPaymentStatus("failed");
           // رفرش صفحه بعد از بسته شدن مودال انجام می‌شود
         } else {
-          // اگر وضعیت مشخص نبود، به عنوان waiting نمایش بده
-          setPaymentStatus("waiting");
+          // اگر وضعیت مشخص نبود، همچنان در حالت waiting بمانیم
+          // این باعث می‌شود که مودال باز بماند و منتظر نتیجه بماند
+          // فقط اگر واقعاً وضعیت pending است، waiting بمانیم
+          if (order.payment_status === "pending" || order.status === "pending") {
+            // همچنان در حالت waiting بمانیم
+            setPaymentStatus("waiting");
+          } else {
+            // اگر وضعیت نامشخص است، به عنوان failed در نظر بگیریم
+            // تا کاربر بداند که مشکلی پیش آمده
+            setPaymentStatus("failed");
+          }
         }
       }
     },
@@ -343,9 +353,19 @@ export default function CustomerPage() {
       }
       
       // بررسی اینکه آیا timeout بوده یا خطای دیگر
+      // توجه: اگر timeout رخ دهد، نباید مودال را ببندیم چون ممکن است پرداخت هنوز در حال انجام باشد
+      // فقط اگر واقعاً خطای قطعی است، وضعیت را failed کنیم
       if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
-        setPaymentStatus("failed");
-        // رفرش صفحه بعد از بسته شدن مودال انجام می‌شود
+        // برای timeout، وضعیت را failed نمی‌کنیم چون ممکن است پرداخت هنوز در حال انجام باشد
+        // فقط لاگ می‌کنیم و منتظر می‌مانیم
+        console.warn("Request timeout - payment may still be processing");
+        // اگر مودال باز است، همچنان در حالت waiting بمانیم
+        // تا کاربر بتواند وضعیت را ببیند
+        if (isPaymentModalOpen) {
+          setPaymentStatus("waiting");
+        } else {
+          setPaymentStatus("failed");
+        }
       } else {
         // بررسی اینکه آیا این خطای پرداخت است یا خطای واقعی API
         // اگر response.data وجود دارد و payment_status failed است، این خطای پرداخت است

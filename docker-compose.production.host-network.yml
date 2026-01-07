@@ -7,6 +7,8 @@ services:
   backend:
     image: kiosk-backend:latest
     container_name: kiosk_backend
+    env_file:
+      - .env
     environment:
       - DEBUG=False
       - ALLOWED_HOSTS=*
@@ -14,6 +16,7 @@ services:
     volumes:
       - backend_media:/app/media
       - backend_db:/app
+      - ./.env:/app/.env:ro
     # استفاده از network میزبان برای دسترسی مستقیم به POS و Printer
     network_mode: host
     restart: unless-stopped

@@ -37,6 +37,14 @@ REM Copy README and documentation
 copy README.txt "%PACKAGE_DIR%\" >nul
 copy NETWORK_ACCESS.md "%PACKAGE_DIR%\" >nul
 
+REM Copy .env file if exists
+if exist ".env" (
+    copy .env "%PACKAGE_DIR%\" >nul
+    echo Copied .env file
+) else (
+    echo Warning: .env file not found, client should create it
+)
+
 REM Copy alternative docker-compose for WSL2/Linux (optional)
 copy docker-compose.production.host-network.yml "%PACKAGE_DIR%\" >nul
 

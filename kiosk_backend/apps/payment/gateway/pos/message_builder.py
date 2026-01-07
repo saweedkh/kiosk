@@ -60,11 +60,16 @@ class POSMessageBuilder:
             counter_str = str(int(time.time()) % 10000000).zfill(7)
         parts.append(counter_str)
         
-        # AM code - from DLL it's AM005 not AM004!
-        parts.append("AM005")
-        
-        # Amount (NO zero padding, just the number!)
-        parts.append(str(amount))
+        # AM code - فرمت صحیح: AM{length}{amount}
+        # طول مبلغ به صورت 3 رقم zero-padded بعد از AM می‌آید
+        # مثال: 100000 -> AM006100000 (6 رقم)
+        # مثال: 123123000 -> AM009123123000 (9 رقم)
+        # نمونه از کاربر: RQ039PR006000000AM009123123000CU003364PD0011
+        amount_str = str(amount)
+        amount_length = len(amount_str)
+        # طول را به صورت 3 رقم zero-padded اضافه می‌کنیم
+        amount_length_str = str(amount_length).zfill(3)
+        parts.append(f"AM{amount_length_str}{amount_str}")
         
         # CU - Customer (based on order or session)
         # IMPORTANT: DLL official format uses CU003364 (6 digits after CU00)

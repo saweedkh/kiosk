@@ -36,6 +36,14 @@ cp stop.bat "$PACKAGE_DIR/"
 cp README.txt "$PACKAGE_DIR/"
 cp NETWORK_ACCESS.md "$PACKAGE_DIR/"
 
+# Copy .env file if exists
+if [ -f .env ]; then
+    cp .env "$PACKAGE_DIR/"
+    echo "Copied .env file"
+else
+    echo "Warning: .env file not found, client should create it"
+fi
+
 # Copy alternative docker-compose for WSL2/Linux
 cp docker-compose.production.host-network.yml "$PACKAGE_DIR/"
 

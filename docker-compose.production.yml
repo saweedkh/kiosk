@@ -13,6 +13,7 @@ services:
     volumes:
       - backend_media:/app/media
       - backend_db:/app
+      - ./.env:/app/.env:ro
     networks:
       - kiosk_network
     # برای دسترسی به POS و Printer در شبکه محلی

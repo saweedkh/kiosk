@@ -4,6 +4,8 @@ services:
   backend:
     image: kiosk-backend:latest
     container_name: kiosk_backend
+    env_file:
+      - .env
     environment:
       - DEBUG=False
       - ALLOWED_HOSTS=*

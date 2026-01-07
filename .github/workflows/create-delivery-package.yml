@@ -70,6 +70,12 @@ jobs:
     - name: Copy alternative docker-compose
       run: cp docker-compose.production.host-network.yml delivery-package/
     
+    - name: Copy env.example file
+      run: cp kiosk_backend/env.example delivery-package/.env.example
+    
+    - name: Create default .env file
+      run: cp kiosk_backend/env.example delivery-package/.env
+    
     - name: Copy images to package
       run: cp -r images/* delivery-package/images/
     

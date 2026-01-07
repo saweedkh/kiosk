@@ -1,0 +1,110 @@
+name: Create Delivery Package
+
+on:
+  workflow_dispatch:  # اجرای دستی
+  push:
+    branches: [ main ]
+    paths:
+      - 'kiosk_backend/**'
+      - 'kiosk_frontend/**'
+      - 'nginx/**'
+      - 'docker-compose.production.yml'
+  release:
+    types: [created]
+
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build backend image
+      run: |
+        docker build -t kiosk-backend:latest ./kiosk_backend
+    
+    - name: Build frontend image
+      run: |
+        docker build -t kiosk-frontend:latest ./kiosk_frontend
+    
+    - name: Build nginx image
+      run: |
+        docker build -t kiosk-nginx:latest ./nginx
+    
+    - name: Create images directory
+      run: mkdir -p images
+    
+    - name: Save backend image
+      run: docker save kiosk-backend:latest -o images/backend.tar
+    
+    - name: Save frontend image
+      run: docker save kiosk-frontend:latest -o images/frontend.tar
+    
+    - name: Save nginx image
+      run: docker save kiosk-nginx:latest -o images/nginx.tar
+    
+    - name: Create delivery package directory
+      run: |
+        mkdir -p delivery-package/images
+        mkdir -p delivery-package
+    
+    - name: Copy docker-compose file
+      run: cp docker-compose.production.yml delivery-package/docker-compose.yml
+    
+    - name: Copy run script
+      run: cp run.bat delivery-package/
+    
+    - name: Copy stop script
+      run: cp stop.bat delivery-package/
+    
+    - name: Copy README
+      run: cp README.txt delivery-package/
+    
+    - name: Copy NETWORK_ACCESS documentation
+      run: cp NETWORK_ACCESS.md delivery-package/
+    
+    - name: Copy alternative docker-compose
+      run: cp docker-compose.production.host-network.yml delivery-package/
+    
+    - name: Copy images to package
+      run: cp -r images/* delivery-package/images/
+    
+    - name: Install zip utility
+      run: sudo apt-get update && sudo apt-get install -y zip
+    
+    - name: Create ZIP archive
+      run: |
+        cd delivery-package
+        zip -r ../kiosk-app.zip .
+        cd ..
+        ls -lh kiosk-app.zip
+    
+    - name: Upload delivery package artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiosk-delivery-package
+        path: kiosk-app.zip
+        retention-days: 90
+    
+    - name: Create Release (if tag)
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: kiosk-app.zip
+        body: |
+          پکیج تحویلی کیوسک آماده است.
+          
+          این پکیج شامل:
+          - Docker Images (backend, frontend, nginx)
+          - فایل‌های راه‌اندازی (run.bat, stop.bat)
+          - مستندات (README.txt, NETWORK_ACCESS.md)
+          - تنظیمات Docker Compose
+          
+          برای نصب و راه‌اندازی، فایل README.txt را مطالعه کنید.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

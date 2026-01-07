@@ -37,6 +37,13 @@ REM Copy README and documentation
 copy README.txt "%PACKAGE_DIR%\" >nul
 copy NETWORK_ACCESS.md "%PACKAGE_DIR%\" >nul
 
+REM Copy database management scripts and documentation (only .bat files for Windows)
+copy backup-database.bat "%PACKAGE_DIR%\" >nul
+copy restore-database.bat "%PACKAGE_DIR%\" >nul
+copy access-database.bat "%PACKAGE_DIR%\" >nul
+copy DATABASE_MANAGEMENT.md "%PACKAGE_DIR%\" >nul
+echo Copied database management scripts and documentation
+
 REM Copy .env file if exists
 if exist ".env" (
     copy .env "%PACKAGE_DIR%\" >nul

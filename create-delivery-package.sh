@@ -36,6 +36,13 @@ cp stop.bat "$PACKAGE_DIR/"
 cp README.txt "$PACKAGE_DIR/"
 cp NETWORK_ACCESS.md "$PACKAGE_DIR/"
 
+# Copy database management scripts and documentation (only .bat files for Windows)
+cp backup-database.bat "$PACKAGE_DIR/"
+cp restore-database.bat "$PACKAGE_DIR/"
+cp access-database.bat "$PACKAGE_DIR/"
+cp DATABASE_MANAGEMENT.md "$PACKAGE_DIR/"
+echo "Copied database management scripts and documentation"
+
 # Copy .env file if exists
 if [ -f .env ]; then
     cp .env "$PACKAGE_DIR/"

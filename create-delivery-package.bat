@@ -45,6 +45,12 @@ if errorlevel 1 (
 ) else (
     echo Copied rebuild-and-run.bat
 )
+copy rebuild-backend-only.bat "%PACKAGE_DIR%\" >nul
+if errorlevel 1 (
+    echo ERROR: Failed to copy rebuild-backend-only.bat
+) else (
+    echo Copied rebuild-backend-only.bat
+)
 copy setup-startup.bat "%PACKAGE_DIR%\" >nul
 if errorlevel 1 (
     echo ERROR: Failed to copy setup-startup.bat

@@ -40,6 +40,11 @@ if cp rebuild-and-run.bat "$PACKAGE_DIR/"; then
 else
     echo "ERROR: Failed to copy rebuild-and-run.bat"
 fi
+if cp rebuild-backend-only.bat "$PACKAGE_DIR/"; then
+    echo "Copied rebuild-backend-only.bat"
+else
+    echo "ERROR: Failed to copy rebuild-backend-only.bat"
+fi
 if cp setup-startup.bat "$PACKAGE_DIR/"; then
     echo "Copied setup-startup.bat"
 else

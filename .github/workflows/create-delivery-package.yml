@@ -60,6 +60,7 @@ jobs:
         cp run.bat delivery-package/
         cp stop.bat delivery-package/
         cp rebuild-and-run.bat delivery-package/
+        cp rebuild-backend-only.bat delivery-package/
         cp setup-startup.bat delivery-package/
     
     - name: Copy documentation
@@ -100,6 +101,7 @@ jobs:
         ls -la delivery-package/*.md
         echo "Checking specific files:"
         [ -f delivery-package/rebuild-and-run.bat ] && echo "[OK] rebuild-and-run.bat" || echo "[ERROR] rebuild-and-run.bat NOT FOUND!"
+        [ -f delivery-package/rebuild-backend-only.bat ] && echo "[OK] rebuild-backend-only.bat" || echo "[ERROR] rebuild-backend-only.bat NOT FOUND!"
         [ -f delivery-package/setup-startup.bat ] && echo "[OK] setup-startup.bat" || echo "[ERROR] setup-startup.bat NOT FOUND!"
         [ -f delivery-package/TROUBLESHOOTING.md ] && echo "[OK] TROUBLESHOOTING.md" || echo "[ERROR] TROUBLESHOOTING.md NOT FOUND!"
     
@@ -111,7 +113,7 @@ jobs:
         cd ..
         ls -lh kiosk-app.zip
         echo "Verifying files in ZIP:"
-        unzip -l kiosk-app.zip | grep -E "(rebuild-and-run|setup-startup|TROUBLESHOOTING)" || echo "WARNING: Some files may not be in ZIP!"
+        unzip -l kiosk-app.zip | grep -E "(rebuild-and-run|rebuild-backend-only|setup-startup|TROUBLESHOOTING)" || echo "WARNING: Some files may not be in ZIP!"
     
     - name: Upload delivery package artifact
       uses: actions/upload-artifact@v4
@@ -130,7 +132,7 @@ jobs:
           
           این پکیج شامل:
           - Docker Images (backend, frontend, nginx)
-          - فایل‌های راه‌اندازی (run.bat, stop.bat, rebuild-and-run.bat, setup-startup.bat)
+          - فایل‌های راه‌اندازی (run.bat, stop.bat, rebuild-and-run.bat, rebuild-backend-only.bat, setup-startup.bat)
           - مستندات (README.txt, NETWORK_ACCESS.md, TROUBLESHOOTING.md)
           - اسکریپت‌های مدیریت دیتابیس (backup-database.bat, restore-database.bat, access-database.bat)
           - اسکریپت‌های رفع مشکل Docker (fix-docker-safe.bat)

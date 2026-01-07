@@ -26,29 +26,49 @@ echo ""
 echo "Step 2: Copying files to package..."
 
 # Copy docker-compose file
-cp docker-compose.production.yml "$PACKAGE_DIR/docker-compose.yml"
+echo "Copying docker-compose files..."
+cp docker-compose.production.yml "$PACKAGE_DIR/docker-compose.yml" || echo "ERROR: Failed to copy docker-compose.production.yml"
 
 # Copy run scripts
-cp run.bat "$PACKAGE_DIR/"
-cp stop.bat "$PACKAGE_DIR/"
-cp rebuild-and-run.bat "$PACKAGE_DIR/"
-cp setup-startup.bat "$PACKAGE_DIR/"
+echo "Copying run scripts..."
+cp run.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy run.bat"
+cp stop.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy stop.bat"
+if cp rebuild-and-run.bat "$PACKAGE_DIR/"; then
+    echo "Copied rebuild-and-run.bat"
+else
+    echo "ERROR: Failed to copy rebuild-and-run.bat"
+fi
+if cp setup-startup.bat "$PACKAGE_DIR/"; then
+    echo "Copied setup-startup.bat"
+else
+    echo "ERROR: Failed to copy setup-startup.bat"
+fi
 
 # Copy README and documentation
-cp README.txt "$PACKAGE_DIR/"
-cp NETWORK_ACCESS.md "$PACKAGE_DIR/"
-cp TROUBLESHOOTING.md "$PACKAGE_DIR/"
+echo "Copying documentation..."
+cp README.txt "$PACKAGE_DIR/" || echo "ERROR: Failed to copy README.txt"
+cp NETWORK_ACCESS.md "$PACKAGE_DIR/" || echo "ERROR: Failed to copy NETWORK_ACCESS.md"
+if cp TROUBLESHOOTING.md "$PACKAGE_DIR/"; then
+    echo "Copied TROUBLESHOOTING.md"
+else
+    echo "ERROR: Failed to copy TROUBLESHOOTING.md"
+fi
 
 # Copy database management scripts and documentation (only .bat files for Windows)
-cp backup-database.bat "$PACKAGE_DIR/"
-cp restore-database.bat "$PACKAGE_DIR/"
-cp access-database.bat "$PACKAGE_DIR/"
-cp DATABASE_MANAGEMENT.md "$PACKAGE_DIR/"
+echo "Copying database management scripts..."
+cp backup-database.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy backup-database.bat"
+cp restore-database.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy restore-database.bat"
+cp access-database.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy access-database.bat"
+cp DATABASE_MANAGEMENT.md "$PACKAGE_DIR/" || echo "ERROR: Failed to copy DATABASE_MANAGEMENT.md"
 echo "Copied database management scripts and documentation"
 
 # Copy Docker fix scripts (only .bat files for Windows)
-cp fix-docker-safe.bat "$PACKAGE_DIR/"
-echo "Copied Docker fix scripts"
+echo "Copying Docker fix scripts..."
+if cp fix-docker-safe.bat "$PACKAGE_DIR/"; then
+    echo "Copied fix-docker-safe.bat"
+else
+    echo "ERROR: Failed to copy fix-docker-safe.bat"
+fi
 
 # Copy .env file if exists
 if [ -f .env ]; then
@@ -59,10 +79,29 @@ else
 fi
 
 # Copy alternative docker-compose for WSL2/Linux
-cp docker-compose.production.host-network.yml "$PACKAGE_DIR/"
+cp docker-compose.production.host-network.yml "$PACKAGE_DIR/" || echo "ERROR: Failed to copy docker-compose.production.host-network.yml"
 
 # Copy images directory
-cp -r images "$PACKAGE_DIR/"
+echo "Copying Docker images..."
+if cp -r images "$PACKAGE_DIR/"; then
+    echo "Copied images directory"
+else
+    echo "ERROR: Failed to copy images directory"
+fi
+
+# Verify all files are copied
+echo ""
+echo "Verifying copied files..."
+if ls "$PACKAGE_DIR"/*.bat >/dev/null 2>&1; then
+    echo "Found .bat files in package"
+else
+    echo "WARNING: No .bat files found in package directory!"
+fi
+if ls "$PACKAGE_DIR"/*.md >/dev/null 2>&1; then
+    echo "Found .md files in package"
+else
+    echo "WARNING: No .md files found in package directory!"
+fi
 
 # Create ZIP file
 echo ""

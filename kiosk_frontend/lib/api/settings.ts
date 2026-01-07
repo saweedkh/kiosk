@@ -14,7 +14,7 @@ export const settingsApi = {
   // دریافت تنظیمات (برای کاربر عادی - public endpoint)
   getSettings: async (): Promise<ApiResponse<Settings>> => {
     try {
-      const response = await apiClient.get('/api/kiosk/settings/public/')
+      const response = await apiClient.get('/kiosk/settings/public/')
       return response.data
     } catch (error: any) {
       console.error('Failed to fetch settings:', error)

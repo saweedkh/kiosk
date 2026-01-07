@@ -116,7 +116,7 @@ export const reportsApi = {
     page?: number
     page_size?: number
   }): Promise<ApiResponse<SalesReport>> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/sales/', { params })
+    const response = await apiClient.get('/kiosk/admin/reports/sales/', { params })
     return response.data
   },
 
@@ -125,7 +125,7 @@ export const reportsApi = {
     page?: number
     page_size?: number
   }): Promise<ApiResponse<ProductReport>> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/products/', { params })
+    const response = await apiClient.get('/kiosk/admin/reports/products/', { params })
     return response.data
   },
 
@@ -134,7 +134,7 @@ export const reportsApi = {
     page?: number
     page_size?: number
   }): Promise<ApiResponse<StockReport>> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/stock/', { params })
+    const response = await apiClient.get('/kiosk/admin/reports/stock/', { params })
     return response.data
   },
 
@@ -144,7 +144,7 @@ export const reportsApi = {
     page?: number
     page_size?: number
   }): Promise<ApiResponse<DailyReport>> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/daily/', { params })
+    const response = await apiClient.get('/kiosk/admin/reports/daily/', { params })
     return response.data
   },
 
@@ -153,7 +153,7 @@ export const reportsApi = {
     start_date?: string
     end_date?: string
   }): Promise<string> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/sales/export/', {
+    const response = await apiClient.get('/kiosk/admin/reports/sales/export/', {
       params,
     })
     // API returns JSON with file_url
@@ -162,13 +162,13 @@ export const reportsApi = {
 
 
   exportProductReport: async (): Promise<string> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/products/export/', {})
+    const response = await apiClient.get('/kiosk/admin/reports/products/export/', {})
     // API returns JSON with file_url
     return response.data.result?.file_url || response.data.file_url || ''
   },
 
   exportStockReport: async (): Promise<string> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/stock/export/', {})
+    const response = await apiClient.get('/kiosk/admin/reports/stock/export/', {})
     // API returns JSON with file_url
     return response.data.result?.file_url || response.data.file_url || ''
   },
@@ -176,7 +176,7 @@ export const reportsApi = {
   exportDailyReport: async (params?: {
     date?: string
   }): Promise<string> => {
-    const response = await apiClient.get('/api/kiosk/admin/reports/daily/export/', {
+    const response = await apiClient.get('/kiosk/admin/reports/daily/export/', {
       params,
     })
     // API returns JSON with file_url

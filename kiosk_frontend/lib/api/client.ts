@@ -49,8 +49,8 @@ class ApiClient {
             try {
               // Try to refresh token
               const refreshUrl = API_BASE_URL.startsWith('http') 
-                ? `${API_BASE_URL}/api/kiosk/admin/auth/refresh/`
-                : `/api/kiosk/admin/auth/refresh/`
+                ? `${API_BASE_URL}/kiosk/admin/auth/refresh/`
+                : `/kiosk/admin/auth/refresh/`
               const response = await axios.post(refreshUrl, {
                 refresh: refreshToken,
               })

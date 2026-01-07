@@ -11,12 +11,12 @@ export const adminApi = {
     parent?: number
     ordering?: string
   }): Promise<ApiResponse<any>> => {
-    const response = await apiClient.get('/api/kiosk/admin/categories/', { params })
+    const response = await apiClient.get('/kiosk/admin/categories/', { params })
     return response.data
   },
 
   getCategory: async (id: number): Promise<ApiResponse<Category>> => {
-    const response = await apiClient.get(`/api/kiosk/admin/categories/${id}/`)
+    const response = await apiClient.get(`/kiosk/admin/categories/${id}/`)
     return response.data
   },
 
@@ -26,7 +26,7 @@ export const adminApi = {
     display_order?: number
     is_active?: boolean
   }): Promise<ApiResponse<Category>> => {
-    const response = await apiClient.post('/api/kiosk/admin/categories/', data)
+    const response = await apiClient.post('/kiosk/admin/categories/', data)
     return response.data
   },
 
@@ -39,12 +39,12 @@ export const adminApi = {
       is_active?: boolean
     }
   ): Promise<ApiResponse<Category>> => {
-    const response = await apiClient.put(`/api/kiosk/admin/categories/${id}/`, data)
+    const response = await apiClient.put(`/kiosk/admin/categories/${id}/`, data)
     return response.data
   },
 
   deleteCategory: async (id: number): Promise<void> => {
-    await apiClient.delete(`/api/kiosk/admin/categories/${id}/`)
+    await apiClient.delete(`/kiosk/admin/categories/${id}/`)
   },
 
   // Products
@@ -57,12 +57,12 @@ export const adminApi = {
     in_stock?: boolean
     ordering?: string
   }): Promise<ApiResponse<any>> => {
-    const response = await apiClient.get('/api/kiosk/admin/products/', { params })
+    const response = await apiClient.get('/kiosk/admin/products/', { params })
     return response.data
   },
 
   getProduct: async (id: number): Promise<ApiResponse<Product>> => {
-    const response = await apiClient.get(`/api/kiosk/admin/products/${id}/`)
+    const response = await apiClient.get(`/kiosk/admin/products/${id}/`)
     return response.data
   },
 
@@ -78,7 +78,7 @@ export const adminApi = {
     // If data is already FormData, use it directly
     if (data instanceof FormData) {
       console.log('Using provided FormData for createProduct')
-      const response = await apiClient.post('/api/kiosk/admin/products/', data, {
+      const response = await apiClient.post('/kiosk/admin/products/', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -101,7 +101,7 @@ export const adminApi = {
     if (data.is_active !== undefined)
       formData.append('is_active', data.is_active.toString())
 
-    const response = await apiClient.post('/api/kiosk/admin/products/', formData, {
+    const response = await apiClient.post('/kiosk/admin/products/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -123,7 +123,7 @@ export const adminApi = {
   ): Promise<ApiResponse<Product>> => {
     // If data is already FormData, use it directly
     if (data instanceof FormData) {
-      const response = await apiClient.patch(`/api/kiosk/admin/products/${id}/`, data, {
+      const response = await apiClient.patch(`/kiosk/admin/products/${id}/`, data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -146,7 +146,7 @@ export const adminApi = {
     if (data.is_active !== undefined)
       formData.append('is_active', data.is_active.toString())
 
-    const response = await apiClient.patch(`/api/kiosk/admin/products/${id}/`, formData, {
+    const response = await apiClient.patch(`/kiosk/admin/products/${id}/`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -155,12 +155,12 @@ export const adminApi = {
   },
 
   deleteProduct: async (id: number): Promise<void> => {
-    await apiClient.delete(`/api/kiosk/admin/products/${id}/`)
+    await apiClient.delete(`/kiosk/admin/products/${id}/`)
   },
 
   // Settings
   getSettings: async (): Promise<ApiResponse<any>> => {
-    const response = await apiClient.get('/api/kiosk/settings/admin/')
+    const response = await apiClient.get('/kiosk/settings/admin/')
     return response.data
   },
 
@@ -204,7 +204,7 @@ export const adminApi = {
       }
     })
     
-    const response = await apiClient.put('/api/kiosk/settings/admin/', formData, {
+    const response = await apiClient.put('/kiosk/settings/admin/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -232,7 +232,7 @@ export const adminApi = {
       }
     })
     
-    const response = await apiClient.patch('/api/kiosk/settings/admin/', formData, {
+    const response = await apiClient.patch('/kiosk/settings/admin/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

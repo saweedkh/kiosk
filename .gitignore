@@ -55,6 +55,14 @@ kiosk_frontend/.cache/
 # Docker
 .docker/
 
+# Database backups and local copies
+backups/
+db_local.sqlite3
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
 # Ignore .git in subdirectories (we want to manage everything in this repo)
 # But keep the code from backend and frontend
 kiosk_backend/.git/

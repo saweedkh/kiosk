@@ -18,7 +18,7 @@ export const paymentApi = {
     data: PaymentStatusRequest
   ): Promise<ApiResponse<PaymentStatusResponse>> => {
     const response = await apiClient.post<ApiResponse<PaymentStatusResponse>>(
-      '/api/kiosk/payment/payment/status/',
+      '/kiosk/payment/payment/status/',
       data
     )
     return response.data

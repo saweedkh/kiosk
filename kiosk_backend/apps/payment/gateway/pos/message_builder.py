@@ -69,7 +69,22 @@ class POSMessageBuilder:
         amount_length = len(amount_str)
         # طول را به صورت 3 رقم zero-padded اضافه می‌کنیم
         amount_length_str = str(amount_length).zfill(3)
-        parts.append(f"AM{amount_length_str}{amount_str}")
+        am_format = f"AM{amount_length_str}{amount_str}"
+        parts.append(am_format)
+        
+        # Log amount format for debugging
+        LogService.log_info(
+            'payment',
+            'pos_amount_format_simple',
+            details={
+                'amount': amount,
+                'amount_str': amount_str,
+                'amount_length': amount_length,
+                'amount_length_str': amount_length_str,
+                'am_format': am_format,
+                'order_number': order_number
+            }
+        )
         
         # CU - Customer (based on order or session)
         # IMPORTANT: DLL official format uses CU003364 (6 digits after CU00)
@@ -149,7 +164,22 @@ class POSMessageBuilder:
             amount_str = str(amount)
             amount_length = len(amount_str)
             amount_length_str = str(amount_length).zfill(3)
-            parts.append(f"AM{amount_length_str}{amount_str}")
+            am_format = f"AM{amount_length_str}{amount_str}"
+            parts.append(am_format)
+            
+            # Log amount format for debugging
+            LogService.log_info(
+                'payment',
+                'pos_amount_format_full',
+                details={
+                    'amount': amount,
+                    'amount_str': amount_str,
+                    'amount_length': amount_length,
+                    'amount_length_str': amount_length_str,
+                    'am_format': am_format,
+                    'order_number': order_number
+                }
+            )
             
             # TE - Terminal ID (8 digits, zero-padded)
             if self.terminal_id:

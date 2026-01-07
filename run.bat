@@ -136,7 +136,10 @@ start "" "%CHROME_PATH%" --kiosk http://localhost --no-first-run --disable-infob
 echo.
 echo ==========================================
 echo Browser opened in kiosk mode!
-echo Press Ctrl+Alt+Del to exit kiosk mode
+echo.
+echo For touch kiosk (no keyboard/mouse):
+echo - Tap 5 times in top-right corner to open admin panel
+echo - Or restart the system to exit
 echo ==========================================
 echo.
 

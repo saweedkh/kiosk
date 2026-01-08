@@ -10,11 +10,12 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings
     volumes:
       - backend_media:/app/media
+      - backend_logs:/app/logs
       - ./.env:/app/.env:ro
       # نگهداری database در volume (SQLite)
       - backend_db:/app/db.sqlite3
-      # نکته: فقط db.sqlite3 را در volume نگه می‌داریم، نه کل /app
-      # این باعث می‌شود کد از image استفاده شود و database حفظ شود
+      # نکته: فقط db.sqlite3 و logs را در volume نگه می‌داریم، نه کل /app
+      # این باعث می‌شود کد از image استفاده شود و database و logs حفظ شوند
     networks:
       - kiosk_network
     # برای دسترسی به POS و Printer در شبکه محلی
@@ -61,4 +62,5 @@ networks:
 volumes:
   backend_media:
   backend_db:
+  backend_logs:
 

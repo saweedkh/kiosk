@@ -66,9 +66,16 @@ class POSMessageBuilder:
         # مثال: 123123000 -> AM009123123000 (9 رقم)
         # نمونه از کاربر: RQ039PR006000000AM009123123000CU003364PD0011
         # IMPORTANT: Ensure amount is integer and convert to string properly
+        
+        # DEBUG: Print to console to see actual value
+        print(f"[DEBUG MESSAGE_BUILDER] amount received: {amount}, type: {type(amount)}")
+        
         amount_int = int(amount)  # Force integer conversion
         amount_str = str(amount_int)  # Convert to string
         amount_length = len(amount_str)
+        
+        # DEBUG: Print calculated values
+        print(f"[DEBUG MESSAGE_BUILDER] amount_int: {amount_int}, amount_str: '{amount_str}', length: {amount_length}")
         
         # Validate: amount should not be empty
         if not amount_str or amount_length == 0:

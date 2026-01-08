@@ -13,8 +13,11 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings
     volumes:
       - backend_media:/app/media
-      - backend_db:/app
       - ./.env:/app/.env:ro
+      # نگهداری database در volume (SQLite)
+      - backend_db:/app/db.sqlite3
+      # نکته: فقط db.sqlite3 را در volume نگه می‌داریم، نه کل /app
+      # این باعث می‌شود کد از image استفاده شود و database حفظ شود
     # استفاده از network میزبان برای دسترسی مستقیم به POS و Printer
     network_mode: host
     restart: unless-stopped

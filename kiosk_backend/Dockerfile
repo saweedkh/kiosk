@@ -9,11 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=config.settings
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+# No apt packages needed: app uses SQLite and Python deps ship binary wheels.
+# (Previously installed gcc + postgresql-client and slowed every --no-cache build.)
 
 # Copy requirements
 COPY requirements/ /app/requirements/

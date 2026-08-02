@@ -12,6 +12,19 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         ('اطلاعات اصلی', {
             'fields': ('site_name', 'logo', 'copyright_text', 'description')
         }),
+        ('متن فیش چاپی', {
+            'fields': (
+                'receipt_header',
+                'receipt_footer',
+                'receipt_template_mode',
+                'receipt_template',
+                'service_enabled',
+                'service_fee',
+                'receipt_number_mode',
+                'last_receipt_number',
+                'receipt_number_date',
+            )
+        }),
         ('اطلاعات تماس', {
             'fields': ('contact_phone', 'contact_email', 'contact_address')
         }),
@@ -20,7 +33,7 @@ class SiteSettingsAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['created_at', 'updated_at', 'last_receipt_number', 'receipt_number_date']
     
     def has_add_permission(self, request):
         # فقط یک رکورد مجاز است

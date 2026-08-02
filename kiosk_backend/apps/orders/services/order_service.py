@@ -12,6 +12,7 @@ from apps.core.exceptions.order import OrderNotFoundException, InsufficientStock
 from apps.payment.gateway.adapter import PaymentGatewayAdapter
 from apps.payment.gateway.exceptions import GatewayException
 from apps.payment.services.payment_service import PaymentService
+from apps.core.models.settings import SiteSettings
 
 
 class OrderService:
@@ -62,11 +63,13 @@ class OrderService:
             raise ValueError('Items list is empty')
         
         order_number = OrderService.generate_order_number()
-        order_items_data, total_amount = OrderService._validate_and_prepare_items(items)
+        order_items_data, items_total = OrderService._validate_and_prepare_items(items)
+        service_fee = SiteSettings.get_settings().get_active_service_fee()
+        total_amount = items_total + service_fee
         
         # Create order and items in a transaction (commit before payment processing)
         order = OrderService._create_order_with_items(
-            order_number, session_key, total_amount, order_items_data
+            order_number, session_key, total_amount, order_items_data, service_fee=service_fee
         )
         
         # Process payment immediately if requested (outside transaction to ensure order is saved)
@@ -120,7 +123,11 @@ class OrderService:
     
     @staticmethod
     def _create_order_with_items(
-        order_number: str, session_key: str, total_amount: int, order_items_data: List[Dict]
+        order_number: str,
+        session_key: str,
+        total_amount: int,
+        order_items_data: List[Dict],
+        service_fee: int = 0,
     ) -> Order:
         """
         Create order and order items in a transaction.
@@ -128,8 +135,9 @@ class OrderService:
         Args:
             order_number: Order number
             session_key: Session key
-            total_amount: Total order amount
+            total_amount: Total order amount (items + service fee)
             order_items_data: List of order item data dictionaries
+            service_fee: Service fee included in total_amount
             
         Returns:
             Order: Created order instance
@@ -140,6 +148,7 @@ class OrderService:
                 session_key=session_key,
                 status='pending',
                 total_amount=total_amount,
+                service_fee=max(int(service_fee or 0), 0),
                 payment_status='pending'
             )
             
@@ -211,9 +220,28 @@ class OrderService:
                 OrderService._handle_successful_payment(order, order_number, total_amount, transaction_id)
             else:
                 error_message = gateway_response.get('response_message', 'Payment failed')
-                OrderService._mark_order_as_failed(
-                    order, order_number, total_amount, transaction_id, error_message
-                )
+                gateway_status = gateway_response.get('status', '')
+                if gateway_status == 'cancelled':
+                    order.payment_status = 'cancelled'
+                    order.status = 'cancelled'
+                    order.error_message = error_message
+                    order.save()
+                    LogService.log_warning(
+                        'payment',
+                        'payment_cancelled_by_user',
+                        details={
+                            'transaction_id': transaction_id,
+                            'order_id': order.id,
+                            'order_number': order_number,
+                            'total_amount': total_amount,
+                            'response_code': gateway_response.get('response_code'),
+                            'message': error_message,
+                        }
+                    )
+                else:
+                    OrderService._mark_order_as_failed(
+                        order, order_number, total_amount, transaction_id, error_message
+                    )
                 raise GatewayException(f'Payment failed: {error_message}')
                 
         except GatewayException:
@@ -335,14 +363,13 @@ class OrderService:
             total_amount: Total order amount
             transaction_id: Transaction ID
         """
-        order.payment_status = 'paid'
-        receipt_number = ReceiptService.get_daily_receipt_number(order)
-        order.receipt_number = receipt_number
-        
+        # Persistent sequential receipt number (survives restarts)
+        if order.receipt_number is None or order.receipt_number <= 0:
+            order.receipt_number = ReceiptService.allocate_receipt_number()
+            order.save(update_fields=['receipt_number'])
+
         OrderService.update_payment_status(order.id, 'paid')
         order.refresh_from_db()
-        
-        PrintService.print_receipt(order)
         
         LogService.log_info(
             'payment',
@@ -351,7 +378,7 @@ class OrderService:
                 'transaction_id': transaction_id,
                 'order_id': order.id,
                 'order_number': order_number,
-                'receipt_number': receipt_number,
+                'receipt_number': order.receipt_number,
                 'amount': total_amount
             }
         )
@@ -435,14 +462,16 @@ class OrderService:
         if payment_status == 'paid' and old_payment_status != 'paid':
             OrderService._validate_and_decrease_stock(order)
             
-            if not order.receipt_number:
-                order.receipt_number = ReceiptService.get_daily_receipt_number(order)
+            if order.receipt_number is None or order.receipt_number <= 0:
+                order.receipt_number = ReceiptService.allocate_receipt_number()
             
             order.status = 'paid'
+            order.payment_status = payment_status
+            order.save()
             PrintService.print_receipt(order)
-        
-        order.payment_status = payment_status
-        order.save()
+        else:
+            order.payment_status = payment_status
+            order.save()
         
         LogService.log_info(
             'order',

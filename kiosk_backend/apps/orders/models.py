@@ -17,6 +17,11 @@ class Order(TimeStampedModel):
     session_key = models.CharField(max_length=40, verbose_name=_('کلید Session'))
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name=_('وضعیت'))
     total_amount = models.IntegerField(verbose_name=_('مبلغ کل'))
+    service_fee = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('مبلغ سرویس'),
+        help_text=_('مبلغ سرویس اضافه‌شده به این سفارش (ریال)')
+    )
     payment_status = models.CharField(max_length=20, default='pending', verbose_name=_('وضعیت پرداخت'))
     transaction_id = models.CharField(max_length=100, null=True, blank=True, unique=True, verbose_name=_('شناسه تراکنش'))
     receipt_number = models.IntegerField(null=True, blank=True, verbose_name=_('شماره رسید روزانه'))

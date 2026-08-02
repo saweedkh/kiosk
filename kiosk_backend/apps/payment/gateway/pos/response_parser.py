@@ -2,12 +2,66 @@
 Response parser for POS device responses.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from apps.logs.services.log_service import LogService
 
 
 class POSResponseParser:
     """Parses responses from POS device."""
+
+    # User cancel on some Pardakht Novin devices returns 99 instead of 81
+    CANCEL_CODES = {'81', '99'}
+
+    @staticmethod
+    def extract_rs_codes(response: str) -> List[str]:
+        """Extract all RS numeric codes from a POS response payload."""
+        all_rs_codes = []
+        idx = 0
+        while idx < len(response):
+            rs_idx = response.find('RS', idx)
+            if rs_idx == -1:
+                break
+
+            code_start = rs_idx + 2
+            code_str = ''
+            for i in range(code_start, min(code_start + 5, len(response))):
+                if response[i].isdigit():
+                    code_str += response[i]
+                else:
+                    break
+
+            if code_str:
+                all_rs_codes.append(code_str)
+
+            idx = rs_idx + 1
+        return all_rs_codes
+
+    @staticmethod
+    def extract_status_code_from_rs00(code: str) -> Optional[str]:
+        """
+        Convert RS00XXX style code to 2-digit status.
+
+        RS00299 → 99, RS00281 → 81, RS00200 → 00
+        """
+        if code.startswith('00') and len(code) >= 3:
+            return code[-2:] if len(code) >= 4 else code[-1]
+        return None
+
+    def apply_response_code_status(self, result: Dict[str, Any], response_code: str) -> None:
+        """Set success/status/message from a 2-digit POS response code."""
+        result['response_code'] = response_code
+        if response_code == '00':
+            result['success'] = True
+            result['status'] = 'success'
+            result['response_message'] = 'تراکنش موفق'
+        elif response_code in self.CANCEL_CODES:
+            result['success'] = False
+            result['status'] = 'cancelled'
+            result['response_message'] = 'تراکنش توسط کاربر لغو شد'
+        else:
+            result['success'] = False
+            result['status'] = 'failed'
+            result['response_message'] = self.get_error_message(response_code)
     
     def parse(self, response: str) -> Dict[str, Any]:
         """
@@ -52,30 +106,48 @@ class POSResponseParser:
                 }
             )
         
-        # Check if response is a cancellation code (RS00281)
-        # This is returned when user cancels transaction on POS device
-        if response.strip() == 'RS00281' or response.endswith('RS00281'):
-            # User cancelled transaction - this is a valid final response
-            result['status'] = 'cancelled'
-            result['success'] = False
-            result['response_code'] = '81'
-            result['response_message'] = 'تراکنش توسط کاربر لغو شد'
+        # Short cancel payloads (with or without ACK tag RS013):
+        # RS00281, RS00299, RS013RS00299PD0011
+        all_rs_codes_early = self.extract_rs_codes(response)
+        for code in all_rs_codes_early:
+            status_code = self.extract_status_code_from_rs00(code)
+            if status_code is not None and status_code != '00':
+                self.apply_response_code_status(result, status_code)
+                LogService.log_info(
+                    'payment',
+                    'pos_final_error_or_cancel_detected',
+                    details={
+                        'response': response,
+                        'response_code': status_code,
+                        'status': result['status'],
+                        'all_rs_codes': all_rs_codes_early,
+                        'note': 'Short/final POS error-cancel response; do not wait for more data'
+                    }
+                )
+                return result
+
+        # Bare cancel tags without RS00 prefix
+        if (
+            response.strip() in ('RS00281', 'RS00299')
+            or response.endswith('RS00281')
+            or response.endswith('RS00299')
+        ):
+            cancel_code = '99' if '99' in response else '81'
+            self.apply_response_code_status(result, cancel_code)
             LogService.log_info(
                 'payment',
                 'pos_cancelled_response_detected',
                 details={
                     'response': response,
+                    'response_code': cancel_code,
                     'note': 'User cancelled transaction on POS device'
                 }
             )
             return result
         
-        # Check if response is too short (likely an ACK, not final response)
-        # Example: RS013RS00299PD0011 (only 18 chars, no card info)
-        # Final response should have SR (serial), RN (reference), PN (card number)
+        # True ACK only: short message with no final error/cancel RS00XXX
+        # Example: RS013 / RS013PD0011 (no card info, no error code)
         if len(response) < 30:
-            # This is likely just an ACK that message was received
-            # Not the final transaction response
             LogService.log_warning(
                 'payment',
                 'pos_response_too_short_likely_ack',
@@ -85,7 +157,6 @@ class POSResponseParser:
                     'note': 'Ignoring - waiting for full transaction response'
                 }
             )
-            # Return as failed so caller keeps waiting
             result['status'] = 'pending'
             result['response_message'] = 'Waiting for transaction completion'
             return result
@@ -96,35 +167,12 @@ class POSResponseParser:
         # - RS136 = success (code 00) - first RS code is the main status
         # - RS00200 = additional status code (can be ignored)
         # - RS013 = success (code 00) - alternative format
-        # - RS00281 = cancelled by user (code 81)
+        # - RS00281 / RS00299 = cancelled by user
         # - RS00202 = insufficient funds (code 02)
         # Format: RS + 3-5 digit code
         
         response_code = None
-        all_rs_codes = []
-        
-        # Find ALL RS codes in response
-        idx = 0
-        while idx < len(response):
-            rs_idx = response.find('RS', idx)
-            if rs_idx == -1:
-                break
-            
-            # Extract code after RS
-            code_start = rs_idx + 2
-            code_str = ''
-            
-            # Read next digits (max 5 digits for RS codes)
-            for i in range(code_start, min(code_start + 5, len(response))):
-                if response[i].isdigit():
-                    code_str += response[i]
-                else:
-                    break
-            
-            if code_str:
-                all_rs_codes.append(code_str)
-            
-            idx = rs_idx + 1
+        all_rs_codes = all_rs_codes_early or self.extract_rs_codes(response)
         
         # IMPORTANT: Check ALL RS codes, not just the first one!
         # Priority: Error codes (RS00XXX) > Specific errors (RS133) > Success codes (RS136, RS013)
@@ -142,14 +190,7 @@ class POSResponseParser:
             # BUT: RS00200 means code 00 (success), not error!
             if error_code_found:
                 first_code = error_code_found
-                # Extract error code from RS00XYZ
-                # RS00255 → extract '255', then get last 2 digits '55'
-                # RS00281 → extract '281', then get last 2 digits '81'
-                # RS00200 → extract '200', then get last 2 digits '00' (SUCCESS!)
-                if len(first_code) >= 4:
-                    response_code = first_code[-2:]  # Get last 2 digits
-                else:
-                    response_code = first_code[-1]  # Get last digit
+                response_code = self.extract_status_code_from_rs00(first_code)
                 
                 LogService.log_info('payment', 'pos_error_code_extracted', details={
                     'raw_code': first_code,
@@ -158,23 +199,7 @@ class POSResponseParser:
                     'note': 'RS00XXX code found, checking if it\'s success (00) or error'
                 })
                 
-                # IMPORTANT: RS00200 means code 00 (success), not error!
-                # Only treat as error if response_code is NOT '00'
-                if response_code == '00':
-                    # RS00200 = success (code 00)
-                    result['success'] = True
-                    result['status'] = 'success'
-                    result['response_message'] = 'تراکنش موفق'
-                elif response_code == '81':
-                    # RS00281 = cancelled (code 81)
-                    result['status'] = 'cancelled'
-                    result['success'] = False
-                    result['response_message'] = 'تراکنش توسط کاربر لغو شد'
-                else:
-                    # Other error codes (55, 02, etc.)
-                    result['status'] = 'failed'
-                    result['success'] = False
-                    result['response_message'] = self.get_error_message(response_code)
+                self.apply_response_code_status(result, response_code)
             
             # No error code found, check first code for specific errors or success
             else:
@@ -218,39 +243,22 @@ class POSResponseParser:
                         'extracted_code': response_code
                     })
                     
-                    # Check if cancelled by user (code 81)
-                    if response_code == '81':
-                        result['status'] = 'cancelled'
-                        result['success'] = False
-                        result['response_message'] = 'تراکنش توسط کاربر لغو شد'
-                    else:
-                        result['status'] = 'failed'
-                        result['success'] = False
-                        result['response_message'] = self.get_error_message(response_code)
+                    self.apply_response_code_status(result, response_code)
                 
                 # Other RS codes (like RS081, RS81, RS00200)
                 else:
                     # Try to extract error code from various formats
                     # RS081 → code 81, RS81 → code 81, RS00200 → code 00
                     if len(first_code) >= 2:
-                        # Check if it ends with 81 (cancelled)
-                        if first_code.endswith('81'):
-                            response_code = '81'
-                            result['status'] = 'cancelled'
-                            result['success'] = False
-                            result['response_message'] = 'تراکنش توسط کاربر لغو شد'
+                        # Check if it ends with cancel codes
+                        if first_code.endswith('81') or first_code.endswith('99'):
+                            response_code = '99' if first_code.endswith('99') else '81'
+                            self.apply_response_code_status(result, response_code)
                         # Check if it's a 3-digit code starting with 0
                         elif len(first_code) == 3 and first_code.startswith('0'):
                             # RS002 → code 02, RS081 → code 81
                             response_code = first_code[1:]  # Remove leading 0
-                            if response_code == '81':
-                                result['status'] = 'cancelled'
-                                result['success'] = False
-                                result['response_message'] = 'تراکنش توسط کاربر لغو شد'
-                            else:
-                                result['status'] = 'failed'
-                                result['success'] = False
-                                result['response_message'] = self.get_error_message(response_code)
+                            self.apply_response_code_status(result, response_code)
                         # Check if it's a success code
                         # IMPORTANT: Only use codes that are confirmed in documentation/logs
                         # - RS136 = success (confirmed)
@@ -278,7 +286,7 @@ class POSResponseParser:
         
         # No RS tag found
         if not response_code:
-            result['response_code'] = '99'
+            result['response_code'] = ''
             result['status'] = 'failed'
             result['response_message'] = 'خطای نامشخص - کد پاسخ یافت نشد'
         
@@ -415,7 +423,7 @@ class POSResponseParser:
             '05': 'تراکنش ناموفق - خطا در ارتباط',
             '06': 'تراکنش ناموفق - خطای سیستم',
             '81': 'تراکنش توسط کاربر لغو شد',
-            '99': 'تراکنش ناموفق - خطای نامشخص',
+            '99': 'تراکنش توسط کاربر لغو شد',
         }
         return error_messages.get(error_code, f'خطای نامشخص: {error_code}')
 

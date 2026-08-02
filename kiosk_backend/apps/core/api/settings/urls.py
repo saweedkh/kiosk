@@ -1,7 +1,8 @@
 from django.urls import path
 from apps.core.api.settings.views import (
     SiteSettingsPublicAPIView,
-    SiteSettingsAdminAPIView
+    SiteSettingsAdminAPIView,
+    ResetReceiptNumberAPIView,
 )
 
 app_name = 'settings'
@@ -12,5 +13,10 @@ urlpatterns = [
     
     # Admin API - نیاز به authentication
     path('admin/', SiteSettingsAdminAPIView.as_view(), name='admin'),
+    path(
+        'admin/reset-receipt-number/',
+        ResetReceiptNumberAPIView.as_view(),
+        name='admin-reset-receipt-number',
+    ),
 ]
 

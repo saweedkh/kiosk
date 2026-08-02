@@ -2,12 +2,13 @@
 Receipt generation service for customer transaction receipts.
 """
 from typing import Dict, Any, Optional
-from datetime import datetime
 from django.utils import timezone
 from django.conf import settings
 from jdatetime import datetime as jdatetime
 from apps.orders.models import Order
 from apps.orders.selectors.order_selector import OrderSelector
+from apps.orders.services.receipt_constants import ReceiptConstants
+from apps.core.models.settings import SiteSettings
 
 
 class ReceiptService:
@@ -17,41 +18,50 @@ class ReceiptService:
     This service generates receipt data in a format suitable for printing
     after successful payment.
     """
-    
-    # Store name from settings (with fallback to default)
-    STORE_NAME = getattr(settings, 'STORE_NAME', 'نانوایی ستاره سرخ')
+
+    @staticmethod
+    def get_receipt_branding() -> Dict[str, Any]:
+        """Load configurable receipt header/footer/logo from site settings."""
+        site = SiteSettings.get_settings()
+        header = (site.receipt_header or '').strip()
+        footer = (site.receipt_footer or '').strip() or ReceiptConstants.THANK_YOU_MESSAGE
+        logo_path = ''
+        if site.logo:
+            try:
+                logo_path = site.logo.path
+            except (ValueError, OSError):
+                logo_path = ''
+        return {
+            'store_name': header,
+            'thank_you_message': footer,
+            'logo_path': logo_path,
+            'receipt_template': site.resolve_receipt_template(),
+            'receipt_template_mode': getattr(site, 'receipt_template_mode', None) or 'normal',
+        }
+
+    @staticmethod
+    def get_receipt_texts() -> Dict[str, str]:
+        """Backward-compatible alias for header/footer texts."""
+        branding = ReceiptService.get_receipt_branding()
+        return {
+            'store_name': branding['store_name'],
+            'thank_you_message': branding['thank_you_message'],
+        }
     
     @staticmethod
-    def get_daily_receipt_number(order: Order) -> int:
+    def allocate_receipt_number() -> int:
         """
-        Get daily receipt number for an order.
-        
-        This method counts how many paid orders were created on the same day
-        with ID less than or equal to this order's ID, and returns that count.
-        This ensures unique receipt numbers even if orders are created at the exact same time.
-        
-        Args:
-            order: Order instance
-            
-        Returns:
-            int: Daily receipt number (starts from 1 each day)
+        Allocate next persistent receipt number from site settings counter.
+        Continues across restarts; reset only via admin panel.
         """
-        # Get the start and end of the day for the order's creation date
-        order_date = order.created_at.date()
-        start_of_day = timezone.make_aware(datetime.combine(order_date, datetime.min.time()))
-        end_of_day = timezone.make_aware(datetime.combine(order_date, datetime.max.time()))
-        
-        # Count paid orders created on the same day with ID <= this order's ID
-        # Using ID ensures unique ordering even if created_at is identical
-        count = Order.objects.filter(
-            payment_status='paid',
-            created_at__gte=start_of_day,
-            created_at__lte=end_of_day,
-            id__lte=order.id
-        ).count()
-        
-        # Receipt number is the count (first order of the day gets number 1)
-        return count
+        return SiteSettings.allocate_next_receipt_number()
+
+    @staticmethod
+    def get_daily_receipt_number(order: Order = None) -> int:
+        """
+        Backward-compatible alias for allocate_receipt_number.
+        """
+        return ReceiptService.allocate_receipt_number()
     
     @staticmethod
     def generate_receipt_data(order: Order, use_stored_receipt_number: bool = True) -> Dict[str, Any]:
@@ -65,7 +75,7 @@ class ReceiptService:
             Dict[str, Any]: Receipt data dictionary containing:
                 - store_name: Store name
                 - date: Receipt date (Jalali format)
-                - receipt_number: Daily receipt number (starts from 1 each day)
+                - receipt_number: Persistent sequential receipt number
                 - order_number: Order number
                 - items: List of order items
                     - name: Product name
@@ -89,31 +99,62 @@ class ReceiptService:
         date_str = jalali_datetime.strftime('%Y/%m/%d')
         time_str = jalali_datetime.strftime('%H:%M:%S')
         
-        # Get daily receipt number (use stored value if available, otherwise calculate)
-        if use_stored_receipt_number and order.receipt_number:
+        # Use stored receipt number; never allocate a new one during reprint
+        if use_stored_receipt_number and order.receipt_number is not None and order.receipt_number > 0:
             receipt_number = order.receipt_number
         else:
-            receipt_number = ReceiptService.get_daily_receipt_number(order)
+            receipt_number = order.receipt_number or 0
         
         # Prepare items data (ensure items are prefetched to avoid N+1)
         items_data = []
         # Use select_related to fetch products in one query
-        items = order.items.select_related('product').all()
+        items = list(order.items.select_related('product').all())
+        items_subtotal = 0
         for item in items:
+            product_name = ''
+            if item.product:
+                product_name = item.product.name
+            elif item.product_name:
+                product_name = item.product_name
+            else:
+                product_name = 'محصول حذف‌شده'
+            items_subtotal += int(item.quantity) * int(item.unit_price)
             items_data.append({
-                'name': item.product.name,
+                'name': product_name,
                 'quantity': item.quantity,
-                'price': f"{item.unit_price:,} تومان"
+                'price': f"{item.unit_price:,} ریال"
+            })
+
+        # Prefer fee stored on the order; for older orders (fee=0) use current settings.
+        stored_fee = int(getattr(order, 'service_fee', 0) or 0)
+        if stored_fee > 0:
+            service_fee = stored_fee
+            total_amount = int(order.total_amount or 0)
+        else:
+            service_fee = SiteSettings.get_settings().get_active_service_fee()
+            total_amount = items_subtotal + service_fee
+
+        if service_fee > 0:
+            items_data.append({
+                'name': 'سرویس',
+                'quantity': 1,
+                'price': f"{service_fee:,} ریال"
             })
         
+        branding = ReceiptService.get_receipt_branding()
         return {
-            'store_name': ReceiptService.STORE_NAME,
+            'store_name': branding['store_name'],
+            'thank_you_message': branding['thank_you_message'],
+            'logo_path': branding['logo_path'],
+            'receipt_template': branding.get('receipt_template', 'modern'),
             'date': date_str,
             'time': time_str,
             'receipt_number': receipt_number,
             'order_number': order.order_number,
             'items': items_data,
-            'total_amount': f"{order.total_amount:,} تومان"
+            'service_fee': service_fee,
+            'items_subtotal': items_subtotal,
+            'total_amount': f"{total_amount:,} ریال"
         }
     
     @staticmethod

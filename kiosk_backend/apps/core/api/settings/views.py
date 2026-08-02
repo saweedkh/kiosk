@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from apps.core.models.settings import SiteSettings
@@ -8,6 +9,7 @@ from apps.core.api.settings.serializers import (
     SiteSettingsPublicSerializer
 )
 from apps.core.api.schema import custom_extend_schema, ResponseStatusCodes
+from apps.logs.services.log_service import LogService
 
 
 class SiteSettingsPublicAPIView(generics.RetrieveAPIView):
@@ -105,4 +107,46 @@ class SiteSettingsAdminAPIView(generics.RetrieveUpdateAPIView):
     )
     def patch(self, request, *args, **kwargs):
         return super().patch(request, *args, **kwargs)
+
+
+class ResetReceiptNumberAPIView(APIView):
+    """
+    Reset persistent receipt number counter (admin only).
+    Next printed receipt will start from 1 (or start_from + 1).
+    """
+    permission_classes = [IsAdminUser]
+
+    @custom_extend_schema(
+        resource_name="SiteSettingsAdmin",
+        response_serializer=SiteSettingsSerializer,
+        status_codes=[
+            ResponseStatusCodes.OK,
+            ResponseStatusCodes.UNAUTHORIZED,
+            ResponseStatusCodes.FORBIDDEN,
+        ],
+        summary="ریست شماره فیش",
+        description="شمارنده شماره فیش را ریست می‌کند. فیش بعدی از ۱ شروع می‌شود مگر start_from ارسال شود.",
+        tags=["Admin - Settings"],
+        operation_id="site_settings_reset_receipt_number",
+    )
+    def post(self, request, *args, **kwargs):
+        try:
+            start_from = int(request.data.get('start_from', 0))
+        except (TypeError, ValueError):
+            start_from = 0
+
+        last_number = SiteSettings.reset_receipt_number(start_from=start_from)
+        settings_obj = SiteSettings.get_settings()
+        LogService.log_info(
+            'settings',
+            'receipt_number_reset',
+            details={
+                'start_from': start_from,
+                'last_receipt_number': last_number,
+                'next_receipt_number': last_number + 1,
+                'user_id': getattr(request.user, 'id', None),
+            },
+        )
+        serializer = SiteSettingsSerializer(settings_obj, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

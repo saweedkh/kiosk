@@ -137,6 +137,16 @@ export interface Settings {
   contact_email?: string
   address?: string
   logo_url?: string
+  receipt_header?: string
+  receipt_footer?: string
+  receipt_template?: 'modern' | 'classic' | 'minimal' | 'elegant' | 'bold' | 'ticket' | 'market' | 'banner' | string
+  receipt_template_mode?: 'normal' | 'random' | string
+  active_receipt_template?: string
+  service_enabled?: boolean
+  service_fee?: number
+  receipt_number_mode?: 'manual' | 'automatic' | string
+  last_receipt_number?: number
+  next_receipt_number?: number
   [key: string]: any
 }
 

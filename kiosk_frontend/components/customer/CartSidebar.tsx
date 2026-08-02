@@ -10,11 +10,14 @@ interface CartSidebarProps {
   isOpen: boolean
   onClose: () => void
   onCheckout: () => void
+  serviceFee?: number
 }
 
-export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
+export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: CartSidebarProps) {
   const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } =
     useCartStore()
+  const fee = Math.max(0, Math.round(Number(serviceFee) || 0))
+  const grandTotal = getTotalPrice() + fee
 
   return (
     <AnimatePresence>
@@ -211,13 +214,21 @@ export function CartSidebar({ isOpen, onClose, onCheckout }: CartSidebarProps) {
 
             {items.length > 0 && (
               <div className="p-6 border-t border-border dark:border-border-dark space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-medium text-text dark:text-text-dark">
-                    جمع کل:
-                  </span>
-                  <span className="text-2xl font-bold text-primary dark:text-primary-light">
-                    {formatCurrency(getTotalPrice())}
-                  </span>
+                <div className="space-y-2">
+                  {fee > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">سرویس:</span>
+                      <span className="text-text dark:text-text-dark">{formatCurrency(fee)}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-medium text-text dark:text-text-dark">
+                      جمع کل:
+                    </span>
+                    <span className="text-2xl font-bold text-primary dark:text-primary-light">
+                      {formatCurrency(grandTotal)}
+                    </span>
+                  </div>
                 </div>
                 <Button
                   variant="primary"

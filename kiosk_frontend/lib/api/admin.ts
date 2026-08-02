@@ -168,6 +168,9 @@ export const adminApi = {
     site_name?: string
     copyright_text?: string
     contact_phone?: string
+    receipt_header?: string
+    receipt_footer?: string
+    receipt_template?: string
     logo?: File | string
     [key: string]: any
   }): Promise<ApiResponse<any>> => {
@@ -189,6 +192,18 @@ export const adminApi = {
     if (data.contact_phone !== undefined) {
       formData.append('contact_phone', data.contact_phone || '')
     }
+
+    if (data.receipt_header !== undefined) {
+      formData.append('receipt_header', data.receipt_header || '')
+    }
+
+    if (data.receipt_footer !== undefined) {
+      formData.append('receipt_footer', data.receipt_footer || '')
+    }
+
+    if (data.receipt_template !== undefined) {
+      formData.append('receipt_template', data.receipt_template || 'modern')
+    }
     
     // logo (فقط اگر File باشد)
     if (data.logo instanceof File) {
@@ -196,8 +211,17 @@ export const adminApi = {
     }
     
     // سایر فیلدها
+    const knownKeys = new Set([
+      'logo',
+      'site_name',
+      'copyright_text',
+      'contact_phone',
+      'receipt_header',
+      'receipt_footer',
+      'receipt_template',
+    ])
     Object.keys(data).forEach((key) => {
-      if (key !== 'logo' && key !== 'site_name' && key !== 'copyright_text' && key !== 'contact_phone') {
+      if (!knownKeys.has(key)) {
         if (data[key] !== undefined && data[key] !== null) {
           formData.append(key, String(data[key]))
         }
@@ -208,6 +232,13 @@ export const adminApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+    })
+    return response.data
+  },
+
+  resetReceiptNumber: async (startFrom: number = 0): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post('/kiosk/settings/admin/reset-receipt-number/', {
+      start_from: startFrom,
     })
     return response.data
   },

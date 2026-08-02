@@ -128,7 +128,12 @@ export default function CustomerPage() {
   // تایمر برای بستن خودکار مودال در صورت موفق یا ناموفق بودن پرداخت
   useEffect(() => {
     // اگر وضعیت success یا failed است و مودال باز است، بعد از 5 ثانیه مودال را ببند
-    if ((paymentStatus === "success" || paymentStatus === "failed") && isPaymentModalOpen) {
+    if (
+      (paymentStatus === "success" ||
+        paymentStatus === "failed" ||
+        paymentStatus === "cancelled") &&
+      isPaymentModalOpen
+    ) {
       // پاک کردن timeout قبلی اگر وجود داشته باشد
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
@@ -270,6 +275,11 @@ export default function CustomerPage() {
   });
 
   const settings = settingsData?.result || {};
+  const serviceFee =
+    settings.service_enabled
+      ? Math.max(0, Math.round(Number(settings.service_fee) || 0))
+      : 0;
+  const checkoutTotal = getTotalPrice() + serviceFee;
   
   // Reset logo error when settings change
   useEffect(() => {
@@ -323,11 +333,12 @@ export default function CustomerPage() {
           
           // رفرش صفحه بعد از بسته شدن مودال انجام می‌شود
         } else if (
-          order.payment_status === "failed" ||
+          order.payment_status === "cancelled" ||
           order.status === "cancelled"
         ) {
+          setPaymentStatus("cancelled");
+        } else if (order.payment_status === "failed") {
           setPaymentStatus("failed");
-          // رفرش صفحه بعد از بسته شدن مودال انجام می‌شود
         } else {
           // اگر وضعیت مشخص نبود، همچنان در حالت waiting بمانیم
           // این باعث می‌شود که مودال باز بماند و منتظر نتیجه بماند
@@ -352,49 +363,42 @@ export default function CustomerPage() {
         paymentModalTimeoutRef.current = null;
       }
       
-      // بررسی اینکه آیا timeout بوده یا خطای دیگر
-      // توجه: اگر timeout رخ دهد، نباید مودال را ببندیم چون ممکن است پرداخت هنوز در حال انجام باشد
-      // فقط اگر واقعاً خطای قطعی است، وضعیت را failed کنیم
-      if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
-        // برای timeout، وضعیت را failed نمی‌کنیم چون ممکن است پرداخت هنوز در حال انجام باشد
-        // فقط لاگ می‌کنیم و منتظر می‌مانیم
-        console.warn("Request timeout - payment may still be processing");
-        // اگر مودال باز است، همچنان در حالت waiting بمانیم
-        // تا کاربر بتواند وضعیت را ببیند
-        if (isPaymentModalOpen) {
-          setPaymentStatus("waiting");
-        } else {
-          setPaymentStatus("failed");
-        }
-      } else {
-        // بررسی اینکه آیا این خطای پرداخت است یا خطای واقعی API
-        // اگر response.data وجود دارد و payment_status failed است، این خطای پرداخت است
-        const responseData = error.response?.data;
-        const isPaymentError = 
-          (responseData?.result?.payment_status === "failed" ||
-           responseData?.result?.status === "failed" ||
-           responseData?.result?.status === "cancelled") &&
-          responseData?.result?.id; // اگر order id وجود دارد، یعنی order ایجاد شده و فقط پرداخت ناموفق بوده
-        
-        if (isPaymentError) {
-          // این یک خطای پرداخت است، نه خطای API
-          // وضعیت را failed تنظیم می‌کنیم و پیام در PaymentModal نمایش داده می‌شود
-          setPaymentStatus("failed");
-          // اگر order data وجود دارد، آن را تنظیم کنیم
-          if (responseData?.result) {
-            const order = responseData.result;
-            setCurrentOrder({
-              id: order.id,
-              orderNumber: order.order_number || `#${order.id}`,
-            });
-          }
-          // رفرش صفحه بعد از بسته شدن مودال انجام می‌شود
-        } else {
-          // این یک خطای واقعی API است (مثلاً 500، 400، network error)
-          setPaymentStatus("failed");
-          // رفرش صفحه بعد از بسته شدن مودال انجام می‌شود
-        }
+      const responseData = error.response?.data;
+      const messages = responseData?.messages;
+      const orderFromError =
+        messages?.order ||
+        (Array.isArray(responseData?.result) ? null : responseData?.result);
+      const paymentMessage = String(
+        messages?.message ||
+          messages?.error ||
+          error.message ||
+          ""
+      );
+      const isCancelled =
+        orderFromError?.payment_status === "cancelled" ||
+        orderFromError?.status === "cancelled" ||
+        paymentMessage.includes("لغو");
+
+      if (orderFromError?.id) {
+        setCurrentOrder({
+          id: orderFromError.id,
+          orderNumber: orderFromError.order_number || `#${orderFromError.id}`,
+        });
       }
+
+      // 402 = پرداخت ناموفق/لغو شده از کارتخوان — از صفحه انتظار خارج شو
+      if (error.response?.status === 402 || isCancelled) {
+        setPaymentStatus(isCancelled ? "cancelled" : "failed");
+        return;
+      }
+
+      if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+        console.warn("Request timeout - payment may still be processing");
+        setPaymentStatus("failed");
+        return;
+      }
+
+      setPaymentStatus(isCancelled ? "cancelled" : "failed");
     },
   });
 
@@ -589,14 +593,14 @@ export default function CustomerPage() {
       {/* Right Section - Cart View (1/3) */}
       <div className="w-1/3 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <CartView onCheckout={handleCheckout} />
+          <CartView onCheckout={handleCheckout} serviceFee={serviceFee} />
         </div>
       </div>
 
       {/* Payment Modal */}
       <PaymentModal
         isOpen={isPaymentModalOpen}
-        totalAmount={getTotalPrice()}
+        totalAmount={checkoutTotal}
         orderNumber={currentOrder?.orderNumber}
         onCancel={handlePaymentCancel}
         onConfirm={handlePaymentConfirm}

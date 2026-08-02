@@ -61,13 +61,34 @@ export function SettingsManager() {
     },
   })
 
+  const resetReceiptMutation = useMutation({
+    mutationFn: () => adminApi.resetReceiptNumber(0),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
+      if (response?.result) {
+        setSettings((prev) => ({
+          ...prev,
+          ...response.result,
+        }))
+      }
+      setSuccessMessage('شماره فیش با موفقیت ریست شد. فیش بعدی از ۱ شروع می‌شود.')
+      setTimeout(() => setSuccessMessage(null), 5000)
+    },
+    onError: (error: any) => {
+      const errorMessage = translateError(error)
+      setApiErrors({
+        general: [errorMessage || 'خطا در ریست شماره فیش. لطفا دوباره تلاش کنید.'],
+      })
+    },
+  })
+
   useEffect(() => {
     if (settingsData?.result) {
       setSettings(settingsData.result)
     }
   }, [settingsData])
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | number | boolean) => {
     setSettings((prev) => ({
       ...prev,
       [field]: value,
@@ -84,6 +105,13 @@ export function SettingsManager() {
       site_name: settings.site_name || '',
       copyright_text: settings.copyright_text || '',
       contact_phone: settings.contact_phone || '',
+      receipt_header: settings.receipt_header || '',
+      receipt_footer: settings.receipt_footer || '',
+      receipt_template: settings.receipt_template || 'modern',
+      receipt_template_mode: settings.receipt_template_mode || 'normal',
+      receipt_number_mode: settings.receipt_number_mode || 'manual',
+      service_enabled: Boolean(settings.service_enabled),
+      service_fee: Number(settings.service_fee || 0),
     }
     
     // Add logo if it's a File (اگر لوگو جدید انتخاب شده)
@@ -185,10 +213,329 @@ export function SettingsManager() {
               error={apiErrors.contact_phone?.[0]}
               placeholder="09123456789"
             />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.03 }}
+          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
+        >
+          <h3 className="text-xl font-bold text-text dark:text-text-dark mb-2">
+            سرویس
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            در صورت فعال بودن، مبلغ سرویس به جمع کل فاکتور و پرداخت اضافه می‌شود.
+          </p>
+
+          <div className="space-y-4">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(settings.service_enabled)}
+                onChange={(e) => handleChange('service_enabled', e.target.checked)}
+                className="mt-1 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+              />
+              <span>
+                <span className="block font-medium text-text dark:text-text-dark">
+                  فعال‌سازی هزینه سرویس
+                </span>
+                <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  با تیک زدن، مبلغ زیر به مبلغ کل سفارش اضافه می‌شود.
+                </span>
+              </span>
+            </label>
+            {apiErrors.service_enabled?.[0] && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {apiErrors.service_enabled[0]}
+              </p>
+            )}
+
+            <Input
+              label="مبلغ سرویس (ریال)"
+              type="number"
+              min={0}
+              step={1}
+              disabled={!settings.service_enabled}
+              value={
+                settings.service_fee === undefined || settings.service_fee === null
+                  ? ''
+                  : String(settings.service_fee)
+              }
+              onChange={(e) => {
+                const raw = e.target.value
+                if (raw === '') {
+                  handleChange('service_fee', 0)
+                  return
+                }
+                const n = Math.max(0, Math.floor(Number(raw) || 0))
+                handleChange('service_fee', n)
+              }}
+              error={apiErrors.service_fee?.[0]}
+              placeholder="مثلاً 50000"
+            />
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
+        >
+          <h3 className="text-xl font-bold text-text dark:text-text-dark mb-2">
+            متن فیش چاپی
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            عنوان، متن پایین و نوع طرح چاپ فیش را تنظیم کنید.
+          </p>
+
+          <div className="space-y-6">
+            <Input
+              label="عنوان بالای فیش"
+              value={settings.receipt_header || ''}
+              onChange={(e) => handleChange('receipt_header', e.target.value)}
+              error={apiErrors.receipt_header?.[0]}
+              placeholder="مثلاً نانوایی ستاره سرخ"
+            />
+
+            <Input
+              label="متن پایین فیش"
+              value={settings.receipt_footer || ''}
+              onChange={(e) => handleChange('receipt_footer', e.target.value)}
+              error={apiErrors.receipt_footer?.[0]}
+              placeholder="ممنون از خرید شما"
+            />
 
             <div>
+              <label className="block mb-3 text-sm font-medium text-text dark:text-text-dark">
+                حالت نوع فیش
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                {[
+                  {
+                    id: 'normal',
+                    title: 'عادی',
+                    desc: 'یک طرح را انتخاب می‌کنید و همان همیشه چاپ می‌شود.',
+                  },
+                  {
+                    id: 'random',
+                    title: 'رندوم',
+                    desc: 'هر روز به‌صورت خودکار نوع فیش عوض می‌شود.',
+                  },
+                ].map((mode) => {
+                  const selected = (settings.receipt_template_mode || 'normal') === mode.id
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => handleChange('receipt_template_mode', mode.id)}
+                      className={`text-right rounded-xl border p-4 transition-colors ${
+                        selected
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                          : 'border-border dark:border-border-dark hover:border-primary/40'
+                      }`}
+                    >
+                      <p className="font-bold text-text dark:text-text-dark">{mode.title}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{mode.desc}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              {apiErrors.receipt_template_mode?.[0] && (
+                <p className="mb-3 text-sm text-red-600 dark:text-red-400">
+                  {apiErrors.receipt_template_mode[0]}
+                </p>
+              )}
+
+              <label className="block mb-3 text-sm font-medium text-text dark:text-text-dark">
+                نوع فیش
+                {(settings.receipt_template_mode || 'normal') === 'random' && (
+                  <span className="mr-2 font-normal text-gray-500 dark:text-gray-400">
+                    (امروز:{' '}
+                    {{
+                      modern: 'مدرن',
+                      classic: 'کلاسیک',
+                      minimal: 'ساده',
+                      elegant: 'شیک',
+                      bold: 'پررنگ',
+                      ticket: 'بلیطی',
+                      market: 'بازاری',
+                      banner: 'بنری',
+                    }[settings.active_receipt_template || ''] ||
+                      settings.active_receipt_template ||
+                      '—'}
+                    )
+                  </span>
+                )}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    id: 'modern',
+                    title: 'مدرن',
+                    desc: 'شماره فیش بزرگ در مرکز + نوار مشکی مبلغ',
+                  },
+                  {
+                    id: 'classic',
+                    title: 'کلاسیک',
+                    desc: 'فاکتور جدولی با سرستون مشکی و شماره بالای ساعت',
+                  },
+                  {
+                    id: 'minimal',
+                    title: 'ساده',
+                    desc: 'چیدمان خلوت فارسی با برچسب تعداد و مبلغ',
+                  },
+                  {
+                    id: 'elegant',
+                    title: 'شیک',
+                    desc: 'سربرگ مشکی + آیتم‌های راست‌چین و کادر دوطبقه مبلغ',
+                  },
+                  {
+                    id: 'bold',
+                    title: 'پررنگ',
+                    desc: 'خطوط خیلی ضخیم + شماره برجسته + نوار تمام‌عرض مبلغ',
+                  },
+                  {
+                    id: 'ticket',
+                    title: 'بلیطی',
+                    desc: 'لبه سوراخ‌دار مثل بلیط نوبت',
+                  },
+                  {
+                    id: 'market',
+                    title: 'بازاری',
+                    desc: 'فاکتور فشرده فروشگاهی با ستون کالا / تعداد / مبلغ',
+                  },
+                  {
+                    id: 'banner',
+                    title: 'بنری',
+                    desc: 'سر و ته نوار مشکی پهن + ردیف‌های راه‌راه',
+                  },
+                ].map((tpl) => {
+                  const isRandom = (settings.receipt_template_mode || 'normal') === 'random'
+                  const selected = isRandom
+                    ? (settings.active_receipt_template || '') === tpl.id
+                    : (settings.receipt_template || 'modern') === tpl.id
+                  return (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={isRandom}
+                      onClick={() => {
+                        if (!isRandom) {
+                          handleChange('receipt_template', tpl.id)
+                        }
+                      }}
+                      className={`text-right rounded-xl border p-4 transition-colors ${
+                        selected
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                          : 'border-border dark:border-border-dark hover:border-primary/40'
+                      } ${isRandom ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      <p className="font-bold text-text dark:text-text-dark">{tpl.title}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{tpl.desc}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              {apiErrors.receipt_template?.[0] && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  {apiErrors.receipt_template[0]}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-border dark:border-border-dark p-4 space-y-4">
+              <div>
+                <p className="text-sm font-medium text-text dark:text-text-dark mb-3">
+                  حالت شماره فیش
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    {
+                      id: 'manual',
+                      title: 'دستی',
+                      desc: 'شماره ادامه پیدا می‌کند تا خودتان ریست کنید و از ۱ شروع شود.',
+                    },
+                    {
+                      id: 'automatic',
+                      title: 'اتوماتیک',
+                      desc: 'با عوض شدن روز (از نیمه‌شب به وقت تهران) دوباره از ۱ شروع می‌شود.',
+                    },
+                  ].map((mode) => {
+                    const selected = (settings.receipt_number_mode || 'manual') === mode.id
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => handleChange('receipt_number_mode', mode.id)}
+                        className={`text-right rounded-xl border p-4 transition-colors ${
+                          selected
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                            : 'border-border dark:border-border-dark hover:border-primary/40'
+                        }`}
+                      >
+                        <p className="font-bold text-text dark:text-text-dark">{mode.title}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{mode.desc}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+                {apiErrors.receipt_number_mode?.[0] && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.receipt_number_mode[0]}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-border dark:border-border-dark">
+                <div>
+                  <p className="text-sm font-medium text-text dark:text-text-dark">
+                    شمارنده فعلی
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    آخرین شماره: {settings.last_receipt_number ?? 0} — فیش بعدی:{' '}
+                    {settings.next_receipt_number ?? (settings.last_receipt_number ?? 0) + 1}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  isLoading={resetReceiptMutation.isPending}
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      'آیا مطمئن هستید؟ شماره فیش ریست می‌شود و فیش بعدی از ۱ شروع می‌شود.'
+                    )
+                    if (confirmed) {
+                      resetReceiptMutation.mutate()
+                    }
+                  }}
+                >
+                  ریست شماره فیش
+                </Button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
+        >
+          <h3 className="text-xl font-bold text-text dark:text-text-dark mb-2">
+            لوگوی سایت و فیش
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            این لوگو در سایت نمایش داده می‌شود.
+          </p>
+
+          <div className="space-y-6">
+            <div>
               <label className="block mb-2 text-sm font-medium text-text dark:text-text-dark">
-                لوگو
+                آپلود لوگو
               </label>
               <input
                 type="file"

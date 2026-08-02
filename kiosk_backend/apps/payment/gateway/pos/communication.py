@@ -140,9 +140,10 @@ class POSCommunication:
                             details={'response_preview': initial_ack[:100] if len(initial_ack) > 100 else initial_ack}
                         )
                         
-                        # Check if this is just an ACK (short response without transaction details)
-                        if len(initial_ack) < 30 or ('RS013' in initial_ack and 'SR' not in initial_ack and 'RN' not in initial_ack):
-                            # This is just an ACK, not final response
+                        # Use parser to distinguish true ACK from final cancel/error
+                        # e.g. 0018RS013RS00299PD0011 is cancel (99), not ACK
+                        initial_parsed = self.response_parser.parse(initial_ack)
+                        if initial_parsed.get('status') == 'pending':
                             ack_received = True
                             LogService.log_info(
                                 'payment',
@@ -155,8 +156,17 @@ class POSCommunication:
                             )
                             # Don't add to response yet - wait for actual transaction response
                         else:
-                            # This might be the full response already
+                            # Final response already (success / failed / cancelled)
                             response = initial_ack
+                            LogService.log_info(
+                                'payment',
+                                'pos_final_response_received_immediate',
+                                details={
+                                    'response_preview': initial_ack,
+                                    'status': initial_parsed.get('status'),
+                                    'response_code': initial_parsed.get('response_code'),
+                                }
+                            )
                 else:
                     # No immediate response - that's OK, device might process and respond later
                     LogService.log_info('payment', 'pos_no_immediate_response', details={

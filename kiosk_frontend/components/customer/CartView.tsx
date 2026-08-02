@@ -9,12 +9,15 @@ import { Button } from '@/components/shared/Button'
 
 interface CartViewProps {
   onCheckout: () => void
+  serviceFee?: number
 }
 
-export function CartView({ onCheckout }: CartViewProps) {
+export function CartView({ onCheckout, serviceFee = 0 }: CartViewProps) {
   const [isMounted, setIsMounted] = useState(false)
   const { items, removeItem, getTotalPrice, getTotalItems } =
     useCartStore()
+  const fee = Math.max(0, Math.round(Number(serviceFee) || 0))
+  const grandTotal = getTotalPrice() + fee
 
   useEffect(() => {
     setIsMounted(true)
@@ -189,13 +192,21 @@ export function CartView({ onCheckout }: CartViewProps) {
       {/* Footer with Total and Checkout */}
       {items.length > 0 && (
         <div className="p-4 border-t border-border dark:border-border-dark space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-base font-medium text-text dark:text-text-dark">
-              جمع کل:
-            </span>
-            <span className="text-xl font-bold text-primary dark:text-primary-light">
-              {formatCurrency(getTotalPrice())}
-            </span>
+          <div className="space-y-2">
+            {fee > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500 dark:text-gray-400">سرویس:</span>
+                <span className="text-text dark:text-text-dark">{formatCurrency(fee)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-base font-medium text-text dark:text-text-dark">
+                جمع کل:
+              </span>
+              <span className="text-xl font-bold text-primary dark:text-primary-light">
+                {formatCurrency(grandTotal)}
+              </span>
+            </div>
           </div>
           <Button
             variant="primary"

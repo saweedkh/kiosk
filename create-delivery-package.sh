@@ -77,12 +77,15 @@ else
     echo "ERROR: Failed to copy fix-docker-safe.bat"
 fi
 
-# Copy .env file if exists
+# Copy env templates (single root .env)
+if [ -f .env.example ]; then
+    cp .env.example "$PACKAGE_DIR/.env.example"
+    cp .env.example "$PACKAGE_DIR/.env"
+    echo "Copied .env.example and default .env"
+fi
 if [ -f .env ]; then
     cp .env "$PACKAGE_DIR/"
-    echo "Copied .env file"
-else
-    echo "Warning: .env file not found, client should create it"
+    echo "Copied current .env (override)"
 fi
 
 # Copy alternative docker-compose for WSL2/Linux

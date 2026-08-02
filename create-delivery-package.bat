@@ -92,12 +92,15 @@ if errorlevel 1 (
     echo Copied fix-docker-safe.bat
 )
 
-REM Copy .env file if exists
+REM Copy env templates (single root .env)
+if exist ".env.example" (
+    copy .env.example "%PACKAGE_DIR%\.env.example" >nul
+    copy .env.example "%PACKAGE_DIR%\.env" >nul
+    echo Copied .env.example and default .env
+)
 if exist ".env" (
     copy .env "%PACKAGE_DIR%\" >nul
-    echo Copied .env file
-) else (
-    echo Warning: .env file not found, client should create it
+    echo Copied current .env (override)
 )
 
 REM Copy alternative docker-compose for WSL2/Linux (optional)

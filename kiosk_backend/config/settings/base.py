@@ -4,9 +4,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Single source of truth: monorepo root .env, then backend/.env fallback
+for _env_path in (BASE_DIR.parent / '.env', BASE_DIR / '.env'):
+    if _env_path.exists():
+        load_dotenv(_env_path)
+        break
+else:
+    load_dotenv()
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-in-production')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'

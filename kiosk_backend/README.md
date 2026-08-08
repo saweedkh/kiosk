@@ -150,7 +150,6 @@ PRINTER_IP=192.168.1.100
 PRINTER_PORT=9100
 
 # Store Settings
-STORE_NAME=نانوایی ستاره سرخ
 ```
 
 **نکته مهم**: پروژه از **PostgreSQL** استفاده می‌کند. متغیرهای `POSTGRES_*` را در `.env` تنظیم کنید و سرویس `db` را با Docker Compose بالا بیاورید.
@@ -292,7 +291,6 @@ POS_CONNECTION_TYPE=tcp
 PRINTER_ENABLED=True
 PRINTER_IP=192.168.1.100
 PRINTER_PORT=9100
-STORE_NAME=نام فروشگاه شما
 ```
 
 **نکات:**
@@ -460,7 +458,6 @@ POST /api/kiosk/admin-panel/orders/receipt/reprint/
 PRINTER_ENABLED=True
 PRINTER_IP=192.168.1.100
 PRINTER_PORT=9100
-STORE_NAME=نام فروشگاه شما
 ```
 
 ### ساختار کد

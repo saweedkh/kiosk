@@ -25,6 +25,20 @@ class Order(TimeStampedModel):
     payment_status = models.CharField(max_length=20, default='pending', verbose_name=_('وضعیت پرداخت'))
     transaction_id = models.CharField(max_length=100, null=True, blank=True, unique=True, verbose_name=_('شناسه تراکنش'))
     receipt_number = models.IntegerField(null=True, blank=True, verbose_name=_('شماره رسید روزانه'))
+
+    FULFILLMENT_DINE_IN = 'dine_in'
+    FULFILLMENT_TAKEAWAY = 'takeaway'
+    FULFILLMENT_CHOICES = [
+        (FULFILLMENT_DINE_IN, _('داخل سالن')),
+        (FULFILLMENT_TAKEAWAY, _('بیرون‌بر')),
+    ]
+    fulfillment_type = models.CharField(
+        max_length=20,
+        choices=FULFILLMENT_CHOICES,
+        default=FULFILLMENT_DINE_IN,
+        verbose_name=_('نوع سفارش'),
+        help_text=_('داخل سالن یا بیرون‌بر'),
+    )
     
     # Payment/Transaction fields (merged from Transaction model)
     payment_method = models.CharField(max_length=50, null=True, blank=True, verbose_name=_('روش پرداخت'))

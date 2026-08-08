@@ -27,6 +27,7 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'receipt_template',
             'receipt_template_mode',
             'active_receipt_template',
+            'receipt_copy_mode',
             'service_enabled',
             'service_fee',
             'receipt_number_mode',
@@ -47,13 +48,15 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
     
     def get_logo_url(self, obj):
         """
-        برگرداندن URL کامل لوگو
+        Same-origin relative /media URL (works behind nginx on customer installs).
         """
         if obj.logo and hasattr(obj.logo, 'url'):
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
-            return obj.logo.url
+            url = obj.logo.url
+            if url.startswith('http://') or url.startswith('https://'):
+                return url
+            if not url.startswith('/'):
+                url = f'/{url}'
+            return url
         return None
 
     def get_next_receipt_number(self, obj):
@@ -89,12 +92,15 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
     
     def get_logo_url(self, obj):
         """
-        برگرداندن URL کامل لوگو
+        Prefer same-origin relative /media URL so SSR metadata and browser
+        both work behind nginx (avoids backend:8000 absolute hosts).
         """
-        if obj.logo:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.logo.url)
-            return obj.logo.url
+        if obj.logo and hasattr(obj.logo, 'url'):
+            url = obj.logo.url
+            if url.startswith('http://') or url.startswith('https://'):
+                return url
+            if not url.startswith('/'):
+                url = f'/{url}'
+            return url
         return None
 

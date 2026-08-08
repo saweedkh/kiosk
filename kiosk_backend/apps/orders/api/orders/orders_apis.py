@@ -73,7 +73,8 @@ class OrderCreateAPIView(generics.GenericAPIView):
             order = OrderService.create_order_from_items(
                 session_key, 
                 request_data['items'],
-                process_payment=True
+                process_payment=True,
+                fulfillment_type=request_data.get('fulfillment_type') or 'dine_in',
             )
             
             response_data = OrderSerializer(order).data

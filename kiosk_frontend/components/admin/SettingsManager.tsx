@@ -109,6 +109,7 @@ export function SettingsManager() {
       receipt_footer: settings.receipt_footer || '',
       receipt_template: settings.receipt_template || 'modern',
       receipt_template_mode: settings.receipt_template_mode || 'normal',
+      receipt_copy_mode: settings.receipt_copy_mode || 'dual',
       receipt_number_mode: settings.receipt_number_mode || 'manual',
       service_enabled: Boolean(settings.service_enabled),
       service_fee: Number(settings.service_fee || 0),
@@ -307,6 +308,48 @@ export function SettingsManager() {
               error={apiErrors.receipt_footer?.[0]}
               placeholder="ممنون از خرید شما"
             />
+
+            <div>
+              <label className="block mb-3 text-sm font-medium text-text dark:text-text-dark">
+                تعداد فیش چاپی
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+                {[
+                  {
+                    id: 'single',
+                    title: 'تک فیش',
+                    desc: 'بعد از پرداخت فقط یک برگ فیش چاپ می‌شود.',
+                  },
+                  {
+                    id: 'dual',
+                    title: 'دو فیش',
+                    desc: 'فاکتور مشتری و فاکتور فروشنده جداگانه چاپ می‌شوند.',
+                  },
+                ].map((mode) => {
+                  const selected = (settings.receipt_copy_mode || 'dual') === mode.id
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => handleChange('receipt_copy_mode', mode.id)}
+                      className={`text-right rounded-xl border p-4 transition-colors ${
+                        selected
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                          : 'border-border dark:border-border-dark hover:border-primary/40'
+                      }`}
+                    >
+                      <p className="font-bold text-text dark:text-text-dark">{mode.title}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{mode.desc}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              {apiErrors.receipt_copy_mode?.[0] && (
+                <p className="mb-3 text-sm text-red-600 dark:text-red-400">
+                  {apiErrors.receipt_copy_mode[0]}
+                </p>
+              )}
+            </div>
 
             <div>
               <label className="block mb-3 text-sm font-medium text-text dark:text-text-dark">

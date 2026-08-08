@@ -51,7 +51,7 @@ kiosk-app/
 2. حداقل این‌ها را عوض کنید:
    - `SECRET_KEY`
    - `POSTGRES_PASSWORD`
-3. در صورت نیاز: POS / Printer / `BALE_BOT_TOKEN` / `STORE_NAME`
+3. در صورت نیاز: POS / Printer / `BALE_BOT_TOKEN` (نام فروشگاه از پنل تنظیمات دیتابیس)
 4. `run.bat`
 
 ## مهاجرت از SQLite قدیمی

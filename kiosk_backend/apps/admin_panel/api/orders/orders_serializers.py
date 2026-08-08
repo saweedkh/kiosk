@@ -22,12 +22,12 @@ class AdminOrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'transaction_id',
+            'payment_status', 'total_amount', 'transaction_id', 'fulfillment_type',
             'items', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_number', 'session_key', 'total_amount',
-            'transaction_id', 'items', 'created_at', 'updated_at'
+            'transaction_id', 'fulfillment_type', 'items', 'created_at', 'updated_at'
         ]
 
 
@@ -36,9 +36,9 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_number', 'status', 'payment_status',
-            'total_amount', 'created_at'
+            'total_amount', 'fulfillment_type', 'created_at'
         ]
-        read_only_fields = ['id', 'order_number', 'total_amount', 'created_at']
+        read_only_fields = ['id', 'order_number', 'total_amount', 'fulfillment_type', 'created_at']
 
 
 class UpdateOrderStatusSerializer(serializers.Serializer):

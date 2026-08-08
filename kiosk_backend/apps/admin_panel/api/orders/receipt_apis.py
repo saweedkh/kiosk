@@ -66,33 +66,34 @@ class ReceiptReprintAPIView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get receipt data
-        receipt_data = ReceiptService.generate_receipt_data(order)
+        # Get receipt data (customer copy for preview)
+        receipt_data = ReceiptService.generate_receipt_data_for_copy(order, 'فاکتور مشتری')
         
         # Generate receipt image
         receipt_image = PrintService.generate_receipt_image(receipt_data, width=576)
         
         # Save image and get URL
-        image_url = PrintService.save_receipt_image(receipt_image, order_number, request)
+        image_url = PrintService.save_receipt_image(
+            receipt_image, order_number, request, suffix='customer'
+        )
         
-        # Print receipt
+        # Print both customer + seller copies
         print_success = PrintService.print_receipt(order)
         
         response_data = {
             **receipt_data,
             'image_url': image_url,
+            'copies': ['فاکتور مشتری', 'فاکتور فروشنده'],
             'print_status': 'success' if print_success else 'failed',
-            'print_message': 'Receipt sent to printer successfully' if print_success else 'Failed to send receipt to printer'
+            'print_message': (
+                'هر دو فاکتور (مشتری و فروشنده) به پرینتر ارسال شد'
+                if print_success
+                else 'ارسال فاکتورها به پرینتر ناموفق بود'
+            ),
         }
         
-        if print_success:
-            return Response(
-                data=response_data,
-                status=status.HTTP_200_OK
-            )
-        else:
-            return Response(
-                data=response_data,
-                status=status.HTTP_200_OK  # Still return 200, but with print_status='failed'
-            )
+        return Response(
+            data=response_data,
+            status=status.HTTP_200_OK
+        )
 

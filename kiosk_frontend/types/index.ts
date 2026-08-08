@@ -77,6 +77,8 @@ export interface Order {
   status: OrderStatus
   payment_status: string
   total_amount: number
+  service_fee?: number
+  fulfillment_type?: FulfillmentType
   items: OrderItem[]
   created_at: string
   updated_at: string
@@ -84,11 +86,14 @@ export interface Order {
 
 export type OrderStatus = 'pending' | 'processing' | 'paid' | 'completed' | 'cancelled'
 
+export type FulfillmentType = 'dine_in' | 'takeaway'
+
 export interface OrderCreateRequest {
   items: {
     product_id: number
     quantity: number
   }[]
+  fulfillment_type: FulfillmentType
 }
 
 // Payment Types
@@ -147,6 +152,7 @@ export interface Settings {
   receipt_template?: 'modern' | 'classic' | 'minimal' | 'elegant' | 'bold' | 'ticket' | 'market' | 'banner' | string
   receipt_template_mode?: 'normal' | 'random' | string
   active_receipt_template?: string
+  receipt_copy_mode?: 'single' | 'dual' | string
   service_enabled?: boolean
   service_fee?: number
   receipt_number_mode?: 'manual' | 'automatic' | string

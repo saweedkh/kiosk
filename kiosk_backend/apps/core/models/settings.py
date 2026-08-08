@@ -119,6 +119,20 @@ class SiteSettings(models.Model):
         help_text='عادی: همان طرح انتخاب‌شده می‌ماند. رندوم: هر روز یک طرح دیگر استفاده می‌شود.'
     )
 
+    RECEIPT_COPY_MODE_SINGLE = 'single'
+    RECEIPT_COPY_MODE_DUAL = 'dual'
+    RECEIPT_COPY_MODE_CHOICES = [
+        (RECEIPT_COPY_MODE_SINGLE, 'تک فیش'),
+        (RECEIPT_COPY_MODE_DUAL, 'دو فیش'),
+    ]
+    receipt_copy_mode = models.CharField(
+        max_length=20,
+        choices=RECEIPT_COPY_MODE_CHOICES,
+        default=RECEIPT_COPY_MODE_DUAL,
+        verbose_name='تعداد فیش چاپی',
+        help_text='تک فیش: یک برگ بعد از پرداخت. دو فیش: فاکتور مشتری و فاکتور فروشنده.'
+    )
+
     # هزینه سرویس (اختیاری — به مبلغ کل سفارش اضافه می‌شود)
     service_enabled = models.BooleanField(
         default=False,
@@ -197,6 +211,7 @@ class SiteSettings(models.Model):
                 'receipt_footer': 'ممنون از خرید شما',
                 'receipt_template': 'modern',
                 'receipt_template_mode': cls.RECEIPT_TEMPLATE_MODE_NORMAL,
+                'receipt_copy_mode': cls.RECEIPT_COPY_MODE_DUAL,
                 'service_enabled': False,
                 'service_fee': 0,
                 'last_receipt_number': 0,

@@ -1,7 +1,7 @@
 """
 Print service for sending receipts to network printers using python-escpos.
 """
-from typing import Dict, Any
+from typing import Dict, Any, List
 import os
 from PIL import Image, ImageFont
 from escpos.printer import Network
@@ -11,6 +11,13 @@ from apps.orders.services.receipt_service import ReceiptService
 from apps.orders.services.receipt_constants import ReceiptConstants
 from apps.orders.services.receipt_layouts import render_receipt
 from apps.logs.services.log_service import LogService
+
+
+# Labels used when dual-copy mode is enabled
+RECEIPT_COPIES_DUAL: List[str] = [
+    'فاکتور مشتری',
+    'فاکتور فروشنده',
+]
 
 
 class PrintService:
@@ -71,14 +78,15 @@ class PrintService:
         return render_receipt(receipt_data, fonts, width=width, template=template)
 
     @staticmethod
-    def save_receipt_image(receipt_image: Image.Image, order_number: str, request=None) -> str:
+    def save_receipt_image(receipt_image: Image.Image, order_number: str, request=None, suffix: str = '') -> str:
         """
         Save receipt image to media folder and return URL.
         """
         receipts_dir = os.path.join(settings.MEDIA_ROOT, 'receipts')
         os.makedirs(receipts_dir, exist_ok=True)
 
-        filename = f"receipt_{order_number}.png"
+        tag = f"_{suffix}" if suffix else ''
+        filename = f"receipt_{order_number}{tag}.png"
         file_path = os.path.join(receipts_dir, filename)
         receipt_image.save(file_path, 'PNG')
 
@@ -87,9 +95,31 @@ class PrintService:
         return f"{settings.MEDIA_URL}receipts/{filename}"
 
     @staticmethod
+    def _print_image(printer: Network, receipt_image: Image.Image) -> None:
+        printer.set(align='center')
+        if receipt_image.mode != 'RGB':
+            receipt_image = receipt_image.convert('RGB')
+        printer.image(receipt_image, impl='bitImageRaster')
+        printer.text("\n\n")
+        printer.cut()
+
+    @staticmethod
+    def _receipt_copy_labels() -> List[str]:
+        """
+        Resolve which physical copies to print from site settings.
+        single → one unlabeled copy; dual → customer then seller.
+        """
+        from apps.core.models.settings import SiteSettings
+
+        mode = SiteSettings.get_settings().receipt_copy_mode
+        if mode == SiteSettings.RECEIPT_COPY_MODE_SINGLE:
+            return ['']
+        return list(RECEIPT_COPIES_DUAL)
+
+    @staticmethod
     def print_receipt(order: Order) -> bool:
         """
-        Print receipt for an order using python-escpos.
+        Print receipt(s) for an order according to receipt_copy_mode setting.
         """
         config = PrintService.get_printer_config()
 
@@ -113,24 +143,23 @@ class PrintService:
             )
             return False
 
-        try:
-            receipt_data = ReceiptService.generate_receipt_data(order)
-            receipt_image = PrintService.generate_receipt_image(
-                receipt_data, width=ReceiptConstants.IMAGE_WIDTH
-            )
+        printer_ip = config.get('ip')
+        printer_port = config.get('port', 9100)
+        copy_labels = PrintService._receipt_copy_labels()
 
-            printer_ip = config.get('ip')
-            printer_port = config.get('port', 9100)
+        try:
             printer = Network(printer_ip, port=printer_port)
             printer.profile.media['width']['pixel'] = ReceiptConstants.IMAGE_WIDTH
-            printer.set(align='center')
 
-            if receipt_image.mode != 'RGB':
-                receipt_image = receipt_image.convert('RGB')
+            printed_copies = []
+            for copy_label in copy_labels:
+                receipt_data = ReceiptService.generate_receipt_data_for_copy(order, copy_label)
+                receipt_image = PrintService.generate_receipt_image(
+                    receipt_data, width=ReceiptConstants.IMAGE_WIDTH
+                )
+                PrintService._print_image(printer, receipt_image)
+                printed_copies.append(copy_label or 'single')
 
-            printer.image(receipt_image, impl='bitImageRaster')
-            printer.text("\n\n")
-            printer.cut()
             printer.close()
 
             LogService.log_info(
@@ -139,7 +168,10 @@ class PrintService:
                 details={
                     'order_id': order.id,
                     'order_number': order.order_number,
-                    'receipt_number': receipt_data.get('receipt_number', ''),
+                    'receipt_number': order.receipt_number,
+                    'copies': printed_copies,
+                    'copy_count': len(printed_copies),
+                    'fulfillment_type': getattr(order, 'fulfillment_type', None),
                     'printer_ip': printer_ip,
                     'printer_port': printer_port,
                 },

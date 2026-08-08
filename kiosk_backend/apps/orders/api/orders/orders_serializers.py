@@ -36,12 +36,13 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'service_fee', 'items',
+            'payment_status', 'total_amount', 'service_fee', 'fulfillment_type', 'items',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'service_fee', 'created_at', 'updated_at'
+            'payment_status', 'total_amount', 'service_fee', 'fulfillment_type',
+            'created_at', 'updated_at'
         ]
 
 
@@ -54,6 +55,12 @@ class OrderItemCreateSerializer(serializers.Serializer):
 class OrderCreateSerializer(serializers.Serializer):
     """Serializer for order creation from frontend."""
     items = OrderItemCreateSerializer(many=True, label=_('آیتم‌های سفارش'))
+    fulfillment_type = serializers.ChoiceField(
+        choices=['dine_in', 'takeaway'],
+        default='dine_in',
+        label=_('نوع سفارش'),
+        help_text=_('dine_in = داخل سالن، takeaway = بیرون‌بر'),
+    )
     
     def validate_items(self, value):
         """Validate that items list is not empty."""

@@ -18,6 +18,7 @@ class SiteSettingsAdmin(admin.ModelAdmin):
                 'receipt_footer',
                 'receipt_template_mode',
                 'receipt_template',
+                'receipt_copy_mode',
                 'service_enabled',
                 'service_fee',
                 'receipt_number_mode',

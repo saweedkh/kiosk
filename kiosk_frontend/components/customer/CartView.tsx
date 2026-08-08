@@ -8,12 +8,13 @@ import { formatCurrency, formatNumber } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
 
 interface CartViewProps {
-  onCheckout: () => void
+  onCheckout: (fulfillmentType: 'dine_in' | 'takeaway') => void
   serviceFee?: number
 }
 
 export function CartView({ onCheckout, serviceFee = 0 }: CartViewProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const [fulfillmentType, setFulfillmentType] = useState<'dine_in' | 'takeaway' | null>(null)
   const { items, removeItem, getTotalPrice, getTotalItems } =
     useCartStore()
   const fee = Math.max(0, Math.round(Number(serviceFee) || 0))
@@ -192,6 +193,35 @@ export function CartView({ onCheckout, serviceFee = 0 }: CartViewProps) {
       {/* Footer with Total and Checkout */}
       {items.length > 0 && (
         <div className="p-4 border-t border-border dark:border-border-dark space-y-3">
+          <div>
+            <p className="text-sm font-medium text-text dark:text-text-dark mb-2">
+              نوع سفارش را انتخاب کنید:
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFulfillmentType('dine_in')}
+                className={`rounded-xl border-2 px-3 py-3 text-sm font-bold transition-colors ${
+                  fulfillmentType === 'dine_in'
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border dark:border-border-dark text-text dark:text-text-dark hover:border-primary'
+                }`}
+              >
+                داخل سالن
+              </button>
+              <button
+                type="button"
+                onClick={() => setFulfillmentType('takeaway')}
+                className={`rounded-xl border-2 px-3 py-3 text-sm font-bold transition-colors ${
+                  fulfillmentType === 'takeaway'
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-border dark:border-border-dark text-text dark:text-text-dark hover:border-primary'
+                }`}
+              >
+                بیرون‌بر
+              </button>
+            </div>
+          </div>
           <div className="space-y-2">
             {fee > 0 && (
               <div className="flex items-center justify-between text-sm">
@@ -212,7 +242,8 @@ export function CartView({ onCheckout, serviceFee = 0 }: CartViewProps) {
             variant="primary"
             size="md"
             className="w-full"
-            onClick={onCheckout}
+            disabled={!fulfillmentType}
+            onClick={() => fulfillmentType && onCheckout(fulfillmentType)}
           >
             <span>تکمیل سفارش</span>
             <svg

@@ -901,12 +901,12 @@ def render_banner(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
     draw = ImageDraw.Draw(img)
 
     draw.rectangle([0, 0, width, banner_h], fill=(0, 0, 0))
-    title = data['store_name'] or ReceiptConstants.STORE_NAME
-    title_d = reshape_persian(title)
-    tw, th = text_size(draw, title_d, fonts['title'])
-    draw.text(((width - tw) // 2, (banner_h - th) // 2), title_d, fill=(255, 255, 255), font=fonts['title'])
+    title = (data['store_name'] or '').strip()
+    title_d = reshape_persian(title) if title else ''
+    if title_d:
+        tw, th = text_size(draw, title_d, fonts['title'])
+        draw.text(((width - tw) // 2, (banner_h - th) // 2), title_d, fill=(255, 255, 255), font=fonts['title'])
     y = banner_h + 16
-
     strip_h = 56
     draw.rectangle([margin, y, width - margin, y + strip_h], fill=(0, 0, 0))
     rn = reshape_persian(f"شماره فیش {data['receipt_number']}")
@@ -967,6 +967,71 @@ LAYOUT_RENDERERS = {
 }
 
 
+def prepend_copy_and_fulfillment(
+    img: Image.Image,
+    receipt_data: Dict[str, Any],
+    fonts: Dict,
+) -> Image.Image:
+    """
+    Prepend a clear banner for copy type (customer/seller)
+    and fulfillment type (dine-in/takeaway) above any template.
+    """
+    copy_label = (receipt_data.get('copy_label') or '').strip()
+    fulfillment = (receipt_data.get('fulfillment_label') or '').strip()
+    if not copy_label and not fulfillment:
+        return img
+
+    width = img.width
+    pad_top = 14
+    banner_h = 58 if copy_label else 0
+    gap = 10 if copy_label and fulfillment else 0
+    fulfill_h = 44 if fulfillment else 0
+    pad_bottom = 14
+    extra = pad_top + banner_h + gap + fulfill_h + pad_bottom
+
+    out = Image.new('RGB', (width, img.height + extra), 'white')
+    draw = ImageDraw.Draw(out)
+    y = pad_top
+
+    if copy_label:
+        draw.rectangle([0, y, width, y + banner_h], fill=(0, 0, 0))
+        label = reshape_persian(copy_label)
+        tw, th = text_size(draw, label, fonts['bold'])
+        draw.text(
+            ((width - tw) // 2, y + (banner_h - th) // 2),
+            label,
+            fill=(255, 255, 255),
+            font=fonts['bold'],
+        )
+        y += banner_h + gap
+
+    if fulfillment:
+        # Emphasize takeaway more
+        is_takeaway = (receipt_data.get('fulfillment_type') or '') == 'takeaway'
+        box_fill = (0, 0, 0) if is_takeaway else (240, 240, 240)
+        text_fill = (255, 255, 255) if is_takeaway else (0, 0, 0)
+        margin = ReceiptConstants.SIDE_MARGIN
+        draw.rounded_rectangle(
+            [margin, y, width - margin, y + fulfill_h],
+            radius=10,
+            fill=box_fill,
+            outline=(0, 0, 0),
+            width=2,
+        )
+        label = reshape_persian(f'نوع سفارش: {fulfillment}')
+        tw, th = text_size(draw, label, fonts['bold'])
+        draw.text(
+            ((width - tw) // 2, y + (fulfill_h - th) // 2),
+            label,
+            fill=text_fill,
+            font=fonts['bold'],
+        )
+        y += fulfill_h
+
+    out.paste(img, (0, extra))
+    return out
+
+
 def render_receipt(
     receipt_data: Dict[str, Any],
     fonts: Dict,
@@ -974,4 +1039,5 @@ def render_receipt(
     template: str = 'modern',
 ) -> Image.Image:
     renderer = LAYOUT_RENDERERS.get(template) or render_modern
-    return renderer(receipt_data, fonts, width)
+    img = renderer(receipt_data, fonts, width)
+    return prepend_copy_and_fulfillment(img, receipt_data, fonts)

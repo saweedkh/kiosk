@@ -237,7 +237,6 @@ PAYMENT_GATEWAY_CONFIG = {
 PRINTER_ENABLED = os.getenv('PRINTER_ENABLED', 'False') == 'True'
 PRINTER_IP = os.getenv('PRINTER_IP', '192.168.1.100')
 PRINTER_PORT = int(os.getenv('PRINTER_PORT', '9100'))
-STORE_NAME = os.getenv('STORE_NAME', 'فروشگاه')
 
 # JWT Settings
 SIMPLE_JWT = {

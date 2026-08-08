@@ -12,7 +12,7 @@ import { CategoryFilter } from "@/components/customer/CategoryFilter";
 import { PaymentModal } from "@/components/customer/PaymentModal";
 import { productsApi } from "@/lib/api/products";
 import { ordersApi } from "@/lib/api/orders";
-import { settingsApi } from "@/lib/api/settings";
+import { settingsApi, resolveCopyright, resolveSiteName } from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { formatNumber } from "@/lib/utils";
@@ -267,14 +267,16 @@ export default function CustomerPage() {
       }),
   });
 
-  const { data: settingsData } = useQuery({
+  const { data: settingsData, isLoading: settingsLoading, isFetched: settingsFetched } = useQuery({
     queryKey: ["settings"],
     queryFn: () => settingsApi.getSettings(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 1, // فقط یک بار retry کن
+    staleTime: 30 * 1000,
+    retry: 2,
   });
 
   const settings = settingsData?.result || {};
+  const siteName = resolveSiteName(settings);
+  const copyrightText = resolveCopyright(settings);
   const serviceFee =
     settings.service_enabled
       ? Math.max(0, Math.round(Number(settings.service_fee) || 0))
@@ -284,20 +286,18 @@ export default function CustomerPage() {
   // Reset logo error when settings change
   useEffect(() => {
     if (settingsData) {
-      console.log('Settings loaded:', settings)
-      console.log('Logo URL:', settings.logo_url)
-      // Reset logo error when new settings are loaded
       setLogoError(false)
     }
-  }, [settingsData, settings])
+  }, [settingsData])
 
   const createOrderMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (selectedFulfillment: "dine_in" | "takeaway") => {
       const orderData = {
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
         })),
+        fulfillment_type: selectedFulfillment,
       };
       // این API به صورت blocking کار می‌کند و منتظر می‌ماند تا کاربر کارت بکشد
       return await ordersApi.createOrder(orderData);
@@ -402,8 +402,11 @@ export default function CustomerPage() {
     },
   });
 
-  const handleCheckout = () => {
+  const handleCheckout = (selectedFulfillment: "dine_in" | "takeaway") => {
     if (items.length === 0) {
+      return;
+    }
+    if (!selectedFulfillment) {
       return;
     }
     
@@ -428,7 +431,7 @@ export default function CustomerPage() {
     
     // سپس درخواست را ارسال می‌کنیم
     // این درخواست تا زمانی که کاربر کارت بکشد و پرداخت انجام شود منتظر می‌ماند
-    createOrderMutation.mutate();
+    createOrderMutation.mutate(selectedFulfillment);
   };
 
   const handlePaymentCancel = () => {
@@ -491,7 +494,7 @@ export default function CustomerPage() {
                   {settings.logo_url && settings.logo_url.trim() !== '' ? (
                     <Image
                       src={settings.logo_url}
-                      alt={settings.site_name || 'لوگو'}
+                      alt={siteName || 'لوگو'}
                       width={56}
                       height={56}
                       className="object-cover"
@@ -501,7 +504,6 @@ export default function CustomerPage() {
                         setLogoError(true)
                       }}
                       onLoad={() => {
-                        console.log('Logo loaded successfully:', settings.logo_url)
                         setLogoError(false)
                       }}
                     />
@@ -516,12 +518,16 @@ export default function CustomerPage() {
                       onError={() => setLogoError(true)}
                     />
                   ) : (
-                    <span className="text-white font-bold text-xl">ن</span>
+                    <span className="text-white font-bold text-xl">
+                      {siteName ? siteName.charAt(0) : 'ک'}
+                    </span>
                   )}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-text dark:text-text-dark">
-                    {settings.site_name || 'فروشگاه ساوید'}
+                  <h1 className="text-2xl font-bold text-text dark:text-text-dark min-h-[2rem]">
+                    {settingsLoading && !settingsFetched
+                      ? ''
+                      : siteName}
                   </h1>
                 </div>
               </div>
@@ -579,7 +585,8 @@ export default function CustomerPage() {
         <footer className="mt-12 py-6 border-t border-border dark:border-border-dark ">
           <div className="flex flex-col items-center justify-center gap-2">
             <p className="text-sm text-text-secondary dark:text-gray-400 text-center">
-              © {new Date().getFullYear()} {settings.copyright_text || 'تمامی حقوق محفوظ است.'}
+              © {new Date().getFullYear()}
+              {copyrightText ? ` ${copyrightText}` : ''}
             </p>
             {settings.contact_phone && (
               <div className="text-xs text-text-secondary dark:text-gray-400">

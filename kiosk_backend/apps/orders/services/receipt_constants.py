@@ -1,7 +1,6 @@
 """
 Constants for receipt generation and printing.
 """
-from django.conf import settings
 
 
 class ReceiptConstants:
@@ -33,7 +32,6 @@ class ReceiptConstants:
     # Text
     MAX_NAME_LENGTH = 18
 
-    # Fallbacks
-    STORE_NAME = getattr(settings, 'STORE_NAME', 'نانوایی ستاره سرخ')
+    # Fallbacks (store name always comes from SiteSettings in DB — never env)
     THANK_YOU_MESSAGE = "ممنون از خرید شما"
     TOTAL_LABEL = "مبلغ قابل پرداخت"

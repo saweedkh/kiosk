@@ -21,9 +21,11 @@ class ReceiptService:
 
     @staticmethod
     def get_receipt_branding() -> Dict[str, Any]:
-        """Load configurable receipt header/footer/logo from site settings."""
+        """Load store name / receipt header/footer/logo from site settings (DB only)."""
         site = SiteSettings.get_settings()
-        header = (site.receipt_header or '').strip()
+        site_name = (site.site_name or '').strip()
+        # Optional receipt-specific header; otherwise use site name from DB
+        header = (site.receipt_header or '').strip() or site_name
         footer = (site.receipt_footer or '').strip() or ReceiptConstants.THANK_YOU_MESSAGE
         logo_path = ''
         if site.logo:
@@ -142,6 +144,10 @@ class ReceiptService:
             })
         
         branding = ReceiptService.get_receipt_branding()
+        fulfillment = getattr(order, 'fulfillment_type', None) or 'dine_in'
+        fulfillment_label = (
+            'بیرون‌بر' if fulfillment == 'takeaway' else 'داخل سالن'
+        )
         return {
             'store_name': branding['store_name'],
             'thank_you_message': branding['thank_you_message'],
@@ -154,8 +160,23 @@ class ReceiptService:
             'items': items_data,
             'service_fee': service_fee,
             'items_subtotal': items_subtotal,
-            'total_amount': f"{total_amount:,} ریال"
+            'total_amount': f"{total_amount:,} ریال",
+            'fulfillment_type': fulfillment,
+            'fulfillment_label': fulfillment_label,
+            'copy_label': '',
         }
+
+    @staticmethod
+    def generate_receipt_data_for_copy(
+        order: Order,
+        copy_label: str,
+        use_stored_receipt_number: bool = True,
+    ) -> Dict[str, Any]:
+        data = ReceiptService.generate_receipt_data(
+            order, use_stored_receipt_number=use_stored_receipt_number
+        )
+        data['copy_label'] = (copy_label or '').strip()
+        return data
     
     @staticmethod
     def get_receipt_by_order_number(order_number: str) -> Optional[Dict[str, Any]]:

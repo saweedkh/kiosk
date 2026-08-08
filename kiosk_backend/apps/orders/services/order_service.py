@@ -38,29 +38,20 @@ class OrderService:
         return f"ORD-{timestamp}-{random_suffix}"
     
     @staticmethod
-    def create_order_from_items(session_key: str, items: List[Dict], process_payment: bool = True) -> Order:
+    def create_order_from_items(
+        session_key: str,
+        items: List[Dict],
+        process_payment: bool = True,
+        fulfillment_type: str = 'dine_in',
+    ) -> Order:
         """
         Create order from items data sent from frontend and process payment directly.
-        
-        This method creates an order from items data, validates stock availability,
-        and immediately processes payment through POS device. If payment is successful,
-        stock is decreased and order status is updated to 'paid'.
-        
-        Args:
-            session_key: Django session key
-            items: List of order items with product_id and quantity
-            process_payment: If True, payment will be processed immediately via POS
-            
-        Returns:
-            Order: Created order with payment information
-            
-        Raises:
-            ValueError: If items list is empty or product not found
-            InsufficientStockException: If insufficient stock for any item
-            GatewayException: If payment gateway is not active or payment fails
         """
         if not items:
             raise ValueError('Items list is empty')
+
+        if fulfillment_type not in ('dine_in', 'takeaway'):
+            fulfillment_type = 'dine_in'
         
         order_number = OrderService.generate_order_number()
         order_items_data, items_total = OrderService._validate_and_prepare_items(items)
@@ -69,7 +60,12 @@ class OrderService:
         
         # Create order and items in a transaction (commit before payment processing)
         order = OrderService._create_order_with_items(
-            order_number, session_key, total_amount, order_items_data, service_fee=service_fee
+            order_number,
+            session_key,
+            total_amount,
+            order_items_data,
+            service_fee=service_fee,
+            fulfillment_type=fulfillment_type,
         )
         
         # Process payment immediately if requested (outside transaction to ensure order is saved)
@@ -128,19 +124,10 @@ class OrderService:
         total_amount: int,
         order_items_data: List[Dict],
         service_fee: int = 0,
+        fulfillment_type: str = 'dine_in',
     ) -> Order:
         """
         Create order and order items in a transaction.
-        
-        Args:
-            order_number: Order number
-            session_key: Session key
-            total_amount: Total order amount (items + service fee)
-            order_items_data: List of order item data dictionaries
-            service_fee: Service fee included in total_amount
-            
-        Returns:
-            Order: Created order instance
         """
         with transaction.atomic():
             order = Order.objects.create(
@@ -149,7 +136,8 @@ class OrderService:
                 status='pending',
                 total_amount=total_amount,
                 service_fee=max(int(service_fee or 0), 0),
-                payment_status='pending'
+                payment_status='pending',
+                fulfillment_type=fulfillment_type or 'dine_in',
             )
             
             for item_data in order_items_data:
@@ -168,7 +156,8 @@ class OrderService:
                     'order_id': order.id,
                     'order_number': order_number,
                     'session_key': session_key,
-                    'total_amount': total_amount
+                    'total_amount': total_amount,
+                    'fulfillment_type': order.fulfillment_type,
                 }
             )
         

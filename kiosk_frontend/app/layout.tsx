@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
-import { settingsApi } from "@/lib/api/settings";
+import {
+  resolveSiteDescription,
+  resolveSiteName,
+  settingsApi,
+} from "@/lib/api/settings";
 
 const vazir = localFont({
   src: [
@@ -41,49 +45,45 @@ const vazir = localFont({
   display: "swap",
 });
 
-const storeName = process.env.STORE_NAME || 'فروشگاه ساوید';
+// Always resolve metadata from backend settings (DB), not env defaults
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function generateMetadata(): Promise<Metadata> {
-  try {
-    const settingsData = await settingsApi.getSettings();
-    const settings = settingsData?.result || {};
-    const siteName = settings.site_name || storeName;
-    const description = settings.description || "سیستم مدیریت کیوسک فروش";
-    
-    return {
-      title: `کیوسک - ${siteName}`,
-      description: description,
-      openGraph: {
-        title: `کیوسک - ${siteName}`,
-        description: description,
-        type: "website",
-        ...(settings.logo_url && {
-          images: [
-            {
-              url: settings.logo_url,
-              width: 1200,
-              height: 630,
-              alt: siteName,
-            },
-          ],
-        }),
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: `کیوسک - ${siteName}`,
-        description: description,
-        ...(settings.logo_url && {
-          images: [settings.logo_url],
-        }),
-      },
-    };
-  } catch (error) {
-    console.error("Error generating metadata:", error);
-    return {
-      title: `کیوسک - ${storeName}`,
-      description: "سیستم مدیریت کیوسک فروش",
-    };
-  }
+  const settings = await settingsApi.getSettingsServer();
+  const siteName = resolveSiteName(settings);
+  const description = resolveSiteDescription(settings);
+
+  const title = siteName ? `کیوسک - ${siteName}` : "کیوسک";
+  const metaDescription = description || undefined;
+
+  return {
+    title,
+    description: metaDescription,
+    openGraph: {
+      title,
+      ...(metaDescription ? { description: metaDescription } : {}),
+      type: "website",
+      ...(settings.logo_url
+        ? {
+            images: [
+              {
+                url: settings.logo_url,
+                width: 1200,
+                height: 630,
+                alt: siteName || "لوگو",
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      ...(metaDescription ? { description: metaDescription } : {}),
+      ...(settings.logo_url ? { images: [settings.logo_url] } : {}),
+    },
+  };
 }
 
 export default function RootLayout({

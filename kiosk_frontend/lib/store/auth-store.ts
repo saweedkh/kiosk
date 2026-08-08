@@ -9,6 +9,11 @@ interface User {
   last_name?: string
   is_staff: boolean
   is_active: boolean
+  is_superuser?: boolean
+  groups?: { id: number; name: string }[]
+  permissions?: string[]
+  bale_chat_id?: string
+  bale_enabled?: boolean
 }
 
 interface AuthStore {

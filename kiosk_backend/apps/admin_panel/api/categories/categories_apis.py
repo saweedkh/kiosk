@@ -5,7 +5,7 @@ from apps.admin_panel.api.categories.categories_serializers import (
     AdminCategoryListSerializer
 )
 from apps.admin_panel.api.categories.categories_filters import AdminCategoryFilter
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, MethodAppPermission
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
 
@@ -18,7 +18,11 @@ class AdminCategoryListAPIView(generics.ListCreateAPIView):
     POST: Creates a new category.
     """
     queryset = Category.objects.select_related('parent').prefetch_related('children').all()
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, MethodAppPermission]
+    permission_map = {
+        'GET': 'view_categories',
+        'POST': 'add_categories',
+    }
     filterset_class = AdminCategoryFilter
     
     def get_serializer_class(self):

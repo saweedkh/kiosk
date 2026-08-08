@@ -9,8 +9,13 @@ import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 import { translateError } from '@/lib/utils'
 import type { Category } from '@/types'
+import { useAuthStore } from '@/lib/store/auth-store'
 
 export function CategoriesManager() {
+  const { user } = useAuthStore()
+  const canAdd = !!user?.is_superuser || (user?.permissions || []).includes('add_categories')
+  const canChange = !!user?.is_superuser || (user?.permissions || []).includes('change_categories')
+  const canDelete = !!user?.is_superuser || (user?.permissions || []).includes('delete_categories')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -136,15 +141,17 @@ export function CategoriesManager() {
         <h2 className="text-2xl font-bold text-text dark:text-text-dark">
           مدیریت دسته‌بندی‌ها
         </h2>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setEditingCategory(null)
-            setIsFormOpen(true)
-          }}
-        >
-          + افزودن دسته‌بندی
-        </Button>
+        {canAdd && (
+          <Button
+            variant="primary"
+            onClick={() => {
+              setEditingCategory(null)
+              setIsFormOpen(true)
+            }}
+          >
+            + افزودن دسته‌بندی
+          </Button>
+        )}
       </div>
 
       {isFormOpen && (
@@ -284,20 +291,24 @@ export function CategoriesManager() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(category)}
-                        >
-                          ویرایش
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleDelete(category.id)}
-                        >
-                          حذف
-                        </Button>
+                        {canChange && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(category)}
+                          >
+                            ویرایش
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDelete(category.id)}
+                          >
+                            حذف
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>

@@ -4,7 +4,7 @@ from django.db.models import ProtectedError
 from django.utils.translation import gettext_lazy as _
 from apps.products.models import Category
 from apps.admin_panel.api.categories.categories_serializers import AdminCategorySerializer
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, MethodAppPermission
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
 
@@ -19,7 +19,13 @@ class AdminCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAP
     """
     queryset = Category.objects.select_related('parent').prefetch_related('children').all()
     serializer_class = AdminCategorySerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, MethodAppPermission]
+    permission_map = {
+        'GET': 'view_categories',
+        'PUT': 'change_categories',
+        'PATCH': 'change_categories',
+        'DELETE': 'delete_categories',
+    }
     
     @custom_extend_schema(
         resource_name="AdminCategoryRetrieve",

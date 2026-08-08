@@ -8,6 +8,7 @@ python-dateutil==2.9.0.post0
 reportlab==4.2.5
 python-dotenv==1.0.1
 drf-spectacular==0.27.2
+psycopg2-binary==2.9.10
 pyserial>=3.5
 pythonnet>=3.0.0
 openpyxl==3.1.2

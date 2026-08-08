@@ -1,64 +1,54 @@
 #!/bin/bash
-
-# اسکریپت بکاپ دیتابیس SQLite
-# این اسکریپت دیتابیس را از Docker کانتینر کپی می‌کند و بکاپ می‌گیرد
+# Backup PostgreSQL database + media files from running Docker stack
 
 set -e
 
-# رنگ‌ها برای خروجی
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-CONTAINER_NAME="kiosk_backend"
-DB_PATH="/app/data/db.sqlite3"
+DB_CONTAINER="kiosk_db"
+BACKEND_CONTAINER="kiosk_backend"
 BACKUP_DIR="./backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/db_backup_${TIMESTAMP}.sqlite3"
-BACKUP_FILE_COMPRESSED="${BACKUP_DIR}/db_backup_${TIMESTAMP}.tar.gz"
+STAGING_DIR="${BACKUP_DIR}/kiosk_backup_${TIMESTAMP}"
+ARCHIVE_FILE="${BACKUP_DIR}/kiosk_backup_${TIMESTAMP}.tar.gz"
 
-echo -e "${GREEN}=== بکاپ دیتابیس کیوسک ===${NC}\n"
+echo -e "${GREEN}=== بکاپ کیوسک (PostgreSQL + تصاویر) ===${NC}\n"
 
-# بررسی وجود کانتینر
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo -e "${RED}❌ کانتینر ${CONTAINER_NAME} در حال اجرا نیست!${NC}"
-    echo "لطفاً ابتدا با دستور زیر کانتینر را راه‌اندازی کنید:"
-    echo "docker-compose up -d"
-    exit 1
+if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+  echo -e "${RED}کانتینر ${DB_CONTAINER} در حال اجرا نیست.${NC}"
+  echo "ابتدا: docker compose up -d"
+  exit 1
 fi
 
-# ایجاد پوشه بکاپ
-mkdir -p "${BACKUP_DIR}"
-
-echo -e "${YELLOW}📦 در حال کپی دیتابیس از کانتینر...${NC}"
-docker cp "${CONTAINER_NAME}:${DB_PATH}" "${BACKUP_FILE}"
-
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ دیتابیس با موفقیت کپی شد: ${BACKUP_FILE}${NC}"
-    
-    # فشرده‌سازی
-    echo -e "${YELLOW}🗜️  در حال فشرده‌سازی...${NC}"
-    tar -czf "${BACKUP_FILE_COMPRESSED}" -C "${BACKUP_DIR}" "db_backup_${TIMESTAMP}.sqlite3"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ فایل فشرده شده ایجاد شد: ${BACKUP_FILE_COMPRESSED}${NC}"
-        rm "${BACKUP_FILE}"  # حذف فایل غیرفشرده
-        echo -e "${GREEN}📊 حجم فایل: $(du -h "${BACKUP_FILE_COMPRESSED}" | cut -f1)${NC}"
-    else
-        echo -e "${YELLOW}⚠️  فشرده‌سازی انجام نشد، فایل اصلی باقی ماند${NC}"
-    fi
-    
-    # نمایش لیست بکاپ‌های موجود
-    echo -e "\n${GREEN}📋 لیست بکاپ‌های موجود:${NC}"
-    ls -lh "${BACKUP_DIR}"/*.tar.gz 2>/dev/null | tail -5 || echo "هیچ بکاپ فشرده‌ای یافت نشد"
-    ls -lh "${BACKUP_DIR}"/*.sqlite3 2>/dev/null | tail -5 || echo "هیچ بکاپ SQLite یافت نشد"
-    
-    echo -e "\n${GREEN}✅ بکاپ با موفقیت انجام شد!${NC}"
-    echo -e "${YELLOW}💡 برای بازگردانی بکاپ از دستور زیر استفاده کنید:${NC}"
-    echo "   ./restore-database.sh ${BACKUP_FILE_COMPRESSED}"
-else
-    echo -e "${RED}❌ خطا در کپی دیتابیس!${NC}"
-    exit 1
+if ! docker ps --format '{{.Names}}' | grep -q "^${BACKEND_CONTAINER}$"; then
+  echo -e "${RED}کانتینر ${BACKEND_CONTAINER} در حال اجرا نیست (برای media لازم است).${NC}"
+  exit 1
 fi
 
+mkdir -p "${STAGING_DIR}/media"
+
+echo -e "${YELLOW}در حال گرفتن dump از PostgreSQL...${NC}"
+docker exec "${DB_CONTAINER}" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/kiosk.dump'
+docker cp "${DB_CONTAINER}:/tmp/kiosk.dump" "${STAGING_DIR}/database.dump"
+docker exec "${DB_CONTAINER}" rm -f /tmp/kiosk.dump
+echo -e "${GREEN}database.dump آماده شد${NC}"
+
+echo -e "${YELLOW}در حال کپی media (تصاویر)...${NC}"
+# Copy contents; empty media is fine
+docker cp "${BACKEND_CONTAINER}:/app/media/." "${STAGING_DIR}/media/" 2>/dev/null || true
+echo -e "${GREEN}media کپی شد${NC}"
+
+echo -e "${YELLOW}در حال فشرده‌سازی...${NC}"
+tar -czf "${ARCHIVE_FILE}" -C "${BACKUP_DIR}" "kiosk_backup_${TIMESTAMP}"
+rm -rf "${STAGING_DIR}"
+
+echo -e "\n${GREEN}بکاپ آماده شد: ${ARCHIVE_FILE}${NC}"
+echo -e "حجم: $(du -h "${ARCHIVE_FILE}" | cut -f1)"
+echo -e "${YELLOW}بازگردانی: ./restore-database.sh ${ARCHIVE_FILE}${NC}"

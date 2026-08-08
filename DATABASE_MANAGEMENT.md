@@ -1,51 +1,81 @@
-# راهنمای مدیریت دیتابیس
+# راهنمای مدیریت دیتابیس (PostgreSQL)
 
-این راهنما نحوه دسترسی مستقیم به دیتابیس SQLite و مدیریت بکاپ را توضیح می‌دهد.
+پروژه از **PostgreSQL 18** داخل کانتینر `kiosk_db` استفاده می‌کند.
+فایل‌های media (تصاویر محصولات و …) در volume جداگانه `backend_media` روی مسیر `/app/media` نگه داشته می‌شوند.
 
-## 📋 فهرست
+## فهرست
 
 - [نوع دیتابیس](#نوع-دیتابیس)
-- [بکاپ دیتابیس](#بکاپ-دیتابیس)
-- [بازگردانی بکاپ](#بازگردانی-بکاپ)
-- [دسترسی مستقیم به دیتابیس](#دسترسی-مستقیم-به-دیتابیس)
-- [ابزارهای پیشنهادی](#ابزارهای-پیشنهادی)
+- [بکاپ](#بکاپ)
+- [بازگردانی](#بازگردانی)
+- [دسترسی مستقیم](#دسترسی-مستقیم)
+- [متغیرهای محیطی](#متغیرهای-محیطی)
 
 ---
 
 ## نوع دیتابیس
 
-پروژه از **SQLite** استفاده می‌کند:
-- فایل دیتابیس: `kiosk_backend/db.sqlite3`
-- در Docker: `/app/db.sqlite3` در کانتینر `kiosk_backend`
+| مورد | مقدار |
+|------|--------|
+| موتور | PostgreSQL 18 (`postgres:18-alpine`) |
+| کانتینر | `kiosk_db` |
+| Volume داده | `postgres_data` |
+| Media | volume `backend_media` → `/app/media` |
+
+پورت `5432` فقط در `docker-compose.yml` توسعه روی هاست باز است. در پکیج production عمداً publish نمی‌شود.
 
 ---
 
-## بکاپ دیتابیس
+## مهاجرت یک‌باره از SQLite به PostgreSQL (دو مرحله‌ای)
 
-### Linux/Mac
+راهنمای کامل: [`docs/MIGRATE_SQLITE_TO_POSTGRES.md`](docs/MIGRATE_SQLITE_TO_POSTGRES.md)  
+(در پکیج تحویل: `MIGRATE_SQLITE_TO_POSTGRES.md`)
+
+### مرحله ۱ — خروجی گرفتن از SQLite داخل کانتینر
+
+```bash
+./export-sqlite-data.sh
+# یا:
+./export-sqlite-data.sh ./kiosk_backend/db.sqlite3
+```
+
+```cmd
+export-sqlite-data.bat
+export-sqlite-data.bat kiosk_backend\db.sqlite3
+```
+
+خروجی: `exports/kiosk_data_YYYYMMDD_HHMMSS.json`
+
+### مرحله ۲ — وارد کردن به PostgreSQL
+
+```bash
+./import-data-to-postgres.sh ./exports/kiosk_data_YYYYMMDD_HHMMSS.json
+```
+
+```cmd
+import-data-to-postgres.bat exports\kiosk_data_YYYYMMDD_HHMMSS.json
+```
+
+**نکته:** تصاویر داخل این JSON نیستند؛ volume `backend_media` را نگه دارید.
+
+---
+
+## بکاپ
+
+بکاپ شامل **هم دیتابیس و هم تصاویر (media)** است.
+
+### Linux / macOS
 
 ```bash
 ./backup-database.sh
 ```
 
-این اسکریپت:
-- ✅ دیتابیس را از Docker کپی می‌کند
-- ✅ فایل را فشرده می‌کند (`.tar.gz`)
-- ✅ در پوشه `backups/` ذخیره می‌کند
-- ✅ نام فایل شامل timestamp است: `db_backup_YYYYMMDD_HHMMSS.tar.gz`
+خروجی: `backups/kiosk_backup_YYYYMMDD_HHMMSS.tar.gz`
 
-**مثال خروجی:**
-```
-=== بکاپ دیتابیس کیوسک ===
+محتوای آرشیو:
 
-📦 در حال کپی دیتابیس از کانتینر...
-✅ دیتابیس با موفقیت کپی شد: ./backups/db_backup_20260101_120000.sqlite3
-🗜️  در حال فشرده‌سازی...
-✅ فایل فشرده شده ایجاد شد: ./backups/db_backup_20260101_120000.tar.gz
-📊 حجم فایل: 2.5M
-
-✅ بکاپ با موفقیت انجام شد!
-```
+- `database.dump` — خروجی `pg_dump` با فرمت custom (`-Fc`)
+- `media/` — کپی تصاویر و فایل‌های آپلودشده
 
 ### Windows
 
@@ -53,59 +83,36 @@
 backup-database.bat
 ```
 
-این اسکریپت مشابه نسخه Linux است اما فایل را به صورت `.zip` فشرده می‌کند.
+خروجی: `backups\kiosk_backup_YYYYMMDD_HHMMSS.zip`
 
 ---
 
-## بازگردانی بکاپ
+## بازگردانی
 
-⚠️ **هشدار:** قبل از بازگردانی، یک بکاپ از دیتابیس فعلی گرفته می‌شود.
+قبل از restore، یک بکاپ ایمنی از وضعیت فعلی گرفته می‌شود.
 
-### Linux/Mac
+### Linux / macOS
 
 ```bash
-./restore-database.sh ./backups/db_backup_20260101_120000.tar.gz
-```
-
-یا برای فایل SQLite مستقیم:
-```bash
-./restore-database.sh ./backups/db_backup_20260101_120000.sqlite3
+./restore-database.sh ./backups/kiosk_backup_YYYYMMDD_HHMMSS.tar.gz
 ```
 
 ### Windows
 
 ```cmd
-restore-database.bat backups\db_backup_20260101_120000.zip
+restore-database.bat backups\kiosk_backup_YYYYMMDD_HHMMSS.zip
 ```
 
-**نکات مهم:**
-- قبل از بازگردانی، سرویس backend متوقف می‌شود
-- بکاپ فعلی به صورت خودکار گرفته می‌شود
-- پس از بازگردانی، سرویس دوباره راه‌اندازی می‌شود
+سرویس‌های `backend` و `bale_bot` موقتاً متوقف می‌شوند، دیتابیس با `pg_restore` برمی‌گردد، media جایگزین می‌شود، سپس سرویس‌ها دوباره بالا می‌آیند.
 
 ---
 
-## دسترسی مستقیم به دیتابیس
+## دسترسی مستقیم
 
-برای مشاهده و ویرایش مستقیم دیتابیس:
-
-### Linux/Mac
+### Linux / macOS
 
 ```bash
 ./access-database.sh
-```
-
-این اسکریپت:
-- دیتابیس را از Docker کپی می‌کند به `db_local.sqlite3`
-- اگر `sqlite3` نصب باشد، CLI را باز می‌کند
-- در غیر این صورت، راهنمای نصب ابزارها را نمایش می‌دهد
-
-**دستورات مفید SQLite:**
-```sql
-.tables                    -- لیست همه جداول
-.schema products_product    -- ساختار جدول
-SELECT * FROM products_product LIMIT 10;  -- مشاهده داده‌ها
-.quit                      -- خروج
 ```
 
 ### Windows
@@ -114,192 +121,60 @@ SELECT * FROM products_product LIMIT 10;  -- مشاهده داده‌ها
 access-database.bat
 ```
 
----
+این دستورها `psql` را داخل کانتینر `kiosk_db` باز می‌کنند.
 
-## ابزارهای پیشنهادی
+دستورات مفید:
 
-### 1. DB Browser for SQLite (رایگان و ساده)
-
-**دانلود:** https://sqlitebrowser.org/
-
-**ویژگی‌ها:**
-- رابط گرافیکی ساده
-- مشاهده و ویرایش داده‌ها
-- اجرای کوئری‌های SQL
-- Export/Import داده
-
-**استفاده:**
-1. دانلود و نصب
-2. باز کردن فایل `db_local.sqlite3` (بعد از اجرای `access-database.sh`)
-
-### 2. VS Code Extension: SQLite Viewer
-
-**نصب:**
-```bash
-code --install-extension alexcvzz.vscode-sqlite
+```text
+\dt
+\d+ products_product
+SELECT COUNT(*) FROM products_product;
+\q
 ```
 
-**استفاده:**
-- باز کردن فایل `.sqlite3` در VS Code
-- مشاهده جداول و داده‌ها
-- اجرای کوئری‌ها
+یا بدون اسکریپت:
 
-### 3. SQLite CLI (خط فرمان)
-
-**نصب:**
-
-macOS:
 ```bash
-brew install sqlite3
-```
-
-Ubuntu/Debian:
-```bash
-sudo apt-get install sqlite3
-```
-
-Windows:
-```bash
-choco install sqlite
-```
-
-**استفاده:**
-```bash
-sqlite3 db_local.sqlite3
+docker exec -it kiosk_db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
 ---
 
-## دستورات مفید Django
+## متغیرهای محیطی
 
-### مشاهده وضعیت Migrations
+در `.env` (از روی `.env.example`):
+
+```env
+POSTGRES_DB=kiosk
+POSTGRES_USER=kiosk
+POSTGRES_PASSWORD=change-me-strong-password
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_CONN_MAX_AGE=60
+```
+
+در Docker Compose مقدار `POSTGRES_HOST` برای سرویس‌ها به `db` (یا در host-network به `127.0.0.1`) override می‌شود.
+
+---
+
+## دستورات Django مفید
 
 ```bash
 docker exec -it kiosk_backend python manage.py showmigrations
-```
-
-### اجرای Migrations
-
-```bash
 docker exec -it kiosk_backend python manage.py migrate
-```
-
-### ساخت Migrations جدید
-
-```bash
-docker exec -it kiosk_backend python manage.py makemigrations
-```
-
-### پشتیبان‌گیری با Django dumpdata
-
-```bash
-# Export همه داده‌ها به JSON
 docker exec -it kiosk_backend python manage.py dumpdata > backup_data.json
-
-# Export یک app خاص
-docker exec -it kiosk_backend python manage.py dumpdata products > products_backup.json
-
-# بازگردانی
-docker exec -it kiosk_backend python manage.py loaddata backup_data.json
-```
-
-### دسترسی به Django Shell
-
-```bash
 docker exec -it kiosk_backend python manage.py shell
 ```
 
-**مثال استفاده در Shell:**
-```python
-from apps.products.models import Product, Category
-
-# مشاهده همه محصولات
-products = Product.objects.all()
-print(products.count())
-
-# مشاهده یک محصول
-product = Product.objects.get(id=1)
-print(product.name)
-
-# ایجاد یک دسته جدید
-category = Category.objects.create(name="دسته جدید")
-```
-
 ---
 
-## نکات مهم
+## نکات امنیتی
 
-1. **همیشه قبل از تغییرات مهم بکاپ بگیرید**
-2. **فایل‌های بکاپ را در جای امن نگه دارید**
-3. **در Production، بکاپ‌های منظم (روزانه/هفتگی) بگیرید**
-4. **قبل از بازگردانی، مطمئن شوید که سرویس متوقف است**
-5. **فایل `db_local.sqlite3` را commit نکنید** (در `.gitignore` است)
-
----
-
-## مثال سناریو کامل
-
-### سناریو: بکاپ روزانه و بازگردانی
+1. رمز `POSTGRES_PASSWORD` را در production عوض کنید.
+2. پورت 5432 را روی شبکه عمومی باز نکنید.
+3. بکاپ‌ها را جایی امن نگه دارید (شامل تصاویر و داده سفارش‌ها هستند).
+4. volume قدیمی SQLite (`backend_db`) دیگر استفاده نمی‌شود؛ در صورت تمایل بعد از مهاجرت می‌توانید حذفش کنید:
 
 ```bash
-# 1. بکاپ روزانه
-./backup-database.sh
-
-# 2. مشاهده لیست بکاپ‌ها
-ls -lh backups/
-
-# 3. دسترسی به دیتابیس برای بررسی
-./access-database.sh
-# در SQLite CLI:
-.tables
-SELECT COUNT(*) FROM products_product;
-
-# 4. در صورت نیاز به بازگردانی
-./restore-database.sh ./backups/db_backup_20260101_120000.tar.gz
+docker volume rm kiosk_backend_db
 ```
-
----
-
-## عیب‌یابی
-
-### مشکل: کانتینر در حال اجرا نیست
-
-```bash
-# راه‌اندازی کانتینر
-docker-compose up -d
-
-# بررسی وضعیت
-docker ps
-```
-
-### مشکل: خطای دسترسی به فایل
-
-```bash
-# بررسی مجوزها
-ls -l db_local.sqlite3
-
-# تغییر مجوزها (در صورت نیاز)
-chmod 644 db_local.sqlite3
-```
-
-### مشکل: دیتابیس قفل شده
-
-```bash
-# توقف سرویس
-docker-compose stop backend
-
-# بررسی فرآیندهای در حال استفاده
-docker exec kiosk_backend lsof /app/db.sqlite3
-
-# راه‌اندازی مجدد
-docker-compose start backend
-```
-
----
-
-## پشتیبانی
-
-برای مشکلات بیشتر، به مستندات Django و SQLite مراجعه کنید:
-- Django: https://docs.djangoproject.com/
-- SQLite: https://www.sqlite.org/docs.html
-

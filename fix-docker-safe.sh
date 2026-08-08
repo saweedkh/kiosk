@@ -5,6 +5,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+
 echo "=========================================="
 echo "Safe Docker I/O Fix (Database Preserved)"
 echo "=========================================="
@@ -33,14 +37,14 @@ echo "=========================================="
 echo "IMPORTANT: Database volume is SAFE!"
 echo "=========================================="
 echo ""
-echo "Your database is stored in Docker volume 'backend_db'"
-echo "This volume will NOT be deleted by the above commands"
+echo "Your database is stored in Docker volume 'postgres_data'"
+echo "Media files are in volume 'backend_media'"
+echo "These volumes will NOT be deleted by the above commands"
 echo ""
 echo "Next steps:"
 echo "1. RESTART Docker Desktop (very important!)"
 echo "2. After restart, run: ./build-images.sh"
-echo "3. Then run: docker-compose up -d"
+echo "3. Then run: docker compose up -d"
 echo ""
-echo "Your database will be automatically restored from the volume"
+echo "Your database will be automatically restored from the postgres_data volume"
 echo ""
-

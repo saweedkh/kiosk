@@ -4,7 +4,7 @@ from apps.admin_panel.api.orders.orders_serializers import (
     AdminOrderListSerializer
 )
 from apps.admin_panel.api.orders.orders_filters import AdminOrderFilter
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
 
@@ -18,7 +18,8 @@ class AdminOrderListAPIView(generics.ListAPIView):
     """
     queryset = Order.objects.prefetch_related('items__product').all()
     serializer_class = AdminOrderListSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_orders'
     filterset_class = AdminOrderFilter
     
     @custom_extend_schema(

@@ -1,43 +1,51 @@
 @echo off
-REM اسکریپت برای rebuild کردن فقط backend با کد جدید
-REM این اسکریپت container را stop می‌کند، image را rebuild می‌کند و دوباره start می‌کند
+REM Developer-only: rebuild backend image from source (needs Dockerfiles).
+REM Not useful inside a delivery ZIP.
+
+setlocal
+cd /d "%~dp0"
 
 echo ==========================================
 echo Rebuilding Backend Only
 echo ==========================================
 echo.
 
-REM Step 1: Stop containers
-echo Step 1: Stopping containers...
-docker-compose down
-if errorlevel 1 (
-    echo Note: Some containers may not have been running
+if not exist "kiosk_backend\Dockerfile" (
+    echo ERROR: kiosk_backend\Dockerfile not found.
+    echo This script requires the full source repository, not the delivery package.
+    echo On a delivery machine, replace images\backend.tar and run: run.bat
+    pause
+    exit /b 1
 )
 
-REM Step 2: Remove old backend image
+set "COMPOSE=docker compose"
+docker compose version >nul 2>&1
+if errorlevel 1 set "COMPOSE=docker-compose"
+
+echo Step 1: Stopping containers...
+%COMPOSE% down 2>nul
+
 echo.
 echo Step 2: Removing old backend image...
 docker rmi kiosk-backend:latest 2>nul
-if errorlevel 1 (
-    echo Note: Image may not exist, continuing...
-)
 
-REM Step 3: Rebuild backend image (NO CACHE)
 echo.
 echo Step 3: Rebuilding backend image (no cache)...
-docker-compose build --no-cache backend
+docker build --no-cache -t kiosk-backend:latest ./kiosk_backend
 if errorlevel 1 (
     echo ERROR: Failed to build backend image!
     pause
     exit /b 1
 )
 
-REM Step 4: Start containers
 echo.
 echo Step 4: Starting containers...
-docker-compose up -d
-if errorlevel 1 (
-    echo ERROR: Failed to start containers!
+if exist "docker-compose.production.yml" (
+    %COMPOSE% -f docker-compose.production.yml up -d
+) else if exist "docker-compose.yml" (
+    %COMPOSE% -f docker-compose.yml up -d
+) else (
+    echo ERROR: No docker-compose file found.
     pause
     exit /b 1
 )
@@ -46,8 +54,5 @@ echo.
 echo ==========================================
 echo Backend rebuilt and restarted successfully!
 echo ==========================================
-echo.
-echo IMPORTANT: The new code with correct AM format is now running.
-echo.
 pause
-
+endlocal

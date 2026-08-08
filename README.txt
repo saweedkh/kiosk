@@ -1,127 +1,87 @@
 ==========================================
-کیوسک - راهنمای نصب و راه‌اندازی
+Kiosk - Installation & Startup Guide
 ==========================================
 
-این پکیج شامل یک سیستم کیوسک کامل است که به صورت محلی روی ویندوز اجرا می‌شود.
+This package runs the kiosk locally on Windows using Docker.
 
-پیش‌نیازها:
------------
-1. Windows 10 یا Windows 11
-2. Docker Desktop نصب شده و در حال اجرا
-   (دانلود از: https://www.docker.com/products/docker-desktop)
+Requirements:
+-------------
+1. Windows 10 or Windows 11
+2. Docker Desktop installed and running
+   https://www.docker.com/products/docker-desktop
+3. Google Chrome (for kiosk fullscreen mode)
+   https://www.google.com/chrome/
 
-نصب و راه‌اندازی:
------------------
-1. فایل ZIP را Extract کنید
-2. Google Chrome را نصب کنید (اگر نصب نشده است)
-   دانلود از: https://www.google.com/chrome/
-3. Docker Desktop را اجرا کنید و مطمئن شوید که در حال اجرا است
-   (دانلود از: https://www.docker.com/products/docker-desktop)
-4. فایل .env را بسازید:
-   - فایل .env.example را کپی کنید و نام آن را به .env تغییر دهید
-   - (در Windows: راست کلیک روی .env.example → Copy → Paste → Rename به .env)
-   - یا در Command Prompt: copy .env.example .env
-5. (اختیاری) فایل .env را ویرایش کنید و تنظیمات POS و Printer را تغییر دهید
-   - اگر از POS یا Printer استفاده می‌کنید، IP و Port را تنظیم کنید
-6. فایل run.bat را دوبار کلیک کنید
-   - این فایل Docker containers را راه‌اندازی می‌کند
-   - سپس Google Chrome را به صورت خودکار در حالت Kiosk (Fullscreen) باز می‌کند
-   - کاربر نمی‌تواند از مرورگر خارج شود (فقط با Ctrl+Alt+Del)
+Install & start:
+----------------
+1. Extract the ZIP file
+2. Start Docker Desktop and wait until it is ready
+3. Edit the .env file:
+   - Set a strong POSTGRES_PASSWORD
+   - Set POS / printer settings if needed
+   - Set BALE_BOT_TOKEN if you use Bale
+4. Double-click run.bat
+   - Loads Docker images only if they are missing (does NOT delete images every time)
+   - Starts Postgres + backend + frontend + nginx (+ bale_bot)
+   - Opens Chrome in kiosk mode at http://localhost
 
-توقف برنامه:
------------
-برای توقف برنامه، فایل stop.bat را اجرا کنید.
+Stop:
+-----
+Run stop.bat
 
-راه‌اندازی خودکار در Startup:
------------------------------
-برای اینکه برنامه به صورت خودکار هنگام روشن شدن سیستم اجرا شود:
+Auto-start on Windows boot:
+---------------------------
+1. Right-click setup-startup.bat → Run as administrator
+2. To remove later:
+   schtasks /delete /tn "KioskApp" /f
 
-1. فایل setup-startup.bat را با دسترسی Administrator اجرا کنید
-   - راست کلیک روی setup-startup.bat → Run as administrator
-2. این اسکریپت یک Scheduled Task ایجاد می‌کند که run.bat را هنگام boot اجرا می‌کند
-3. برای حذف راه‌اندازی خودکار:
-   - Command Prompt را با دسترسی Administrator باز کنید
-   - دستور زیر را اجرا کنید:
-     schtasks /delete /tn "KioskApp" /f
+Database (PostgreSQL):
+----------------------
+- Database runs in container kiosk_db (volume: postgres_data)
+- Images/media are in volume backend_media
+- Daily/manual backup (DB + media):
+    backup-database.bat
+- Restore:
+    restore-database.bat backups\kiosk_backup_XXXX.zip
+- Open SQL shell:
+    access-database.bat
+- Full guide: DATABASE_MANAGEMENT.md
 
-خروج از حالت Kiosk (کیوسک لمسی):
----------------------------------
-برای کیوسک‌های لمسی که موس و کیبورد ندارند:
+Migrating from old SQLite installs:
+-----------------------------------
+If you previously used db.sqlite3 and need to keep data:
 
-1. **لمس 5 بار در گوشه بالا راست صفحه** برای باز کردن صفحه مدیریت
-   - این gesture صفحه admin را باز می‌کند
-   - از صفحه admin می‌توانید وارد پنل مدیریت شوید
+1. export-sqlite-data.bat
+   → creates exports\kiosk_data_....json
+2. Start the new stack with run.bat
+3. import-data-to-postgres.bat exports\kiosk_data_....json
 
-2. **راه‌اندازی مجدد سیستم** (Restart):
-   - دکمه Power را فشار دهید و نگه دارید
-   - یا از طریق Remote Desktop/TeamViewer به سیستم دسترسی داشته باشید
-   - یا یک دکمه فیزیکی Reset روی دستگاه نصب کنید
+Full guide: MIGRATE_SQLITE_TO_POSTGRES.md
 
-3. **دسترسی فیزیکی به سیستم**:
-   - اگر به سیستم دسترسی فیزیکی دارید، می‌توانید:
-     - Task Manager را باز کنید (Ctrl+Shift+Esc)
-     - یا Command Prompt را باز کنید و دستور زیر را اجرا کنید:
-       taskkill /F /IM chrome.exe
+Complete operations manual (recommended):
+-----------------------------------------
+OPERATIONS.md  — architecture, scripts, backup, migrate, troubleshooting
 
-4. **برای جلوگیری از خروج**:
-   - از نرم‌افزارهای Kiosk Mode استفاده کنید
-   - Group Policy را تنظیم کنید تا Task Manager غیرفعال شود
-   - یک حساب کاربری محدود ایجاد کنید
+POS / Printer:
+--------------
+Edit .env:
+  POS_TCP_HOST, POS_TCP_PORT
+  PRINTER_IP, PRINTER_PORT, PRINTER_ENABLED=True
+  PAYMENT_GATEWAY_NAME=pos
+See NETWORK_ACCESS.md for LAN details.
 
-محدود کردن دسترسی کاربر:
-------------------------
-برای محدود کردن دسترسی کاربر به سیستم:
+Common issues:
+--------------
+1. Port 80 already in use → stop the other app or change docker-compose.yml ports
+2. Docker not running → start/restart Docker Desktop
+3. First start slow → waiting for Postgres + migrations is normal
+4. NEVER run fix-docker-io-error.bat for normal restarts
+   Only use fix-docker-safe.bat if Docker itself is corrupted
+5. After .env changes → run: docker compose restart backend bale_bot
+   (no full image rebuild needed)
 
-1. یک حساب کاربری محدود (Limited User) ایجاد کنید
-2. از Group Policy استفاده کنید تا دسترسی به Task Manager، Registry Editor و ... را محدود کنید
-3. از نرم‌افزارهای Kiosk Mode استفاده کنید (مثل Deep Freeze یا SteadyState)
-4. Chrome در حالت Kiosk اجرا می‌شود و کاربر نمی‌تواند:
-   - از مرورگر خارج شود (فقط با gesture خاص یا restart)
-   - به تنظیمات Chrome دسترسی داشته باشد
-   - Extension نصب کند
-   - Password ذخیره کند
-   - Notifications دریافت کند
-
-تنظیمات POS و Printer:
----------------------
-اگر از کارت‌خوان (POS) یا پرینتر استفاده می‌کنید:
-
-1. فایل .env را باز کنید و تنظیمات زیر را ویرایش کنید:
-   - POS_TCP_HOST: IP آدرس کارت‌خوان (مثلاً 192.168.1.100)
-   - POS_TCP_PORT: پورت کارت‌خوان (معمولاً 1362)
-   - PRINTER_IP: IP آدرس پرینتر
-   - PRINTER_PORT: پورت پرینتر (معمولاً 9100)
-   - PRINTER_ENABLED: True (برای فعال کردن پرینتر)
-   - PAYMENT_GATEWAY_NAME: pos (برای استفاده از POS واقعی)
-
-2. مطمئن شوید که IP و Port دستگاه‌ها درست است
-3. دستگاه‌ها باید در همان شبکه محلی باشند
-4. Firewall Windows نباید مانع شود
-5. برای جزئیات بیشتر، فایل NETWORK_ACCESS.md را مطالعه کنید
-
-مشکلات رایج:
------------
-1. اگر پورت 80 در حال استفاده است:
-   - برنامه‌های دیگر که از پورت 80 استفاده می‌کنند را ببندید
-   - یا فایل docker-compose.yml را ویرایش کنید و پورت را تغییر دهید
-
-2. اگر Docker اجرا نمی‌شود:
-   - Docker Desktop را Restart کنید
-   - مطمئن شوید که Virtualization در BIOS فعال است
-
-3. اگر تصاویر لود نمی‌شوند:
-   - چند دقیقه صبر کنید (اولین بار ممکن است طول بکشد)
-   - Docker Desktop را Restart کنید
-
-4. اگر نمی‌تواند به POS یا Printer وصل شود:
-   - IP و Port را بررسی کنید
-   - مطمئن شوید دستگاه‌ها در شبکه هستند
-   - Firewall را بررسی کنید
-   - فایل NETWORK_ACCESS.md را مطالعه کنید
-
-پشتیبانی:
+Support:
 --------
-در صورت بروز مشکل، با تیم پشتیبانی تماس بگیرید.
+Contact your support team if problems continue.
 
 ==========================================
-

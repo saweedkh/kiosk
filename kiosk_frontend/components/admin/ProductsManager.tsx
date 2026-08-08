@@ -10,8 +10,13 @@ import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 import { formatCurrency, translateError } from '@/lib/utils'
 import type { Product, Category } from '@/types'
+import { useAuthStore } from '@/lib/store/auth-store'
 
 export function ProductsManager() {
+  const { user } = useAuthStore()
+  const canAdd = !!user?.is_superuser || (user?.permissions || []).includes('add_products')
+  const canChange = !!user?.is_superuser || (user?.permissions || []).includes('change_products')
+  const canDelete = !!user?.is_superuser || (user?.permissions || []).includes('delete_products')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -194,15 +199,17 @@ export function ProductsManager() {
         <h2 className="text-2xl font-bold text-text dark:text-text-dark">
           مدیریت محصولات
         </h2>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setEditingProduct(null)
-            setIsFormOpen(true)
-          }}
-        >
-          + افزودن محصول
-        </Button>
+        {canAdd && (
+          <Button
+            variant="primary"
+            onClick={() => {
+              setEditingProduct(null)
+              setIsFormOpen(true)
+            }}
+          >
+            + افزودن محصول
+          </Button>
+        )}
       </div>
 
       {isFormOpen && (
@@ -354,22 +361,26 @@ export function ProductsManager() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(product)}
-                    className="flex-1"
-                  >
-                    ویرایش
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleDelete(product.id)}
-                    className="flex-1"
-                  >
-                    حذف
-                  </Button>
+                  {canChange && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(product)}
+                      className="flex-1"
+                    >
+                      ویرایش
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleDelete(product.id)}
+                      className="flex-1"
+                    >
+                      حذف
+                    </Button>
+                  )}
                 </div>
               </div>
             </motion.div>

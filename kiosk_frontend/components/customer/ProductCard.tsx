@@ -100,7 +100,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </p>
         </div>
 
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col gap-1 mb-3">
           <span className="text-xl font-bold text-primary dark:text-primary-light">
             {formatCurrency(product.price)}
           </span>

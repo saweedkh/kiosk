@@ -1,6 +1,13 @@
 @echo off
 REM Kiosk Application Startup Script for Windows
-REM This script loads Docker images and starts the application
+REM Normal start: only start containers (no delete / no reload of images).
+REM Images are loaded from .tar ONLY if they are missing.
+
+setlocal EnableExtensions
+cd /d "%~dp0"
+
+set "COMPOSE_FILE=docker-compose.yml"
+set "NEED_LOAD=0"
 
 echo ==========================================
 echo Kiosk Application Startup
@@ -19,175 +26,168 @@ if errorlevel 1 (
 echo Docker is running...
 echo.
 
-REM Stop any running containers first
-echo Stopping any running containers...
-docker-compose down 2>nul
+REM Prefer docker compose v2, fall back to docker-compose
+set "COMPOSE=docker compose"
+docker compose version >nul 2>&1
+if errorlevel 1 set "COMPOSE=docker-compose"
 
-REM Remove old images to avoid conflicts
-echo Removing old images (if exist)...
-docker rmi kiosk-backend:latest kiosk-frontend:latest kiosk-nginx:latest 2>nul
+if not exist "%COMPOSE_FILE%" (
+    echo ERROR: %COMPOSE_FILE% not found in %CD%
+    pause
+    exit /b 1
+)
 
-REM Load Docker images
-echo Loading Docker images...
-if exist images\backend.tar (
+if not exist ".env" (
+    if exist ".env.example" (
+        echo WARNING: .env missing. Copying from .env.example ...
+        copy /Y ".env.example" ".env" >nul
+        echo Edit .env and set POSTGRES_PASSWORD before production use.
+    ) else (
+        echo ERROR: .env not found. Create it from .env.example
+        pause
+        exit /b 1
+    )
+)
+
+REM Pull/ensure postgres image exists when using production compose (named image)
+docker image inspect postgres:18-alpine >nul 2>&1
+if errorlevel 1 (
+    echo Postgres image not found locally. Pulling postgres:18-alpine ...
+    docker pull postgres:18-alpine
+    if errorlevel 1 (
+        echo ERROR: Failed to pull postgres:18-alpine
+        pause
+        exit /b 1
+    )
+)
+
+REM Check whether required app images already exist
+docker image inspect kiosk-backend:latest >nul 2>&1
+if errorlevel 1 set "NEED_LOAD=1"
+docker image inspect kiosk-frontend:latest >nul 2>&1
+if errorlevel 1 set "NEED_LOAD=1"
+docker image inspect kiosk-nginx:latest >nul 2>&1
+if errorlevel 1 set "NEED_LOAD=1"
+
+if "%NEED_LOAD%"=="1" (
+    echo Required app images not found. Loading from images\*.tar ...
+    echo This is only done once ^(or after images were removed^).
+    echo.
+
+    if not exist images\backend.tar (
+        echo ERROR: images\backend.tar not found!
+        echo Put the delivery images folder next to this script, or run build-images.bat.
+        pause
+        exit /b 1
+    )
+    if not exist images\frontend.tar (
+        echo ERROR: images\frontend.tar not found!
+        pause
+        exit /b 1
+    )
+    if not exist images\nginx.tar (
+        echo ERROR: images\nginx.tar not found!
+        pause
+        exit /b 1
+    )
+
     echo Loading backend image...
     docker load -i images\backend.tar
     if errorlevel 1 (
         echo ERROR: Failed to load backend image!
-        echo The image file may be corrupted. Please rebuild it using build-images.bat
         pause
         exit /b 1
     )
-) else (
-    echo ERROR: images\backend.tar not found!
-    echo Please run build-images.bat first to create the images.
-    pause
-    exit /b 1
-)
 
-if exist images\frontend.tar (
     echo Loading frontend image...
     docker load -i images\frontend.tar
     if errorlevel 1 (
         echo ERROR: Failed to load frontend image!
-        echo The image file may be corrupted. Please rebuild it using build-images.bat
         pause
         exit /b 1
     )
-) else (
-    echo ERROR: images\frontend.tar not found!
-    echo Please run build-images.bat first to create the images.
-    pause
-    exit /b 1
-)
 
-if exist images\nginx.tar (
     echo Loading nginx image...
     docker load -i images\nginx.tar
     if errorlevel 1 (
         echo ERROR: Failed to load nginx image!
-        echo The image file may be corrupted. Please rebuild it using build-images.bat
         pause
         exit /b 1
     )
+    echo Images loaded.
+    echo.
 ) else (
-    echo ERROR: images\nginx.tar not found!
-    echo Please run build-images.bat first to create the images.
-    pause
-    exit /b 1
+    echo App images already present. Skipping load ^(no delete / no re-download^).
+    echo.
 )
 
-echo.
 echo Starting containers...
-REM استفاده از docker-compose.yml (که در پکیج تحویلی وجود دارد)
-docker-compose -f docker-compose.yml up -d
+%COMPOSE% -f %COMPOSE_FILE% up -d
 if errorlevel 1 (
     echo ERROR: Failed to start containers!
     echo.
-    echo Troubleshooting steps:
-    echo 1. Check if Docker Desktop is running properly
-    echo 2. Try running: docker-compose -f docker-compose.yml down
-    echo 3. Then run this script again
-    echo 4. If problem persists, run: fix-docker-safe.bat
+    echo Troubleshooting:
+    echo 1. Make sure Docker Desktop is running
+    echo 2. Run: stop.bat
+    echo 3. Check logs: docker compose -f %COMPOSE_FILE% logs
+    echo 4. Do NOT run fix-docker-io-error.bat unless images are corrupted
     pause
     exit /b 1
 )
 
-REM Wait a moment for containers to initialize
-timeout /t 3 /nobreak >nul
-
-REM Verify containers are running
-docker-compose -f docker-compose.yml ps | findstr "Up" >nul
-if errorlevel 1 (
-    echo WARNING: Some containers may not have started properly
-    echo Checking container status...
-    docker-compose -f docker-compose.yml ps
-)
+REM Brief wait, then check status (no infinite hang)
+timeout /t 5 /nobreak >nul
+%COMPOSE% -f %COMPOSE_FILE% ps
 
 echo.
-echo ==========================================
-echo Application started successfully!
-echo.
-echo The application is now running at:
-echo http://localhost
-echo.
-echo To stop the application, run:
-echo docker-compose -f docker-compose.yml down
-echo or simply run: stop.bat
-echo ==========================================
-echo.
-
-REM Wait a few seconds for services to start
-echo Waiting for services to be ready...
-timeout /t 10 /nobreak >nul
-
-REM Check if service is ready
+echo Waiting for service ^(max ~90s^)...
+set /a "TRIES=0"
 :check_service
-curl -s http://localhost >nul 2>&1
-if errorlevel 1 (
-    echo Waiting for service...
-    timeout /t 3 /nobreak >nul
-    goto check_service
+set /a "TRIES+=1"
+curl -s -o nul http://localhost >nul 2>&1
+if not errorlevel 1 goto service_ready
+if %TRIES% GEQ 30 (
+    echo WARNING: Service did not respond in time.
+    echo Containers may still be starting. Open http://localhost manually.
+    echo Check: docker compose -f %COMPOSE_FILE% ps
+    goto open_browser
 )
+timeout /t 3 /nobreak >nul
+goto check_service
 
+:service_ready
 echo Service is ready!
 echo.
 
-REM Open Chrome in kiosk mode
+:open_browser
 echo Opening Chrome in kiosk mode...
 
-REM Find Chrome executable
 set "CHROME_PATH="
 if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
     set "CHROME_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe"
 ) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
     set "CHROME_PATH=C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
 ) else (
-    REM Try to find Chrome in PATH
     where chrome.exe >nul 2>&1
-    if not errorlevel 1 (
-        set "CHROME_PATH=chrome.exe"
-    )
+    if not errorlevel 1 set "CHROME_PATH=chrome.exe"
 )
 
 if "%CHROME_PATH%"=="" (
-    echo ERROR: Google Chrome not found!
-    echo Please install Google Chrome from https://www.google.com/chrome/
-    pause
-    exit /b 1
+    echo WARNING: Google Chrome not found. App is running at http://localhost
+    echo Install Chrome from https://www.google.com/chrome/
+    goto done
 )
 
-REM Open Chrome in kiosk mode with restricted access
-REM Flags explanation:
-REM --kiosk: Full screen kiosk mode
-REM --no-first-run: Skip first run dialogs
-REM --disable-infobars: Disable info bars
-REM --disable-session-crashed-bubble: Disable crash recovery dialog
-REM --disable-restore-session-state: Don't restore previous session
-REM --disable-extensions: Disable extensions
-REM --disable-plugins: Disable plugins
-REM --disable-default-apps: Disable default apps
-REM --disable-sync: Disable sync
-REM --disable-translate: Disable translate
-REM --disable-notifications: Disable notifications
-REM --disable-password-generation: Disable password generation
-REM --disable-save-password-bubble: Disable save password prompts
 start "" "%CHROME_PATH%" --kiosk http://localhost --no-first-run --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --disable-extensions --disable-plugins --disable-default-apps --disable-sync --disable-translate --disable-notifications --disable-password-generation --disable-save-password-bubble
 
-:browser_opened
 echo.
 echo ==========================================
-echo Browser opened in kiosk mode!
-echo.
-echo For touch kiosk (no keyboard/mouse):
-echo - Tap 5 times in top-right corner to open admin panel
-echo - Or restart the system to exit
+echo Browser opened in kiosk mode.
+echo App: http://localhost
+echo Stop with: stop.bat
 echo ==========================================
 echo.
 
-REM Hide this window (optional - uncomment if you want)
-REM if not "%1"=="min" start /min cmd /c "%~nx0" min
-
-REM Keep script running (don't pause, just wait)
-timeout /t 1 /nobreak >nul
-
+:done
+endlocal
+exit /b 0

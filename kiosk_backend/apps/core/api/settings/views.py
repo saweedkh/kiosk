@@ -1,7 +1,8 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.permissions import AllowAny
+from apps.admin_panel.api.permissions import IsAdminUser, MethodAppPermission, HasAppPermission
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from apps.core.models.settings import SiteSettings
 from apps.core.api.settings.serializers import (
@@ -49,7 +50,12 @@ class SiteSettingsAdminAPIView(generics.RetrieveUpdateAPIView):
     """
     queryset = SiteSettings.objects.all()
     serializer_class = SiteSettingsSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, MethodAppPermission]
+    permission_map = {
+        'GET': 'change_settings',
+        'PUT': 'change_settings',
+        'PATCH': 'change_settings',
+    }
     parser_classes = [MultiPartParser, FormParser, JSONParser]  # پشتیبانی از آپلود فایل
     
     def get_object(self):
@@ -114,7 +120,8 @@ class ResetReceiptNumberAPIView(APIView):
     Reset persistent receipt number counter (admin only).
     Next printed receipt will start from 1 (or start_from + 1).
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'change_settings'
 
     @custom_extend_schema(
         resource_name="SiteSettingsAdmin",

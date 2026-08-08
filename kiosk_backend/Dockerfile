@@ -9,7 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DJANGO_SETTINGS_MODULE=config.settings
 
-# No apt packages needed: app uses SQLite and Python deps ship binary wheels.
+# No apt packages needed: app uses PostgreSQL in a separate container;
+# Python deps (including psycopg2-binary) ship binary wheels.
 # (Previously installed gcc + postgresql-client and slowed every --no-cache build.)
 
 # Copy requirements

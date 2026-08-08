@@ -1,7 +1,27 @@
-# این فایل برای استفاده در محیط‌هایی است که از WSL2 یا Linux استفاده می‌کنند
-# و می‌خواهند از network_mode: host برای دسترسی مستقیم به شبکه استفاده کنند
+# For WSL2/Linux when POS/printer need host network access.
+# With network_mode: host, services talk via 127.0.0.1 (no Docker DNS).
 
 services:
+  db:
+    image: postgres:18-alpine
+    container_name: kiosk_db
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kiosk}
+      POSTGRES_USER: ${POSTGRES_USER:-kiosk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    network_mode: host
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   backend:
     image: kiosk-backend:latest
     container_name: kiosk_backend
@@ -11,22 +31,23 @@ services:
       - DEBUG=False
       - ALLOWED_HOSTS=*
       - DJANGO_SETTINGS_MODULE=config.settings
-      - SQLITE_DATA_DIR=/app/data
+      - POSTGRES_HOST=127.0.0.1
+      - POSTGRES_PORT=5432
     volumes:
       - backend_media:/app/media
       - backend_logs:/app/logs
       - ./.env:/app/.env:ro
-      # Directory volume (NOT a file path) — SQLite file lives at /app/data/db.sqlite3
-      - backend_db:/app/data
-      # نکته: کد از image استفاده می‌شود؛ database و logs در volume می‌مانند
-    # استفاده از network میزبان برای دسترسی مستقیم به POS و Printer
     network_mode: host
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "manage.py", "check", "--database", "default"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   frontend:
     image: kiosk-frontend:latest
@@ -39,10 +60,33 @@ services:
     depends_on:
       - backend
 
+  bale_bot:
+    image: kiosk-backend:latest
+    container_name: kiosk_bale_bot
+    env_file:
+      - .env
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - POSTGRES_HOST=127.0.0.1
+      - POSTGRES_PORT=5432
+    command: python manage.py bale_poll
+    volumes:
+      - backend_media:/app/media
+      - backend_logs:/app/logs
+      - ./.env:/app/.env:ro
+    network_mode: host
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
   nginx:
     image: kiosk-nginx:latest
     container_name: kiosk_nginx
-    # در network_mode: host نیازی به port mapping نیست
     network_mode: host
     restart: unless-stopped
     depends_on:
@@ -51,6 +95,5 @@ services:
 
 volumes:
   backend_media:
-  backend_db:
   backend_logs:
-
+  postgres_data:

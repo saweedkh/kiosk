@@ -1,4 +1,28 @@
 services:
+  db:
+    image: postgres:18-alpine
+    container_name: kiosk_db
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kiosk}
+      POSTGRES_USER: ${POSTGRES_USER:-kiosk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - kiosk_network
+    # Optional local tooling access (pgAdmin, DBeaver). Not required by the app.
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   backend:
     build:
       context: ./kiosk_backend
@@ -10,28 +34,26 @@ services:
       - DEBUG=False
       - ALLOWED_HOSTS=*
       - DJANGO_SETTINGS_MODULE=config.settings
-      - SQLITE_DATA_DIR=/app/data
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
     volumes:
-      # Mount کد برای development - تغییرات فوری اعمال می‌شود
-      # مهم: این باید اول باشد تا media/data بعد از آن mount شود
       - ./kiosk_backend:/app
-      # Media و DB روی volume جدا (بعد از bind mount تا مسیر فایل را نپوشاند)
       - backend_media:/app/media
-      - backend_db:/app/data
       - ./.env:/app/.env:ro
     networks:
       - kiosk_network
-    ports:
-      - "8000:8000"
-    # برای دسترسی به POS و Printer در شبکه محلی
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "manage.py", "check", "--database", "default"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   frontend:
     build:
@@ -48,6 +70,36 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+
+  bale_bot:
+    build:
+      context: ./kiosk_backend
+      dockerfile: Dockerfile
+    container_name: kiosk_bale_bot
+    env_file:
+      - ./.env
+    environment:
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    # Migrate only in backend entrypoint to avoid lock races
+    command: python manage.py bale_poll
+    volumes:
+      - ./kiosk_backend:/app
+      - backend_media:/app/media
+      - ./.env:/app/.env:ro
+    networks:
+      - kiosk_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
   nginx:
     build:
@@ -69,5 +121,4 @@ networks:
 
 volumes:
   backend_media:
-  backend_db:
-
+  postgres_data:

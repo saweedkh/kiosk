@@ -1,15 +1,16 @@
 @echo off
 REM Build script for Windows to create Docker images and export them as .tar files
 
+setlocal
+cd /d "%~dp0"
+
 echo ==========================================
 echo Kiosk Docker Images Build Script
 echo ==========================================
 echo.
 
-REM Create images directory
 if not exist images mkdir images
 
-REM Build Docker images (without cache to ensure latest code is used)
 echo Building backend image (no cache)...
 docker build --no-cache -t kiosk-backend:latest ./kiosk_backend
 if errorlevel 1 (
@@ -19,7 +20,7 @@ if errorlevel 1 (
 
 echo.
 echo Building frontend image (no cache)...
-docker build --no-cache -t kiosk-frontend:latest ./kiosk_frontend
+docker build --no-cache -t kiosk-frontend:latest ./kiosk_frontend --build-arg NEXT_PUBLIC_API_BASE_URL=/api
 if errorlevel 1 (
     echo Error building frontend image
     exit /b 1
@@ -33,7 +34,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Save images as .tar files
 echo.
 echo Exporting images to .tar files...
 docker save kiosk-backend:latest -o images\backend.tar
@@ -45,5 +45,4 @@ echo ==========================================
 echo Build completed successfully!
 echo Images saved in .\images\ directory
 echo ==========================================
-pause
-
+endlocal

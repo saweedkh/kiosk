@@ -1,9 +1,10 @@
 #!/bin/bash
-
-# Script to create the final delivery package for the client
-# This creates a ZIP file with all necessary files (no source code)
+# Build the delivery package (images + scripts + docs, no source)
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
 echo "=========================================="
 echo "Creating Delivery Package"
@@ -12,171 +13,97 @@ echo "=========================================="
 PACKAGE_NAME="kiosk-app"
 PACKAGE_DIR="./delivery-package"
 
-# Clean up old package and ZIP if exists
 echo "Cleaning up old package..."
 rm -rf "$PACKAGE_DIR"
 rm -f "${PACKAGE_NAME}.zip"
 mkdir -p "$PACKAGE_DIR"
 
-# Build images first
 echo ""
 echo "Step 1: Building Docker images..."
 ./build-images.sh
 
-# Copy necessary files
 echo ""
 echo "Step 2: Copying files to package..."
 
-# Copy docker-compose file
-echo "Copying docker-compose files..."
-cp docker-compose.production.yml "$PACKAGE_DIR/docker-compose.yml" || echo "ERROR: Failed to copy docker-compose.production.yml"
+echo "[compose]"
+cp docker-compose.production.yml "$PACKAGE_DIR/docker-compose.yml"
+cp docker-compose.production.host-network.yml "$PACKAGE_DIR/"
 
-# Copy run scripts
-echo "Copying run scripts..."
-cp run.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy run.bat"
-cp stop.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy stop.bat"
-if cp rebuild-and-run.bat "$PACKAGE_DIR/"; then
-    echo "Copied rebuild-and-run.bat"
-else
-    echo "ERROR: Failed to copy rebuild-and-run.bat"
-fi
-if cp rebuild-backend-only.bat "$PACKAGE_DIR/"; then
-    echo "Copied rebuild-backend-only.bat"
-else
-    echo "ERROR: Failed to copy rebuild-backend-only.bat"
-fi
-if cp setup-startup.bat "$PACKAGE_DIR/"; then
-    echo "Copied setup-startup.bat"
-else
-    echo "ERROR: Failed to copy setup-startup.bat"
-fi
+echo "[startup scripts]"
+cp run.bat stop.bat setup-startup.bat "$PACKAGE_DIR/"
 
-# Copy README and documentation
-echo "Copying documentation..."
-cp README.txt "$PACKAGE_DIR/" || echo "ERROR: Failed to copy README.txt"
-cp NETWORK_ACCESS.md "$PACKAGE_DIR/" || echo "ERROR: Failed to copy NETWORK_ACCESS.md"
-if cp TROUBLESHOOTING.md "$PACKAGE_DIR/"; then
-    echo "Copied TROUBLESHOOTING.md"
-else
-    echo "ERROR: Failed to copy TROUBLESHOOTING.md"
+echo "[database scripts]"
+cp backup-database.bat restore-database.bat access-database.bat "$PACKAGE_DIR/"
+cp export-sqlite-data.bat import-data-to-postgres.bat migrate-sqlite-to-postgres.bat "$PACKAGE_DIR/"
+cp backup-database.sh restore-database.sh access-database.sh "$PACKAGE_DIR/" 2>/dev/null || true
+cp export-sqlite-data.sh import-data-to-postgres.sh migrate-sqlite-to-postgres.sh "$PACKAGE_DIR/" 2>/dev/null || true
+
+echo "[docker fix]"
+cp fix-docker-safe.bat fix-docker-io-error.bat "$PACKAGE_DIR/"
+
+echo "[docs]"
+cp README.txt PACKAGE_CONTENTS.md DATABASE_MANAGEMENT.md "$PACKAGE_DIR/"
+cp docs/OPERATIONS.md "$PACKAGE_DIR/OPERATIONS.md"
+cp docs/MIGRATE_SQLITE_TO_POSTGRES.md "$PACKAGE_DIR/MIGRATE_SQLITE_TO_POSTGRES.md"
+cp TROUBLESHOOTING.md NETWORK_ACCESS.md "$PACKAGE_DIR/"
+
+echo "[env]"
+if [ ! -f .env.example ]; then
+  echo "ERROR: .env.example missing"
+  exit 1
 fi
+cp .env.example "$PACKAGE_DIR/.env.example"
+cp .env.example "$PACKAGE_DIR/.env"
+echo "    .env created from .env.example — edit SECRET_KEY and POSTGRES_PASSWORD on site"
 
-# Copy database management scripts and documentation (only .bat files for Windows)
-echo "Copying database management scripts..."
-cp backup-database.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy backup-database.bat"
-cp restore-database.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy restore-database.bat"
-cp access-database.bat "$PACKAGE_DIR/" || echo "ERROR: Failed to copy access-database.bat"
-cp DATABASE_MANAGEMENT.md "$PACKAGE_DIR/" || echo "ERROR: Failed to copy DATABASE_MANAGEMENT.md"
-echo "Copied database management scripts and documentation"
-
-# Copy Docker fix scripts (only .bat files for Windows)
-echo "Copying Docker fix scripts..."
-if cp fix-docker-safe.bat "$PACKAGE_DIR/"; then
-    echo "Copied fix-docker-safe.bat"
-else
-    echo "ERROR: Failed to copy fix-docker-safe.bat"
-fi
-
-# Copy env templates (single root .env)
-if [ -f .env.example ]; then
-    cp .env.example "$PACKAGE_DIR/.env.example"
-    cp .env.example "$PACKAGE_DIR/.env"
-    echo "Copied .env.example and default .env"
-fi
-if [ -f .env ]; then
-    cp .env "$PACKAGE_DIR/"
-    echo "Copied current .env (override)"
-fi
-
-# Copy alternative docker-compose for WSL2/Linux
-cp docker-compose.production.host-network.yml "$PACKAGE_DIR/" || echo "ERROR: Failed to copy docker-compose.production.host-network.yml"
-
-# Copy images directory
-echo "Copying Docker images..."
-if cp -r images "$PACKAGE_DIR/"; then
-    echo "Copied images directory"
-else
-    echo "ERROR: Failed to copy images directory"
-fi
-
-# Verify all files are copied
-echo ""
-echo "=========================================="
-echo "Verifying copied files..."
-echo "=========================================="
-echo ""
-echo "Checking .bat files:"
-if ls "$PACKAGE_DIR"/*.bat >/dev/null 2>&1; then
-    ls "$PACKAGE_DIR"/*.bat
-else
-    echo "ERROR: No .bat files found in package directory!"
+echo "[images]"
+for f in images/backend.tar images/frontend.tar images/nginx.tar; do
+  if [ ! -f "$f" ]; then
+    echo "ERROR: $f missing after build"
     exit 1
-fi
-echo ""
-echo "Checking .md files:"
-if ls "$PACKAGE_DIR"/*.md >/dev/null 2>&1; then
-    ls "$PACKAGE_DIR"/*.md
-else
-    echo "ERROR: No .md files found in package directory!"
-    exit 1
-fi
-echo ""
-echo "Checking specific new files:"
-if [ -f "$PACKAGE_DIR/rebuild-and-run.bat" ]; then
-    echo "[OK] rebuild-and-run.bat exists"
-else
-    echo "[ERROR] rebuild-and-run.bat NOT FOUND!"
-    exit 1
-fi
-if [ -f "$PACKAGE_DIR/setup-startup.bat" ]; then
-    echo "[OK] setup-startup.bat exists"
-else
-    echo "[ERROR] setup-startup.bat NOT FOUND!"
-    exit 1
-fi
-if [ -f "$PACKAGE_DIR/TROUBLESHOOTING.md" ]; then
-    echo "[OK] TROUBLESHOOTING.md exists"
-else
-    echo "[ERROR] TROUBLESHOOTING.md NOT FOUND!"
-    exit 1
-fi
-echo ""
-echo "=========================================="
+  fi
+done
+cp -r images "$PACKAGE_DIR/"
 
-# Create ZIP file
 echo ""
-echo "=========================================="
+echo "Verifying package contents..."
+MISSING=0
+for f in \
+  docker-compose.yml \
+  docker-compose.production.host-network.yml \
+  run.bat stop.bat setup-startup.bat \
+  backup-database.bat restore-database.bat access-database.bat \
+  export-sqlite-data.bat import-data-to-postgres.bat migrate-sqlite-to-postgres.bat \
+  fix-docker-safe.bat fix-docker-io-error.bat \
+  README.txt PACKAGE_CONTENTS.md OPERATIONS.md \
+  MIGRATE_SQLITE_TO_POSTGRES.md DATABASE_MANAGEMENT.md \
+  TROUBLESHOOTING.md NETWORK_ACCESS.md \
+  .env .env.example \
+  images/backend.tar images/frontend.tar images/nginx.tar
+do
+  if [ ! -e "$PACKAGE_DIR/$f" ]; then
+    echo "[MISSING] $f"
+    MISSING=1
+  else
+    echo "[OK] $f"
+  fi
+done
+if [ "$MISSING" -eq 1 ]; then
+  echo "ERROR: Package is incomplete."
+  exit 1
+fi
+
+echo ""
 echo "Step 3: Creating ZIP archive..."
-echo "=========================================="
-echo ""
-echo "Deleting old ZIP file if exists..."
 rm -f "${PACKAGE_NAME}.zip"
-
-echo "Creating new ZIP file..."
-cd "$PACKAGE_DIR"
-zip -r "../${PACKAGE_NAME}.zip" .
-cd ..
-
-# Verify ZIP file was created
-if [ ! -f "${PACKAGE_NAME}.zip" ]; then
-    echo "ERROR: ZIP file was not created!"
-    exit 1
-fi
-
-# Verify files are in ZIP
-echo ""
-echo "Verifying files in ZIP..."
-unzip -l "${PACKAGE_NAME}.zip" | grep -E "(rebuild-and-run|setup-startup|TROUBLESHOOTING)" || echo "WARNING: Some files may not be in ZIP!"
+(
+  cd "$PACKAGE_DIR"
+  zip -r "../${PACKAGE_NAME}.zip" .
+)
 
 echo ""
 echo "=========================================="
 echo "Package created successfully!"
 echo "File: ${PACKAGE_NAME}.zip"
+echo "See PACKAGE_CONTENTS.md for the full file list."
 echo "=========================================="
-echo ""
-echo "IMPORTANT: Please verify that these files are in the ZIP:"
-echo "  - rebuild-and-run.bat"
-echo "  - setup-startup.bat"
-echo "  - TROUBLESHOOTING.md"
-echo ""
-

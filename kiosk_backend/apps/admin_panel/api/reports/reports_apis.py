@@ -9,7 +9,7 @@ from apps.admin_panel.api.reports.reports_serializers import (
     DailyReportResponseSerializer
 )
 from apps.admin_panel.api.reports.reports_pagination import ReportPagination
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission
 from apps.admin_panel.services.report_service import ReportService
 from apps.admin_panel.utils.excel_export import ExcelExporter
 from apps.core.api.schema import custom_extend_schema
@@ -29,7 +29,8 @@ class SalesReportAPIView(generics.GenericAPIView):
     Returns comprehensive sales and transaction statistics including total sales, total orders, average order value, and transaction details (successful/failed transactions).
     Orders list is paginated.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     serializer_class = DateRangeSerializer
     pagination_class = ReportPagination
     
@@ -104,7 +105,8 @@ class ProductReportAPIView(generics.GenericAPIView):
     Returns product statistics including total products, active products, and low stock products.
     Products list is paginated.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     pagination_class = ReportPagination
     
     @custom_extend_schema(
@@ -163,7 +165,8 @@ class StockReportAPIView(generics.GenericAPIView):
     Returns inventory statistics including stock levels and stock value.
     Stock details list is paginated.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     pagination_class = ReportPagination
     
     @custom_extend_schema(
@@ -223,7 +226,8 @@ class DailyReportAPIView(generics.GenericAPIView):
     Returns daily statistics including sales, orders, and transactions for a specific date.
     Orders list is paginated.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     serializer_class = DailyReportSerializer
     pagination_class = ReportPagination
     
@@ -292,7 +296,8 @@ class SalesReportExportAPIView(generics.GenericAPIView):
         
     Returns Excel file with sales report data.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     serializer_class = DateRangeSerializer
     
     @custom_extend_schema(
@@ -333,7 +338,8 @@ class ProductReportExportAPIView(generics.GenericAPIView):
     
     Returns Excel file with product report data.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     
     @custom_extend_schema(
         resource_name="ProductReportExport",
@@ -365,7 +371,8 @@ class StockReportExportAPIView(generics.GenericAPIView):
     
     Returns Excel file with stock report data.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     
     @custom_extend_schema(
         resource_name="StockReportExport",
@@ -400,7 +407,8 @@ class DailyReportExportAPIView(generics.GenericAPIView):
         
     Returns Excel file with daily report data.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
     serializer_class = DailyReportSerializer
     
     @custom_extend_schema(

@@ -1,10 +1,11 @@
 from typing import Any
 
-
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+
+from apps.accounts.services.user_service import UserService
 
 User = get_user_model()
 
@@ -35,11 +36,26 @@ class LoginSerializer(serializers.Serializer):
         
         return attrs
 
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active']
-        read_only_fields = ['id', 'username', 'email', 'is_staff', 'is_active']
+
+class UserSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    username = serializers.CharField()
+    email = serializers.CharField(required=False, allow_blank=True)
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+    is_staff = serializers.BooleanField()
+    is_active = serializers.BooleanField()
+    is_superuser = serializers.BooleanField()
+    groups = serializers.ListField(required=False)
+    permissions = serializers.ListField(required=False)
+    bale_chat_id = serializers.CharField(required=False, allow_blank=True)
+    bale_enabled = serializers.BooleanField(required=False)
+
+    def to_representation(self, instance):
+        if hasattr(instance, 'username'):
+            return UserService.serialize_user(instance)
+        return instance
+
     
 class LoginResponseSerializer(serializers.Serializer):
     access_token = serializers.CharField(help_text=_('توکن دسترسی'))
@@ -55,4 +71,3 @@ class LogoutResponseSerializer(serializers.Serializer):
 class UserInfoResponseSerializer(serializers.Serializer):
     """Serializer for user info response."""
     user = UserSerializer(help_text=_('اطلاعات کاربری'))
-

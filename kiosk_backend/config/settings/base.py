@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     'apps.logs',
     'apps.admin_panel',
     'apps.core',
+    'apps.accounts.apps.AccountsConfig',
+    'apps.bale_bot.apps.BaleBotConfig',
 ]
 
 MIDDLEWARE = [
@@ -71,25 +73,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# SQLite path:
-# - SQLITE_PATH: exact file path
-# - SQLITE_DATA_DIR: directory that will contain db.sqlite3 (preferred for Docker volumes)
-# - default: BASE_DIR/db.sqlite3
-_sqlite_path = os.getenv('SQLITE_PATH', '').strip()
-_sqlite_data_dir = os.getenv('SQLITE_DATA_DIR', '').strip()
-if _sqlite_path:
-    _db_file = Path(_sqlite_path)
-elif _sqlite_data_dir:
-    _db_file = Path(_sqlite_data_dir) / 'db.sqlite3'
-else:
-    _db_file = BASE_DIR / 'db.sqlite3'
-_db_file.parent.mkdir(parents=True, exist_ok=True)
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': _db_file,
-        'OPTIONS': {'timeout': 30},
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'kiosk'),
+        'USER': os.getenv('POSTGRES_USER', 'kiosk'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'kiosk'),
+        'HOST': os.getenv('POSTGRES_HOST', 'db'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'CONN_MAX_AGE': int(os.getenv('POSTGRES_CONN_MAX_AGE', '60')),
+        'OPTIONS': {
+            'connect_timeout': 10,
+        },
     }
 }
 
@@ -262,3 +257,10 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SCHEMA_PATH_PREFIX': '/api/kiosk/',
 }
+
+# Bale Bot
+BALE_BOT_TOKEN = os.getenv('BALE_BOT_TOKEN', '')
+BALE_API_BASE = os.getenv('BALE_API_BASE', 'https://tapi.bale.ai')
+BALE_POLL_TIMEOUT = int(os.getenv('BALE_POLL_TIMEOUT', '30'))
+BALE_BOT_ENABLED = os.getenv('BALE_BOT_ENABLED', 'True') == 'True'
+

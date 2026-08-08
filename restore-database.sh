@@ -1,98 +1,100 @@
 #!/bin/bash
-
-# اسکریپت بازگردانی بکاپ دیتابیس SQLite
-# استفاده: ./restore-database.sh <path-to-backup-file>
+# Restore PostgreSQL dump + media from a kiosk backup archive
+# Usage: ./restore-database.sh ./backups/kiosk_backup_YYYYMMDD_HHMMSS.tar.gz
 
 set -e
 
-# رنگ‌ها برای خروجی
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-CONTAINER_NAME="kiosk_backend"
-DB_PATH="/app/data/db.sqlite3"
+DB_CONTAINER="kiosk_db"
+BACKEND_CONTAINER="kiosk_backend"
+BOT_CONTAINER="kiosk_bale_bot"
 
-echo -e "${GREEN}=== بازگردانی بکاپ دیتابیس کیوسک ===${NC}\n"
-
-# بررسی آرگومان
 if [ -z "$1" ]; then
-    echo -e "${RED}❌ لطفاً مسیر فایل بکاپ را مشخص کنید!${NC}"
-    echo "استفاده: $0 <path-to-backup-file>"
-    echo "مثال: $0 ./backups/db_backup_20260101_120000.tar.gz"
-    exit 1
+  echo -e "${RED}مسیر فایل بکاپ را بدهید.${NC}"
+  echo "مثال: $0 ./backups/kiosk_backup_20260101_120000.tar.gz"
+  exit 1
 fi
 
 BACKUP_FILE="$1"
-
-# بررسی وجود فایل بکاپ
 if [ ! -f "$BACKUP_FILE" ]; then
-    echo -e "${RED}❌ فایل بکاپ یافت نشد: ${BACKUP_FILE}${NC}"
-    exit 1
+  echo -e "${RED}فایل یافت نشد: ${BACKUP_FILE}${NC}"
+  exit 1
 fi
 
-# بررسی وجود کانتینر
-if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo -e "${RED}❌ کانتینر ${CONTAINER_NAME} در حال اجرا نیست!${NC}"
-    echo "لطفاً ابتدا با دستور زیر کانتینر را راه‌اندازی کنید:"
-    echo "docker-compose up -d"
-    exit 1
+if ! docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
+  echo -e "${RED}کانتینر ${DB_CONTAINER} در حال اجرا نیست.${NC}"
+  exit 1
 fi
 
-# استخراج فایل اگر فشرده است
+COMPOSE="docker compose"
+if ! docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker-compose"
+fi
+
+echo -e "${GREEN}=== بازگردانی بکاپ کیوسک ===${NC}\n"
+
+# Safety backup of current state
+echo -e "${YELLOW}بکاپ ایمنی از وضعیت فعلی...${NC}"
+./backup-database.sh || echo -e "${YELLOW}بکاپ ایمنی ناموفق بود؛ ادامه می‌دهیم...${NC}"
+
 TEMP_DIR=$(mktemp -d)
-EXTRACTED_DB=""
+cleanup() { rm -rf "$TEMP_DIR"; }
+trap cleanup EXIT
 
-if [[ "$BACKUP_FILE" == *.tar.gz ]]; then
-    echo -e "${YELLOW}📦 در حال استخراج فایل فشرده...${NC}"
-    tar -xzf "$BACKUP_FILE" -C "$TEMP_DIR"
-    EXTRACTED_DB=$(find "$TEMP_DIR" -name "*.sqlite3" -type f | head -1)
+echo -e "${YELLOW}استخراج آرشیو...${NC}"
+if [[ "$BACKUP_FILE" == *.tar.gz ]] || [[ "$BACKUP_FILE" == *.tgz ]]; then
+  tar -xzf "$BACKUP_FILE" -C "$TEMP_DIR"
 elif [[ "$BACKUP_FILE" == *.zip ]]; then
-    echo -e "${YELLOW}📦 در حال استخراج فایل ZIP...${NC}"
-    unzip -q "$BACKUP_FILE" -d "$TEMP_DIR"
-    EXTRACTED_DB=$(find "$TEMP_DIR" -name "*.sqlite3" -type f | head -1)
-elif [[ "$BACKUP_FILE" == *.sqlite3 ]]; then
-    EXTRACTED_DB="$BACKUP_FILE"
+  unzip -q "$BACKUP_FILE" -d "$TEMP_DIR"
 else
-    echo -e "${RED}❌ فرمت فایل بکاپ پشتیبانی نمی‌شود!${NC}"
-    echo "فرمت‌های پشتیبانی شده: .sqlite3, .tar.gz, .zip"
-    exit 1
+  echo -e "${RED}فرمت پشتیبانی نمی‌شود (tar.gz / zip).${NC}"
+  exit 1
 fi
 
-if [ -z "$EXTRACTED_DB" ] || [ ! -f "$EXTRACTED_DB" ]; then
-    echo -e "${RED}❌ فایل دیتابیس در بکاپ یافت نشد!${NC}"
-    rm -rf "$TEMP_DIR"
-    exit 1
+DUMP_FILE=$(find "$TEMP_DIR" -name 'database.dump' -type f | head -1)
+MEDIA_DIR=$(find "$TEMP_DIR" -type d -name 'media' | head -1)
+
+if [ -z "$DUMP_FILE" ] || [ ! -f "$DUMP_FILE" ]; then
+  echo -e "${RED}database.dump داخل بکاپ پیدا نشد.${NC}"
+  exit 1
 fi
 
-# بکاپ از دیتابیس فعلی قبل از بازگردانی
-echo -e "${YELLOW}💾 در حال گرفتن بکاپ از دیتابیس فعلی...${NC}"
-BACKUP_BEFORE_RESTORE="./backups/db_backup_before_restore_$(date +%Y%m%d_%H%M%S).sqlite3"
-mkdir -p backups
-docker cp "${CONTAINER_NAME}:${DB_PATH}" "$BACKUP_BEFORE_RESTORE" 2>/dev/null || true
-
-# توقف سرویس (اختیاری - برای اطمینان از عدم نوشتن همزمان)
-echo -e "${YELLOW}⏸️  در حال توقف سرویس...${NC}"
-docker-compose stop backend 2>/dev/null || true
+echo -e "${YELLOW}توقف backend و bale_bot...${NC}"
+$COMPOSE stop backend bale_bot 2>/dev/null || true
+docker stop "$BACKEND_CONTAINER" "$BOT_CONTAINER" 2>/dev/null || true
 sleep 2
 
-# کپی فایل بکاپ به کانتینر
-echo -e "${YELLOW}📤 در حال بازگردانی دیتابیس...${NC}"
-docker cp "$EXTRACTED_DB" "${CONTAINER_NAME}:${DB_PATH}"
+echo -e "${YELLOW}بازگردانی PostgreSQL...${NC}"
+docker cp "$DUMP_FILE" "${DB_CONTAINER}:/tmp/restore.dump"
+docker exec "${DB_CONTAINER}" sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner --no-acl /tmp/restore.dump' \
+  || echo -e "${YELLOW}pg_restore با هشدار تمام شد (معمولاً بی‌ضرر است).${NC}"
+docker exec "${DB_CONTAINER}" rm -f /tmp/restore.dump
 
-# تنظیم مجوزها
-docker exec "${CONTAINER_NAME}" chmod 644 "${DB_PATH}" 2>/dev/null || true
-
-# راه‌اندازی مجدد سرویس
-echo -e "${YELLOW}▶️  در حال راه‌اندازی مجدد سرویس...${NC}"
-docker-compose start backend 2>/dev/null || docker-compose up -d backend
-
-# پاکسازی فایل‌های موقت
-rm -rf "$TEMP_DIR"
-
-echo -e "\n${GREEN}✅ دیتابیس با موفقیت بازگردانی شد!${NC}"
-if [ -f "$BACKUP_BEFORE_RESTORE" ]; then
-    echo -e "${YELLOW}💾 بکاپ قبلی در این مسیر ذخیره شد: ${BACKUP_BEFORE_RESTORE}${NC}"
+if [ -n "$MEDIA_DIR" ] && [ -d "$MEDIA_DIR" ]; then
+  echo -e "${YELLOW}بازگردانی media...${NC}"
+  # Ensure backend is up enough to receive files, or use a temp container on the volume.
+  $COMPOSE start backend 2>/dev/null || $COMPOSE up -d backend
+  # Wait briefly for container
+  for i in $(seq 1 30); do
+    docker ps --format '{{.Names}}' | grep -q "^${BACKEND_CONTAINER}$" && break
+    sleep 1
+  done
+  docker exec "${BACKEND_CONTAINER}" sh -c 'rm -rf /app/media/* /app/media/.[!.]* 2>/dev/null || true'
+  docker cp "${MEDIA_DIR}/." "${BACKEND_CONTAINER}:/app/media/"
+else
+  echo -e "${YELLOW}پوشه media در بکاپ نبود؛ رد شد.${NC}"
+  $COMPOSE start backend 2>/dev/null || $COMPOSE up -d backend
 fi
 
+echo -e "${YELLOW}راه‌اندازی مجدد سرویس‌ها...${NC}"
+$COMPOSE up -d backend bale_bot 2>/dev/null || true
+
+echo -e "\n${GREEN}بازگردانی انجام شد.${NC}"

@@ -89,27 +89,43 @@ ERROR: images\backend.tar not found!
    ```batch
    dir images
    ```
-2. اگر پوشه یا فایل‌ها وجود ندارند:
+2. اگر روی ماشین **توسعه** هستید:
    ```batch
    build-images.bat
    ```
+3. اگر روی پکیج **تحویل** هستید، دوباره ZIP را Extract کنید یا از تیم delivery فایل‌های `.tar` را بگیرید.
+
+---
+
+### مشکل 6: دیتابیس / Postgres
+**علائم:** backend بالا نمی‌آید، `database` error در لاگ
+
+**راه‌حل:**
+1. `docker compose ps` — کانتینر `kiosk_db` باید healthy باشد
+2. `docker logs kiosk_db` و `docker logs kiosk_backend`
+3. در `.env` مقادیر `POSTGRES_*` را چک کنید
+4. بعد از تغییر `.env`: `docker compose up -d --force-recreate backend bale_bot`
+5. مهاجرت از SQLite: فایل `MIGRATE_SQLITE_TO_POSTGRES.md`
 
 ---
 
 ## اسکریپت‌های مفید
 
-### `rebuild-and-run.bat`
-اسکریپت کامل برای rebuild و run:
-- Containerها را stop می‌کند
-- Imageها را rebuild می‌کند
-- Application را start می‌کند
+### `run.bat` / `stop.bat`
+استارت/استاپ روزمره. `run.bat` دیگر image پاک نمی‌کند؛ فقط در صورت نبودن image از `.tar` لود می‌کند و Postgres را هم pull می‌کند.
+
+### `backup-database.bat` / `restore-database.bat`
+بکاپ و بازگردانی **PostgreSQL + media**.
+
+### `export-sqlite-data.bat` / `import-data-to-postgres.bat`
+مهاجرت داده از SQLite قدیمی به Postgres (راهنما: `MIGRATE_SQLITE_TO_POSTGRES.md`).
 
 ### `fix-docker-safe.bat`
-رفع مشکل I/O Docker با حفظ دیتابیس:
-- از دیتابیس backup می‌گیرد
-- Imageهای corrupted را پاک می‌کند
-- Cache را پاک می‌کند
-- **دیتابیس حفظ می‌شود**
+رفع مشکل I/O Docker با حفظ volumeهای `postgres_data` و `backend_media`.  
+`fix-docker-io-error.bat` تهاجمی‌تر است — فقط در موارد بحرانی.
+
+### `rebuild-and-run.bat` / `build-images.bat`
+فقط روی **ریپوی سورس** (نه پکیج تحویل مشتری).
 
 ### `build-images.bat`
 Build کردن imageها از کد جدید:

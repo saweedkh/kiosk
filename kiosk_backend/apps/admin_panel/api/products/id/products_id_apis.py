@@ -6,7 +6,7 @@ from apps.admin_panel.api.products.products_serializers import (
     UpdateStockSerializer,
     ProductUpdateSerializerInput
 )
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, MethodAppPermission, HasAppPermission
 from apps.products.services.product_service import ProductService
 from apps.products.services.stock_service import StockService
 from apps.core.api.schema import custom_extend_schema
@@ -23,7 +23,13 @@ class AdminProductRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPI
     """
     queryset = Product.objects.select_related('category').all()
     serializer_class = AdminProductSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, MethodAppPermission]
+    permission_map = {
+        'GET': 'view_products',
+        'PUT': 'change_products',
+        'PATCH': 'change_products',
+        'DELETE': 'delete_products',
+    }
     
     @custom_extend_schema(
         resource_name="AdminProductRetrieve",
@@ -112,7 +118,8 @@ class AdminProductUpdateStockAPIView(generics.GenericAPIView):
     """
     queryset = Product.objects.all()
     serializer_class = UpdateStockSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'change_stock'
     
     @custom_extend_schema(
         resource_name="AdminProductUpdateStock",

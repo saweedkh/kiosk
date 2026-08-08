@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from apps.orders.selectors.order_selector import OrderSelector
 from apps.orders.services.receipt_service import ReceiptService
 from apps.orders.services.print_service import PrintService
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
 
@@ -17,7 +17,8 @@ class ReceiptReprintAPIView(generics.GenericAPIView):
     
     POST: Prints receipt to network printer and returns receipt data
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_orders'
     
     @custom_extend_schema(
         resource_name="ReprintReceipt",

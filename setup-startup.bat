@@ -1,13 +1,14 @@
 @echo off
 REM Script to setup automatic startup on Windows boot
-REM This script creates a scheduled task to run the kiosk application on startup
+
+setlocal
+cd /d "%~dp0"
 
 echo ==========================================
 echo Kiosk Startup Setup
 echo ==========================================
 echo.
 
-REM Get current directory
 set "CURRENT_DIR=%~dp0"
 set "SCRIPT_PATH=%CURRENT_DIR%run.bat"
 
@@ -15,7 +16,6 @@ echo Current directory: %CURRENT_DIR%
 echo Script path: %SCRIPT_PATH%
 echo.
 
-REM Check if running as administrator
 net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo ERROR: This script must be run as Administrator!
@@ -24,10 +24,16 @@ if %errorLevel% neq 0 (
     exit /b 1
 )
 
+if not exist "%SCRIPT_PATH%" (
+    echo ERROR: run.bat not found at %SCRIPT_PATH%
+    pause
+    exit /b 1
+)
+
 echo Creating scheduled task for automatic startup...
 echo.
 
-REM Create scheduled task
+REM /tr uses full path; run.bat itself cds to its own directory
 schtasks /create /tn "KioskApp" /tr "\"%SCRIPT_PATH%\"" /sc onstart /ru SYSTEM /rl HIGHEST /f
 
 if errorlevel 1 (
@@ -47,4 +53,4 @@ echo schtasks /delete /tn "KioskApp" /f
 echo ==========================================
 echo.
 pause
-
+endlocal

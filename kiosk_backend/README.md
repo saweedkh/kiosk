@@ -59,7 +59,7 @@
 ### Backend
 - **Django 4.2.16**: Framework اصلی
 - **Django REST Framework 3.15.2**: برای API
-- **SQLite**: Database (فایل `db.sqlite3`)
+- **PostgreSQL 18**: Database (کانتینر جدا `kiosk_db`)
 - **ReportLab 4.2.5**: برای تولید PDF
 
 ### Payment Gateway
@@ -153,7 +153,7 @@ PRINTER_PORT=9100
 STORE_NAME=نانوایی ستاره سرخ
 ```
 
-**نکته مهم**: پروژه از **SQLite** استفاده می‌کند و فایل دیتابیس به صورت خودکار در `db.sqlite3` ایجاد می‌شود. نیازی به تنظیمات Database نیست.
+**نکته مهم**: پروژه از **PostgreSQL** استفاده می‌کند. متغیرهای `POSTGRES_*` را در `.env` تنظیم کنید و سرویس `db` را با Docker Compose بالا بیاورید.
 
 5. **اجرای Migrations**
 ```bash
@@ -259,7 +259,7 @@ kiosk/
 ## تنظیمات
 
 ### Database Settings
-پروژه از **SQLite** استفاده می‌کند و فایل دیتابیس به صورت خودکار در `db.sqlite3` ایجاد می‌شود. نیازی به تنظیمات اضافی نیست.
+پروژه از **PostgreSQL** استفاده می‌کند (`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_HOST` در `.env`).
 
 ### Payment Gateway
 
@@ -574,11 +574,13 @@ autorestart=true
 ## Troubleshooting
 
 ### مشکل Database
-- فایل `db.sqlite3` باید در root پروژه ایجاد شود
-- اگر مشکلی دارید، فایل را حذف کنید و دوباره `migrate` را اجرا کنید:
+- مطمئن شوید کانتینر `kiosk_db` healthy است: `docker compose ps`
+- لاگ Postgres: `docker logs kiosk_db`
+- در صورت نیاز schema را از نو بسازید (داده پاک می‌شود):
 ```bash
-rm db.sqlite3
-python manage.py migrate
+docker compose down
+docker volume rm kiosk_postgres_data
+docker compose up -d
 ```
 
 ### مشکل Static Files

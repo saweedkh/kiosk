@@ -6,7 +6,7 @@ from apps.admin_panel.api.products.products_serializers import (
     AdminProductListSerializer
 )
 from apps.admin_panel.api.products.products_filters import AdminProductFilter
-from apps.admin_panel.api.permissions import IsAdminUser
+from apps.admin_panel.api.permissions import IsAdminUser, MethodAppPermission
 from apps.products.services.product_service import ProductService
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
@@ -20,7 +20,11 @@ class AdminProductListAPIView(generics.ListCreateAPIView):
     POST: Creates a new product.
     """
     queryset = Product.objects.select_related('category').all()
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, MethodAppPermission]
+    permission_map = {
+        'GET': 'view_products',
+        'POST': 'add_products',
+    }
     filterset_class = AdminProductFilter
     
     def get_serializer_class(self):

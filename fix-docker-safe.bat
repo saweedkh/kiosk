@@ -1,15 +1,27 @@
 @echo off
-REM اسکریپت امن برای رفع مشکل I/O در Docker Desktop
-REM این اسکریپت دیتابیس را حفظ می‌کند
+REM Safe Docker I/O fix — preserves volumes (postgres_data, backend_media)
+REM WARNING: Removes app images. You must reload images\*.tar or rebuild afterward.
+
+setlocal
+cd /d "%~dp0"
 
 echo ==========================================
-echo Safe Docker I/O Fix (Database Preserved)
+echo Safe Docker I/O Fix (volumes preserved)
 echo ==========================================
 echo.
+echo This will:
+echo   - backup DB+media if possible
+echo   - stop containers
+echo   - remove kiosk app images
+echo   - prune unused images/cache
+echo It will NOT delete postgres_data or backend_media volumes.
+echo.
+echo Press Ctrl+C to cancel, or
+pause
 
-REM Step 1: Backup database FIRST (very important!)
+echo.
 echo Step 1: Creating database backup...
-call backup-database.bat
+call "%~dp0backup-database.bat"
 if errorlevel 1 (
     echo WARNING: Backup failed, but continuing...
 ) else (
@@ -17,22 +29,26 @@ if errorlevel 1 (
 )
 echo.
 
-REM Step 2: Stop containers (database volume will be preserved)
+set "COMPOSE=docker compose"
+docker compose version >nul 2>&1
+if errorlevel 1 set "COMPOSE=docker-compose"
+
 echo Step 2: Stopping containers...
-docker-compose down
-if errorlevel 1 (
-    echo WARNING: Some containers may not have stopped
+if exist "docker-compose.yml" (
+    %COMPOSE% -f docker-compose.yml down
+) else (
+    %COMPOSE% down
 )
 
 echo.
-echo Step 3: Removing ONLY corrupted images (NOT volumes)...
+echo Step 3: Removing ONLY kiosk app images (NOT volumes)...
 docker rmi kiosk-backend:latest kiosk-frontend:latest kiosk-nginx:latest 2>nul
 if errorlevel 1 (
     echo Some images may not exist, continuing...
 )
 
 echo.
-echo Step 4: Pruning images and cache (volumes are safe)...
+echo Step 4: Pruning unused images and build cache (volumes are safe)...
 docker image prune -a -f
 docker builder prune -a -f
 
@@ -41,15 +57,12 @@ echo ==========================================
 echo IMPORTANT: Database volume is SAFE!
 echo ==========================================
 echo.
-echo Your database is stored in Docker volume 'backend_db'
-echo This volume will NOT be deleted by the above commands
+echo Your database is stored in Docker volume 'postgres_data'
+echo Media files are in volume 'backend_media'
 echo.
 echo Next steps:
-echo 1. RESTART Docker Desktop (very important!)
-echo 2. After restart, run: build-images.bat
-echo 3. Then run: run.bat
-echo.
-echo Your database will be automatically restored from the volume
+echo 1. RESTART Docker Desktop
+echo 2. Run: run.bat   ^(it will reload images\*.tar if needed^)
 echo.
 pause
-
+endlocal

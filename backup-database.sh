@@ -12,7 +12,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 CONTAINER_NAME="kiosk_backend"
-DB_PATH="/app/db.sqlite3"
+DB_PATH="/app/data/db.sqlite3"
 BACKUP_DIR="./backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/db_backup_${TIMESTAMP}.sqlite3"

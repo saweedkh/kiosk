@@ -8,14 +8,13 @@ services:
       - DEBUG=False
       - ALLOWED_HOSTS=*
       - DJANGO_SETTINGS_MODULE=config.settings
+      - SQLITE_DATA_DIR=/app/data
     volumes:
       - backend_media:/app/media
       - backend_logs:/app/logs
       - ./.env:/app/.env:ro
-      # نگهداری database در volume (SQLite)
-      - backend_db:/app/db.sqlite3
-      # نکته: فقط db.sqlite3 و logs را در volume نگه می‌داریم، نه کل /app
-      # این باعث می‌شود کد از image استفاده شود و database و logs حفظ شوند
+      # Directory volume (NOT a file path) — SQLite file lives at /app/data/db.sqlite3
+      - backend_db:/app/data
     networks:
       - kiosk_network
     # برای دسترسی به POS و Printer در شبکه محلی

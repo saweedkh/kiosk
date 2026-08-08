@@ -10,17 +10,19 @@ services:
       - DEBUG=False
       - ALLOWED_HOSTS=*
       - DJANGO_SETTINGS_MODULE=config.settings
+      - SQLITE_DATA_DIR=/app/data
     volumes:
       # Mount کد برای development - تغییرات فوری اعمال می‌شود
-      # مهم: این باید اول باشد تا media بعد از آن mount شود
+      # مهم: این باید اول باشد تا media/data بعد از آن mount شود
       - ./kiosk_backend:/app
-      # Media files در volume جداگانه (بعد از bind mount)
+      # Media و DB روی volume جدا (بعد از bind mount تا مسیر فایل را نپوشاند)
       - backend_media:/app/media
+      - backend_db:/app/data
       - ./.env:/app/.env:ro
-      # برای نگهداری database در volume (اگر SQLite استفاده می‌کنید)
-      # - backend_db:/app/db.sqlite3
     networks:
       - kiosk_network
+    ports:
+      - "8000:8000"
     # برای دسترسی به POS و Printer در شبکه محلی
     extra_hosts:
       - "host.docker.internal:host-gateway"

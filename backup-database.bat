@@ -5,7 +5,7 @@ REM این اسکریپت دیتابیس را از Docker کانتینر کپی 
 setlocal enabledelayedexpansion
 
 set CONTAINER_NAME=kiosk_backend
-set DB_PATH=/app/db.sqlite3
+set DB_PATH=/app/data/db.sqlite3
 set BACKUP_DIR=backups
 
 REM ایجاد timestamp

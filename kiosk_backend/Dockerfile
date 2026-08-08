@@ -25,8 +25,8 @@ COPY . /app/
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Create media directory
-RUN mkdir -p /app/media
+# Create writable dirs for media/db/logs (db lives under /app/data in Docker)
+RUN mkdir -p /app/media /app/data /app/logs
 
 # Expose port
 EXPOSE 8000

@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 CONTAINER_NAME="kiosk_backend"
-DB_PATH="/app/db.sqlite3"
+DB_PATH="/app/data/db.sqlite3"
 LOCAL_DB="./db_local.sqlite3"
 
 echo -e "${GREEN}=== دسترسی مستقیم به دیتابیس کیوسک ===${NC}\n"

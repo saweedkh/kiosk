@@ -5,7 +5,7 @@ REM استفاده: restore-database.bat <path-to-backup-file>
 setlocal enabledelayedexpansion
 
 set CONTAINER_NAME=kiosk_backend
-set DB_PATH=/app/db.sqlite3
+set DB_PATH=/app/data/db.sqlite3
 
 echo === بازگردانی بکاپ دیتابیس کیوسک ===
 echo.

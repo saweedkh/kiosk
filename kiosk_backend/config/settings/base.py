@@ -71,10 +71,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# SQLite path:
+# - SQLITE_PATH: exact file path
+# - SQLITE_DATA_DIR: directory that will contain db.sqlite3 (preferred for Docker volumes)
+# - default: BASE_DIR/db.sqlite3
+_sqlite_path = os.getenv('SQLITE_PATH', '').strip()
+_sqlite_data_dir = os.getenv('SQLITE_DATA_DIR', '').strip()
+if _sqlite_path:
+    _db_file = Path(_sqlite_path)
+elif _sqlite_data_dir:
+    _db_file = Path(_sqlite_data_dir) / 'db.sqlite3'
+else:
+    _db_file = BASE_DIR / 'db.sqlite3'
+_db_file.parent.mkdir(parents=True, exist_ok=True)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': _db_file,
         'OPTIONS': {'timeout': 30},
     }
 }

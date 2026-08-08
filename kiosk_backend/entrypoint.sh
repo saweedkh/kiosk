@@ -3,6 +3,8 @@
 
 set -e
 
+mkdir -p /app/data /app/logs /app/media
+
 echo "Waiting for database to be ready..."
 python manage.py check --database default || sleep 5
 

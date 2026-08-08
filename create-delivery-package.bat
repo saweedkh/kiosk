@@ -184,7 +184,12 @@ if not exist "%PACKAGE_NAME%.zip" (
 REM Verify files are in ZIP
 echo.
 echo Verifying files in ZIP...
-powershell -Command "$zip = [System.IO.Compression.ZipFile]::OpenRead('%PACKAGE_NAME%.zip'); $files = $zip.Entries | Select-Object -ExpandProperty FullName; Write-Host 'Files in ZIP:'; $files | ForEach-Object { Write-Host $_ }; $zip.Dispose()"
+powershell -NoProfile -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $zipPath = Join-Path (Get-Location) '%PACKAGE_NAME%.zip'; $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath); try { $files = @($zip.Entries | ForEach-Object { $_.FullName }); Write-Host 'Files in ZIP:'; $files | ForEach-Object { Write-Host $_ }; $required = @('rebuild-and-run.bat','setup-startup.bat','TROUBLESHOOTING.md'); $missing = @($required | Where-Object { $name = $_; -not ($files | Where-Object { $_ -like ('*' + $name) }) }); if ($missing.Count -gt 0) { Write-Host ''; Write-Host ('WARNING: Missing files: ' + ($missing -join ', ')); exit 2 } else { Write-Host ''; Write-Host 'Required delivery scripts found in ZIP.' } } finally { $zip.Dispose() }"
+if errorlevel 2 (
+    echo.
+    echo WARNING: Some required files may be missing from the ZIP.
+    echo Please open the ZIP and check manually.
+)
 
 echo.
 echo ==========================================

@@ -3,6 +3,8 @@
 
 set -e
 
+mkdir -p /app/logs /app/media
+
 echo "Waiting for PostgreSQL..."
 for i in $(seq 1 60); do
   if python manage.py check --database default >/dev/null 2>&1; then

@@ -1,29 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
 /**
  * Keeps the customer screen in Fullscreen API mode (touch-friendly).
- * First touch/click enters fullscreen if needed.
+ * Silently retries on pointer events — visual CTA lives on the attract screen.
  */
-export function CustomerFullscreen() {
-  const [needsGesture, setNeedsGesture] = useState(false)
+import { useEffect } from 'react'
 
+export function CustomerFullscreen() {
   useEffect(() => {
     const isFs = () => Boolean(document.fullscreenElement)
 
     const tryEnter = async () => {
-      if (isFs()) {
-        setNeedsGesture(false)
-        return true
-      }
+      if (isFs()) return
+      // Attract screen owns the first explicit gesture UI
+      if (document.querySelector('[data-kiosk-attract="true"]')) return
       try {
         await document.documentElement.requestFullscreen()
-        setNeedsGesture(false)
-        return true
       } catch {
-        setNeedsGesture(true)
-        return false
+        // Browser may require a more explicit gesture; ignore
       }
     }
 
@@ -33,33 +27,11 @@ export function CustomerFullscreen() {
       void tryEnter()
     }
 
-    const onFsChange = () => {
-      if (!isFs()) {
-        setNeedsGesture(true)
-      } else {
-        setNeedsGesture(false)
-      }
-    }
-
-    window.addEventListener('pointerdown', onPointer)
-    document.addEventListener('fullscreenchange', onFsChange)
+    window.addEventListener('pointerdown', onPointer, { passive: true })
     return () => {
       window.removeEventListener('pointerdown', onPointer)
-      document.removeEventListener('fullscreenchange', onFsChange)
     }
   }, [])
 
-  if (!needsGesture) return null
-
-  return (
-    <button
-      type="button"
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 text-white text-2xl font-bold touch-manipulation"
-      onClick={() => {
-        void document.documentElement.requestFullscreen().catch(() => {})
-      }}
-    >
-      برای شروع صفحه را لمس کنید
-    </button>
-  )
+  return null
 }

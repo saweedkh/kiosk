@@ -156,6 +156,8 @@ export interface Settings {
   receipt_copy_mode?: 'single' | 'dual' | string
   service_enabled?: boolean
   service_fee?: number
+  service_fee_dine_in?: boolean
+  service_fee_takeaway?: boolean
   receipt_number_mode?: 'manual' | 'automatic' | string
   last_receipt_number?: number
   next_receipt_number?: number

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -10,16 +10,37 @@ import { ProductCard } from "@/components/customer/ProductCard";
 import { CartView } from "@/components/customer/CartView";
 import { CategoryFilter } from "@/components/customer/CategoryFilter";
 import { PaymentModal } from "@/components/customer/PaymentModal";
+import { KioskAttractScreen } from "@/components/customer/KioskAttractScreen";
 import { productsApi } from "@/lib/api/products";
 import { ordersApi } from "@/lib/api/orders";
-import { settingsApi, resolveCopyright, resolveSiteName } from "@/lib/api/settings";
+import {
+  settingsApi,
+  resolveCopyright,
+  resolveSiteName,
+  resolveSiteDescription,
+  type Settings,
+} from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { formatNumber } from "@/lib/utils";
+import {
+  readCachedSettings,
+  writeCachedSettings,
+  readCachedCategories,
+  writeCachedCategories,
+  readCachedProducts,
+  writeCachedProducts,
+  preloadImage,
+  preloadImages,
+} from "@/lib/kiosk-persist";
+
+/** Return to attract screen after this much idle time on the menu */
+const KIOSK_IDLE_MS = 90_000;
 
 export default function CustomerPage() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [showAttract, setShowAttract] = useState(true);
   const [logoError, setLogoError] = useState(false);
   const [logoClickCount, setLogoClickCount] = useState(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -29,11 +50,16 @@ export default function CustomerPage() {
   const [currentOrder, setCurrentOrder] = useState<{
     id: number;
     orderNumber: string;
+    totalAmount?: number;
   } | null>(null);
+  const [pendingFulfillment, setPendingFulfillment] = useState<
+    "dine_in" | "takeaway" | null
+  >(null);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cartClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentModalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { getTotalItems, items, getTotalPrice, clearCart } = useCartStore();
@@ -106,58 +132,65 @@ export default function CustomerPage() {
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
       }
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+      }
     };
   }, []);
 
-  // تابع helper برای رفرش صفحه
-  const refreshPage = () => {
-    setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        console.log('Refreshing page...');
-        // استفاده از چند روش برای اطمینان از رفرش
-        // روش 1: window.location.replace
-        window.location.replace(window.location.pathname + window.location.search);
-        // روش 2: اگر replace کار نکرد، از reload استفاده کن
-        setTimeout(() => {
-          window.location.reload();
-        }, 50);
-      }
-    }, 300);
+  const goToAttract = () => {
+    if (paymentModalTimeoutRef.current) {
+      clearTimeout(paymentModalTimeoutRef.current);
+      paymentModalTimeoutRef.current = null;
+    }
+    if (idleTimeoutRef.current) {
+      clearTimeout(idleTimeoutRef.current);
+      idleTimeoutRef.current = null;
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPaymentModalOpen(false);
+    setCurrentOrder(null);
+    setPaymentStatus("waiting");
+    setPendingFulfillment(null);
+    setSelectedCategory(null);
+    clearCart();
+    setShowAttract(true);
   };
 
-  // تایمر برای بستن خودکار مودال در صورت موفق یا ناموفق بودن پرداخت
+  const startOrdering = () => {
+    clearCart();
+    setSelectedCategory(null);
+    setPendingFulfillment(null);
+    setShowAttract(false);
+  };
+
+  // تایمر برای بستن خودکار مودال در صورت موفق یا ناموفق بودن پرداخت → بازگشت به لندینگ
   useEffect(() => {
-    // اگر وضعیت success یا failed است و مودال باز است، بعد از 5 ثانیه مودال را ببند
     if (
       (paymentStatus === "success" ||
         paymentStatus === "failed" ||
         paymentStatus === "cancelled") &&
       isPaymentModalOpen
     ) {
-      // پاک کردن timeout قبلی اگر وجود داشته باشد
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
         paymentModalTimeoutRef.current = null;
       }
 
-      // تایمر برای بستن خودکار مودال بعد از 5 ثانیه
       paymentModalTimeoutRef.current = setTimeout(() => {
-        // استفاده از functional update برای اطمینان از اینکه latest state را می‌خوانیم
         setIsPaymentModalOpen((prevIsOpen) => {
-          // اگر مودال هنوز باز است، آن را ببند
           if (prevIsOpen) {
-            setCurrentOrder(null);
-            setPaymentStatus("waiting");
-            clearCart(); // خالی کردن سبد خرید
-            refreshPage();
+            goToAttract();
             return false;
           }
           return prevIsOpen;
         });
         paymentModalTimeoutRef.current = null;
-      }, 5000); // 5 ثانیه
+      }, 5000);
 
-      // Cleanup function - فقط timeout را پاک کن، نه state را تغییر بده
       return () => {
         if (paymentModalTimeoutRef.current) {
           clearTimeout(paymentModalTimeoutRef.current);
@@ -165,8 +198,6 @@ export default function CustomerPage() {
         }
       };
     } else {
-      // اگر وضعیت success یا failed نیست یا مودال بسته است، timeout را پاک کن
-      // اما فقط اگر وضعیت waiting نیست (تا مودال بسته نشود)
       if (paymentStatus !== "waiting" && paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
         paymentModalTimeoutRef.current = null;
@@ -174,36 +205,41 @@ export default function CustomerPage() {
     }
   }, [paymentStatus, isPaymentModalOpen]);
 
-  // پاک کردن خودکار سبد خرید بعد از 10 دقیقه عدم استفاده
+  // Idle → attract screen (skip while attract/payment open)
   useEffect(() => {
-    // اگر سبد خرید خالی است، timer را پاک کن
-    if (items.length === 0) {
-      if (cartClearTimeoutRef.current) {
-        clearTimeout(cartClearTimeoutRef.current);
-        cartClearTimeoutRef.current = null;
+    if (showAttract || isPaymentModalOpen) {
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+        idleTimeoutRef.current = null;
       }
       return;
     }
 
-    // اگر timer قبلی وجود دارد، آن را پاک کن
-    if (cartClearTimeoutRef.current) {
-      clearTimeout(cartClearTimeoutRef.current);
-    }
+    const bump = () => {
+      if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+      idleTimeoutRef.current = setTimeout(() => {
+        goToAttract();
+      }, KIOSK_IDLE_MS);
+    };
 
-    // Timer جدید برای پاک کردن سبد خرید بعد از 10 دقیقه
-    cartClearTimeoutRef.current = setTimeout(() => {
-      clearCart();
-      cartClearTimeoutRef.current = null;
-    }, 600000); // 10 دقیقه = 600000 میلی‌ثانیه
-
-    // Cleanup function
+    bump();
+    const opts: AddEventListenerOptions = { passive: true };
+    const events: Array<keyof WindowEventMap> = [
+      "pointerdown",
+      "touchstart",
+      "keydown",
+      "scroll",
+      "mousemove",
+    ];
+    events.forEach((ev) => window.addEventListener(ev, bump, opts));
     return () => {
-      if (cartClearTimeoutRef.current) {
-        clearTimeout(cartClearTimeoutRef.current);
-        cartClearTimeoutRef.current = null;
+      events.forEach((ev) => window.removeEventListener(ev, bump));
+      if (idleTimeoutRef.current) {
+        clearTimeout(idleTimeoutRef.current);
+        idleTimeoutRef.current = null;
       }
     };
-  }, [items, clearCart]);
+  }, [showAttract, isPaymentModalOpen, items.length]);
 
   const handleLogoClick = () => {
     // Clear existing timeout
@@ -231,9 +267,20 @@ export default function CustomerPage() {
     }, 2000);
   };
 
+  const cachedSettings = useMemo(() => readCachedSettings(), []);
+  const cachedCategories = useMemo(() => readCachedCategories(), []);
+  const cachedProducts = useMemo(() => readCachedProducts(), []);
+
   const { data: categoriesData } = useQuery({
     queryKey: ["categories"],
-    queryFn: () => productsApi.getCategories({ page_size: 1000 }), // Get all categories
+    queryFn: async () => {
+      const data = await productsApi.getCategories({ page_size: 1000 });
+      writeCachedCategories(data);
+      return data;
+    },
+    placeholderData: cachedCategories ?? undefined,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 
   // Extract categories array from response (handle both array and paginated response)
@@ -261,21 +308,81 @@ export default function CustomerPage() {
   
   const { data: productsData, isLoading } = useQuery({
     queryKey: ["products", selectedCategory],
-    queryFn: () => productsApi.getProducts({
+    queryFn: async () => {
+      const data = await productsApi.getProducts({
         category: selectedCategory || undefined,
         is_active: true,
-      }),
+      });
+      // Persist full menu (uncategorized list) for cold-start speed
+      if (selectedCategory == null) {
+        writeCachedProducts(data);
+      }
+      return data;
+    },
+    placeholderData:
+      selectedCategory == null ? cachedProducts ?? undefined : undefined,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
   });
 
   const { data: settingsData, isLoading: settingsLoading, isFetched: settingsFetched } = useQuery({
     queryKey: ["settings"],
-    queryFn: () => settingsApi.getSettings(),
-    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const data = await settingsApi.getSettings();
+      if (data?.result) {
+        writeCachedSettings(data.result);
+        if (data.result.logo_url) {
+          void preloadImage(data.result.logo_url);
+        }
+      }
+      return data;
+    },
+    placeholderData: cachedSettings
+      ? {
+          result: cachedSettings as Settings,
+          status: 200,
+          success: true,
+          messages: {},
+        }
+      : undefined,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
     retry: 2,
   });
 
-  const settings = settingsData?.result || {};
+  // Warm menu cache while customer is still on attract screen
+  useEffect(() => {
+    if (!showAttract) return;
+    void queryClient.prefetchQuery({
+      queryKey: ["categories"],
+      queryFn: async () => {
+        const data = await productsApi.getCategories({ page_size: 1000 });
+        writeCachedCategories(data);
+        return data;
+      },
+      staleTime: 10 * 60 * 1000,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: ["products", null],
+      queryFn: async () => {
+        const data = await productsApi.getProducts({ is_active: true });
+        writeCachedProducts(data);
+        return data;
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  }, [showAttract, queryClient]);
+
+  // Prefetch product images once list is available
+  useEffect(() => {
+    const results = productsData?.result?.results;
+    if (!Array.isArray(results)) return;
+    preloadImages(results.map((p: { image?: string }) => p.image).filter(Boolean));
+  }, [productsData]);
+
+  const settings = (settingsData?.result || cachedSettings || {}) as Settings;
   const siteName = resolveSiteName(settings);
+  const siteDescription = resolveSiteDescription(settings);
   const copyrightText = resolveCopyright(settings);
   const configuredServiceFee =
     settings.service_enabled
@@ -284,9 +391,22 @@ export default function CustomerPage() {
   const cartHasServiceProduct = items.some(
     (item) => Boolean(item.product?.service_fee_applicable)
   );
-  const serviceFee =
+  const baseServiceFee =
     configuredServiceFee > 0 && cartHasServiceProduct ? configuredServiceFee : 0;
-  const checkoutTotal = getTotalPrice() + serviceFee;
+  const serviceFeeOnDineIn = settings.service_fee_dine_in !== false;
+  const serviceFeeOnTakeaway = settings.service_fee_takeaway !== false;
+  const pendingServiceFee =
+    pendingFulfillment === "takeaway"
+      ? serviceFeeOnTakeaway
+        ? baseServiceFee
+        : 0
+      : pendingFulfillment === "dine_in"
+        ? serviceFeeOnDineIn
+          ? baseServiceFee
+          : 0
+        : 0;
+  const checkoutTotal =
+    currentOrder?.totalAmount ?? getTotalPrice() + pendingServiceFee;
   
   // Reset logo error when settings change
   useEffect(() => {
@@ -319,6 +439,7 @@ export default function CustomerPage() {
         setCurrentOrder({
           id: order.id,
           orderNumber: order.order_number || `#${order.id}`,
+          totalAmount: Number(order.total_amount) || undefined,
         });
 
         // بررسی وضعیت پرداخت از response
@@ -429,6 +550,7 @@ export default function CustomerPage() {
     // Reset state
     setPaymentStatus("waiting");
     setCurrentOrder(null);
+    setPendingFulfillment(selectedFulfillment);
     
     // ابتدا مودال را باز می‌کنیم با وضعیت "waiting"
     // چون API به صورت blocking کار می‌کند و منتظر می‌ماند
@@ -457,26 +579,14 @@ export default function CustomerPage() {
     
     // فقط برای وضعیت‌های نهایی (success, failed, cancelled) مودال را ببند
     if (paymentStatus === "success" || paymentStatus === "failed" || paymentStatus === "cancelled") {
-      setIsPaymentModalOpen(false);
-      setCurrentOrder(null);
-      setPaymentStatus("waiting");
-      clearCart(); // خالی کردن سبد خرید
-      
-      // رفرش صفحه برای reset کردن state ها و جلوگیری از باگ
-      refreshPage();
+      goToAttract();
     }
   };
 
   const handlePaymentConfirm = () => {
     // فقط برای success مودال را ببند
     if (paymentStatus === "success") {
-      setIsPaymentModalOpen(false);
-      setCurrentOrder(null);
-      setPaymentStatus("waiting");
-      clearCart();
-      
-      // رفرش صفحه برای reset کردن state ها و جلوگیری از باگ
-      refreshPage();
+      goToAttract();
     }
     // برای failed و cancelled، مودال را باز نگه دار
     // کاربر باید با دکمه "بستن" یا کلیک روی backdrop ببندد
@@ -484,6 +594,25 @@ export default function CustomerPage() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-background dark:bg-background-dark">
+      {showAttract && (
+        <KioskAttractScreen
+          siteName={siteName || cachedSettings?.site_name || "کیوسک"}
+          logoUrl={
+            (settings.logo_url && settings.logo_url.trim() !== ""
+              ? settings.logo_url
+              : cachedSettings?.logo_url) ||
+            (logoError ? null : "/logo.png")
+          }
+          tagline={siteDescription || cachedSettings?.description}
+          onStart={startOrdering}
+          onSecretAdmin={() => {
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("from-admin");
+            }
+            router.push("/admin");
+          }}
+        />
+      )}
       {/* Left Section - Header + Products (2/3) */}
       <div className="w-2/3 flex flex-col border-l border-border dark:border-border-dark overflow-hidden">
         {/* Header */}
@@ -605,7 +734,12 @@ export default function CustomerPage() {
       {/* Right Section - Cart View (1/3) */}
       <div className="w-1/3 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <CartView onCheckout={handleCheckout} serviceFee={serviceFee} />
+          <CartView
+            onCheckout={handleCheckout}
+            serviceFee={baseServiceFee}
+            serviceFeeOnDineIn={serviceFeeOnDineIn}
+            serviceFeeOnTakeaway={serviceFeeOnTakeaway}
+          />
         </div>
       </div>
 

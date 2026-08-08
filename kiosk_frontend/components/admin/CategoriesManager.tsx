@@ -10,6 +10,13 @@ import { Input } from '@/components/shared/Input'
 import { translateError } from '@/lib/utils'
 import type { Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { clearCachedMenu } from '@/lib/kiosk-persist'
+
+function bustCustomerMenuCache(queryClient: ReturnType<typeof useQueryClient>) {
+  clearCachedMenu()
+  queryClient.invalidateQueries({ queryKey: ['products'] })
+  queryClient.invalidateQueries({ queryKey: ['categories'] })
+}
 
 export function CategoriesManager() {
   const { user } = useAuthStore()
@@ -39,6 +46,7 @@ export function CategoriesManager() {
     mutationFn: adminApi.createCategory,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
+      bustCustomerMenuCache(queryClient)
       setIsFormOpen(false)
       setCurrentPage(1) // Reset to first page
     },
@@ -49,6 +57,7 @@ export function CategoriesManager() {
       adminApi.updateCategory(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
+      bustCustomerMenuCache(queryClient)
       setEditingCategory(null)
       setIsFormOpen(false)
     },
@@ -60,6 +69,7 @@ export function CategoriesManager() {
     mutationFn: adminApi.deleteCategory,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
+      bustCustomerMenuCache(queryClient)
       setDeleteError(null)
     },
     onError: (error: any) => {

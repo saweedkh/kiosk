@@ -10,8 +10,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000, // 1 minute
+            staleTime: 5 * 60 * 1000, // 5 minutes — kiosk data rarely changes mid-session
+            gcTime: 60 * 60 * 1000, // keep in memory 1 hour
             refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
+            retry: 2,
           },
         },
       })

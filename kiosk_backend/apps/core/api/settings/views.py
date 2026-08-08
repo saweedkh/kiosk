@@ -40,7 +40,10 @@ class SiteSettingsPublicAPIView(generics.RetrieveAPIView):
         operation_id="site_settings_public",
     )
     def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+        response = super().get(request, *args, **kwargs)
+        # Browser can reuse branding payload briefly (name + logo URL)
+        response['Cache-Control'] = 'public, max-age=60, stale-while-revalidate=300'
+        return response
 
 
 class SiteSettingsAdminAPIView(generics.RetrieveUpdateAPIView):

@@ -11,6 +11,13 @@ import { Input } from '@/components/shared/Input'
 import { formatCurrency, translateError } from '@/lib/utils'
 import type { Product, Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { clearCachedMenu } from '@/lib/kiosk-persist'
+
+function bustCustomerMenuCache(queryClient: ReturnType<typeof useQueryClient>) {
+  clearCachedMenu()
+  queryClient.invalidateQueries({ queryKey: ['products'] })
+  queryClient.invalidateQueries({ queryKey: ['categories'] })
+}
 
 export function ProductsManager() {
   const { user } = useAuthStore()
@@ -56,6 +63,7 @@ export function ProductsManager() {
     mutationFn: adminApi.createProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      bustCustomerMenuCache(queryClient)
       setIsFormOpen(false)
       setCurrentPage(1) // Reset to first page
       setApiErrors({}) // Clear errors on success
@@ -77,6 +85,7 @@ export function ProductsManager() {
       adminApi.updateProduct(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      bustCustomerMenuCache(queryClient)
       setEditingProduct(null)
       setIsFormOpen(false)
       setApiErrors({}) // Clear errors on success
@@ -99,6 +108,7 @@ export function ProductsManager() {
     mutationFn: adminApi.deleteProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      bustCustomerMenuCache(queryClient)
       setDeleteError(null)
     },
     onError: (error: any) => {
@@ -112,6 +122,7 @@ export function ProductsManager() {
       adminApi.updateProductStock(id, { stock_quantity, notes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      bustCustomerMenuCache(queryClient)
       setStockProduct(null)
       setStockNotes('')
       setStockError(null)

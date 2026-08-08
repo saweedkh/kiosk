@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { writeCachedSettings } from '@/lib/kiosk-persist'
 import { motion } from 'framer-motion'
 import { adminApi } from '@/lib/api/admin'
 import { Button } from '@/components/shared/Button'
@@ -22,9 +23,12 @@ export function SettingsManager() {
 
   const updateMutation = useMutation({
     mutationFn: (data: Settings) => adminApi.updateSettings(data),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
       queryClient.invalidateQueries({ queryKey: ['settings'] }) // برای صفحه customer
+      if (response?.result) {
+        writeCachedSettings(response.result)
+      }
       setApiErrors({})
       setSuccessMessage('تنظیمات با موفقیت به‌روزرسانی شد.')
       // پاک کردن پیام موفقیت بعد از 5 ثانیه
@@ -45,9 +49,12 @@ export function SettingsManager() {
 
   const patchMutation = useMutation({
     mutationFn: (data: Settings) => adminApi.patchSettings(data),
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
       queryClient.invalidateQueries({ queryKey: ['settings'] }) // برای صفحه customer
+      if (response?.result) {
+        writeCachedSettings(response.result)
+      }
       setApiErrors({})
     },
     onError: (error: any) => {
@@ -85,6 +92,7 @@ export function SettingsManager() {
   useEffect(() => {
     if (settingsData?.result) {
       setSettings(settingsData.result)
+      writeCachedSettings(settingsData.result)
     }
   }, [settingsData])
 
@@ -133,6 +141,8 @@ export function SettingsManager() {
       receipt_number_mode: settings.receipt_number_mode || 'manual',
       service_enabled: Boolean(settings.service_enabled),
       service_fee: Number(settings.service_fee || 0),
+      service_fee_dine_in: settings.service_fee_dine_in !== false,
+      service_fee_takeaway: settings.service_fee_takeaway !== false,
     }
     
     // Add logo if it's a File (اگر لوگو جدید انتخاب شده)
@@ -247,7 +257,7 @@ export function SettingsManager() {
             سرویس
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            مبلغ سرویس را اینجا مشخص کنید. اعمال روی فاکتور فقط وقتی است که حداقل یک محصول سفارش تیک «اعمال هزینه سرویس» داشته باشد؛ در آن صورت مبلغ یک‌بار به کل فاکتور اضافه می‌شود.
+            مبلغ سرویس را اینجا مشخص کنید. اعمال روی فاکتور فقط وقتی است که حداقل یک محصول سفارش تیک «اعمال هزینه سرویس» داشته باشد؛ در آن صورت مبلغ یک‌بار به کل فاکتور اضافه می‌شود. می‌توانید برای داخل سالن و بیرون‌بر جداگانه روشن/خاموش کنید.
           </p>
 
           <div className="space-y-4">
@@ -296,6 +306,52 @@ export function SettingsManager() {
               error={apiErrors.service_fee?.[0]}
               placeholder="مثلاً 50000"
             />
+
+            <div
+              className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${
+                !settings.service_enabled ? 'opacity-50 pointer-events-none' : ''
+              }`}
+            >
+              <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-border dark:border-border-dark p-4">
+                <input
+                  type="checkbox"
+                  checked={settings.service_fee_dine_in !== false}
+                  onChange={(e) => handleChange('service_fee_dine_in', e.target.checked)}
+                  disabled={!settings.service_enabled}
+                  className="mt-1 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="block font-medium text-text dark:text-text-dark">
+                    داخل سالن
+                  </span>
+                  <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    اعمال هزینه سرویس روی سفارش داخل سالن
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer select-none rounded-xl border border-border dark:border-border-dark p-4">
+                <input
+                  type="checkbox"
+                  checked={settings.service_fee_takeaway !== false}
+                  onChange={(e) => handleChange('service_fee_takeaway', e.target.checked)}
+                  disabled={!settings.service_enabled}
+                  className="mt-1 h-5 w-5 rounded border-border text-primary focus:ring-primary"
+                />
+                <span>
+                  <span className="block font-medium text-text dark:text-text-dark">
+                    بیرون‌بر
+                  </span>
+                  <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    اعمال هزینه سرویس روی سفارش بیرون‌بر
+                  </span>
+                </span>
+              </label>
+            </div>
+            {(apiErrors.service_fee_dine_in?.[0] || apiErrors.service_fee_takeaway?.[0]) && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {apiErrors.service_fee_dine_in?.[0] || apiErrors.service_fee_takeaway?.[0]}
+              </p>
+            )}
           </div>
         </motion.div>
 

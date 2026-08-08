@@ -144,6 +144,16 @@ class SiteSettings(models.Model):
         verbose_name='مبلغ سرویس (ریال)',
         help_text='مبلغ ثابت سرویس (ریال). روی کل فاکتور فقط یک‌بار اضافه می‌شود'
     )
+    service_fee_dine_in = models.BooleanField(
+        default=True,
+        verbose_name='اعمال سرویس روی داخل سالن',
+        help_text='اگر روشن باشد، هزینه سرویس برای سفارش‌های داخل سالن اعمال می‌شود'
+    )
+    service_fee_takeaway = models.BooleanField(
+        default=True,
+        verbose_name='اعمال سرویس روی بیرون‌بر',
+        help_text='اگر روشن باشد، هزینه سرویس برای سفارش‌های بیرون‌بر اعمال می‌شود'
+    )
 
     # شمارنده پایدار شماره فیش (با ری‌استارت سیستم ریست نمی‌شود)
     last_receipt_number = models.PositiveIntegerField(
@@ -214,6 +224,8 @@ class SiteSettings(models.Model):
                 'receipt_copy_mode': cls.RECEIPT_COPY_MODE_DUAL,
                 'service_enabled': False,
                 'service_fee': 0,
+                'service_fee_dine_in': True,
+                'service_fee_takeaway': True,
                 'last_receipt_number': 0,
                 'receipt_number_mode': cls.RECEIPT_NUMBER_MODE_MANUAL,
                 'receipt_number_date': None,
@@ -245,13 +257,22 @@ class SiteSettings(models.Model):
             return 0
         return max(int(self.service_fee or 0), 0)
 
-    def resolve_order_service_fee(self, products) -> int:
+    def service_applies_to_fulfillment(self, fulfillment_type: str) -> bool:
+        """Whether service fee is enabled for dine_in / takeaway."""
+        if fulfillment_type == 'takeaway':
+            return bool(self.service_fee_takeaway)
+        return bool(self.service_fee_dine_in)
+
+    def resolve_order_service_fee(self, products, fulfillment_type: str = 'dine_in') -> int:
         """
-        Apply configured fee once if any product has service_fee_applicable=True.
+        Apply configured fee once if fulfillment allows it and any product
+        has service_fee_applicable=True.
         `products` is an iterable of Product instances (or objects with the flag).
         """
         fee = self.get_active_service_fee()
         if fee <= 0:
+            return 0
+        if not self.service_applies_to_fulfillment(fulfillment_type or 'dine_in'):
             return 0
         for product in products:
             if getattr(product, 'service_fee_applicable', False):

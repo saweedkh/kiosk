@@ -9,15 +9,30 @@ import { Button } from '@/components/shared/Button'
 
 interface CartViewProps {
   onCheckout: (fulfillmentType: 'dine_in' | 'takeaway') => void
+  /** Base service fee when cart has applicable products and settings allow it. */
   serviceFee?: number
+  serviceFeeOnDineIn?: boolean
+  serviceFeeOnTakeaway?: boolean
 }
 
-export function CartView({ onCheckout, serviceFee = 0 }: CartViewProps) {
+export function CartView({
+  onCheckout,
+  serviceFee = 0,
+  serviceFeeOnDineIn = true,
+  serviceFeeOnTakeaway = true,
+}: CartViewProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [fulfillmentType, setFulfillmentType] = useState<'dine_in' | 'takeaway' | null>(null)
   const { items, removeItem, getTotalPrice, getTotalItems } =
     useCartStore()
-  const fee = Math.max(0, Math.round(Number(serviceFee) || 0))
+  const baseFee = Math.max(0, Math.round(Number(serviceFee) || 0))
+  const feeApplies =
+    fulfillmentType === 'takeaway'
+      ? serviceFeeOnTakeaway
+      : fulfillmentType === 'dine_in'
+        ? serviceFeeOnDineIn
+        : false
+  const fee = feeApplies ? baseFee : 0
   const grandTotal = getTotalPrice() + fee
 
   useEffect(() => {

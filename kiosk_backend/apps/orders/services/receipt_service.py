@@ -134,7 +134,11 @@ class ReceiptService:
             total_amount = int(order.total_amount or 0)
         else:
             products = [item.product for item in items if item.product_id]
-            service_fee = SiteSettings.get_settings().resolve_order_service_fee(products)
+            fulfillment = getattr(order, 'fulfillment_type', None) or 'dine_in'
+            service_fee = SiteSettings.get_settings().resolve_order_service_fee(
+                products,
+                fulfillment_type=fulfillment,
+            )
             total_amount = items_subtotal + service_fee
 
         if service_fee > 0:

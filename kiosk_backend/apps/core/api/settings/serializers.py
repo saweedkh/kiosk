@@ -30,6 +30,8 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'receipt_copy_mode',
             'service_enabled',
             'service_fee',
+            'service_fee_dine_in',
+            'service_fee_takeaway',
             'receipt_number_mode',
             'last_receipt_number',
             'next_receipt_number',
@@ -88,6 +90,8 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             'receipt_template',
             'service_enabled',
             'service_fee',
+            'service_fee_dine_in',
+            'service_fee_takeaway',
         ]
     
     def get_logo_url(self, obj):

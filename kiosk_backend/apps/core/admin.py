@@ -21,6 +21,8 @@ class SiteSettingsAdmin(admin.ModelAdmin):
                 'receipt_copy_mode',
                 'service_enabled',
                 'service_fee',
+                'service_fee_dine_in',
+                'service_fee_takeaway',
                 'receipt_number_mode',
                 'last_receipt_number',
                 'receipt_number_date',

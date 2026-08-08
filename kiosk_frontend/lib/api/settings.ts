@@ -1,5 +1,6 @@
 import { apiClient } from './client'
 import { getServerApiBaseUrl } from './base-url'
+import { writeCachedSettings } from '@/lib/kiosk-persist'
 import type { ApiResponse } from '@/types'
 
 export interface Settings {
@@ -23,7 +24,11 @@ export const settingsApi = {
   getSettings: async (): Promise<ApiResponse<Settings>> => {
     try {
       const response = await apiClient.get('/kiosk/settings/public/')
-      return response.data
+      const data = response.data as ApiResponse<Settings>
+      if (data?.result) {
+        writeCachedSettings(data.result)
+      }
+      return data
     } catch (error: any) {
       console.error('Failed to fetch settings:', error)
       return {
@@ -46,7 +51,8 @@ export const settingsApi = {
       const response = await fetch(url, {
         method: 'GET',
         headers: { Accept: 'application/json' },
-        cache: 'no-store',
+        // Allow Next/fetch HTTP cache for SSR branding
+        next: { revalidate: 60 },
       })
       if (!response.ok) {
         console.error('Server settings fetch failed:', response.status, url)

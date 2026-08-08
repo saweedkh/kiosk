@@ -56,7 +56,7 @@ class BaleClient:
     def _url(self, method: str) -> str:
         return f'{self.api_base}/bot{self.token}/{method}'
 
-    def call(self, method: str, payload: Optional[Dict[str, Any]] = None, timeout: int = 35) -> Dict[str, Any]:
+    def call(self, method: str, payload: Optional[Dict[str, Any]] = None, timeout: int | float | tuple = 35) -> Dict[str, Any]:
         if not self.configured:
             raise RuntimeError('توکن ربات بله تنظیم نشده است')
         response = requests.post(self._url(method), json=payload or {}, timeout=timeout)
@@ -66,11 +66,19 @@ class BaleClient:
             raise RuntimeError(data.get('description') or f'Bale API error on {method}')
         return data.get('result')
 
-    def get_updates(self, offset: Optional[int] = None, timeout: int = 30, limit: int = 50) -> List[Dict[str, Any]]:
-        payload: Dict[str, Any] = {'timeout': timeout, 'limit': limit}
+    def get_updates(self, offset: Optional[int] = None, timeout: int = 25, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Long-poll getUpdates.
+        HTTP read timeout must exceed Bale's long-poll `timeout`, otherwise
+        requests raises ReadTimeout while waiting for empty idle cycles.
+        """
+        long_poll = max(1, int(timeout))
+        payload: Dict[str, Any] = {'timeout': long_poll, 'limit': limit}
         if offset is not None:
             payload['offset'] = offset
-        result = self.call('getUpdates', payload, timeout=timeout + 10)
+        # connect=10s, read=long_poll + generous network slack
+        http_timeout = (10, long_poll + 25)
+        result = self.call('getUpdates', payload, timeout=http_timeout)
         return result or []
 
     def send_message(

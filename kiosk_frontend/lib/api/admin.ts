@@ -74,6 +74,7 @@ export const adminApi = {
     image?: File | string | null
     stock_quantity?: number
     is_active?: boolean
+    service_fee_applicable?: boolean
   }): Promise<ApiResponse<Product>> => {
     // If data is already FormData, use it directly
     if (data instanceof FormData) {
@@ -100,6 +101,8 @@ export const adminApi = {
       formData.append('stock_quantity', data.stock_quantity.toString())
     if (data.is_active !== undefined)
       formData.append('is_active', data.is_active.toString())
+    if (data.service_fee_applicable !== undefined)
+      formData.append('service_fee_applicable', data.service_fee_applicable.toString())
 
     const response = await apiClient.post('/kiosk/admin/products/', formData, {
       headers: {
@@ -119,6 +122,7 @@ export const adminApi = {
       image?: File | string | null
       stock_quantity?: number
       is_active?: boolean
+      service_fee_applicable?: boolean
     }
   ): Promise<ApiResponse<Product>> => {
     // If data is already FormData, use it directly
@@ -145,6 +149,8 @@ export const adminApi = {
       formData.append('stock_quantity', data.stock_quantity.toString())
     if (data.is_active !== undefined)
       formData.append('is_active', data.is_active.toString())
+    if (data.service_fee_applicable !== undefined)
+      formData.append('service_fee_applicable', data.service_fee_applicable.toString())
 
     const response = await apiClient.patch(`/kiosk/admin/products/${id}/`, formData, {
       headers: {
@@ -156,6 +162,17 @@ export const adminApi = {
 
   deleteProduct: async (id: number): Promise<void> => {
     await apiClient.delete(`/kiosk/admin/products/${id}/`)
+  },
+
+  updateProductStock: async (
+    id: number,
+    data: { stock_quantity: number; notes?: string }
+  ): Promise<ApiResponse<Product>> => {
+    const response = await apiClient.put(
+      `/kiosk/admin/products/${id}/update-stock/`,
+      data
+    )
+    return response.data
   },
 
   // Settings
@@ -204,6 +221,10 @@ export const adminApi = {
     if (data.receipt_template !== undefined) {
       formData.append('receipt_template', data.receipt_template || 'modern')
     }
+
+    if (data.receipt_copy_mode !== undefined) {
+      formData.append('receipt_copy_mode', data.receipt_copy_mode || 'dual')
+    }
     
     // logo (فقط اگر File باشد)
     if (data.logo instanceof File) {
@@ -219,6 +240,7 @@ export const adminApi = {
       'receipt_header',
       'receipt_footer',
       'receipt_template',
+      'receipt_copy_mode',
     ])
     Object.keys(data).forEach((key) => {
       if (!knownKeys.has(key)) {

@@ -127,13 +127,14 @@ class ReceiptService:
                 'price': f"{item.unit_price:,} ریال"
             })
 
-        # Prefer fee stored on the order; for older orders (fee=0) use current settings.
+        # Prefer fee stored on the order; for older orders (fee=0) recompute from products + settings.
         stored_fee = int(getattr(order, 'service_fee', 0) or 0)
         if stored_fee > 0:
             service_fee = stored_fee
             total_amount = int(order.total_amount or 0)
         else:
-            service_fee = SiteSettings.get_settings().get_active_service_fee()
+            products = [item.product for item in items if item.product_id]
+            service_fee = SiteSettings.get_settings().resolve_order_service_fee(products)
             total_amount = items_subtotal + service_fee
 
         if service_fee > 0:

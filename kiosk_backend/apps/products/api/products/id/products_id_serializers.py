@@ -17,7 +17,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'price',
             'category', 'category_name', 'image',
             'stock_quantity',
-            'is_active', 'is_in_stock',
+            'is_active', 'is_in_stock', 'service_fee_applicable',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'is_in_stock', 'created_at', 'updated_at']

@@ -30,7 +30,7 @@ cp docker-compose.production.yml "$PACKAGE_DIR/docker-compose.yml"
 cp docker-compose.production.host-network.yml "$PACKAGE_DIR/"
 
 echo "[startup scripts]"
-cp run.bat stop.bat setup-startup.bat "$PACKAGE_DIR/"
+cp run.bat stop.bat exit-kiosk.bat setup-startup.bat "$PACKAGE_DIR/"
 
 echo "[database scripts]"
 cp backup-database.bat restore-database.bat access-database.bat "$PACKAGE_DIR/"
@@ -71,7 +71,7 @@ MISSING=0
 for f in \
   docker-compose.yml \
   docker-compose.production.host-network.yml \
-  run.bat stop.bat setup-startup.bat \
+  run.bat stop.bat exit-kiosk.bat setup-startup.bat \
   backup-database.bat restore-database.bat access-database.bat \
   export-sqlite-data.bat import-data-to-postgres.bat migrate-sqlite-to-postgres.bat \
   fix-docker-safe.bat fix-docker-io-error.bat \

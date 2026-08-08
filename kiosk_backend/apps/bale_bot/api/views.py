@@ -43,3 +43,12 @@ class BaleBotSettingsAPIView(APIView):
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(BaleConfigService.serialize(obj), status=status.HTTP_200_OK)
+
+
+class BaleBotHealthAPIView(APIView):
+    """Live health check against Bale API + polling worker freshness."""
+
+    permission_classes = [IsSuperUser]
+
+    def get(self, request):
+        return Response(BaleConfigService.check_health())

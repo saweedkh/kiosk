@@ -62,9 +62,16 @@ echo -e "${YELLOW}Copying JSON out to host...${NC}"
 docker cp "${BACKEND_CONTAINER}:${CONTAINER_OUTPUT}" "${HOST_OUTPUT}"
 docker exec "${BACKEND_CONTAINER}" rm -f "${CONTAINER_OUTPUT}" 2>/dev/null || true
 
+ABS_OUTPUT="$(cd "$(dirname "${HOST_OUTPUT}")" && pwd)/$(basename "${HOST_OUTPUT}")"
+
 echo
-echo -e "${GREEN}Export saved:${NC} ${HOST_OUTPUT}"
-echo -e "Size: $(du -h "${HOST_OUTPUT}" | cut -f1)"
+echo "=========================================="
+echo -e "${GREEN}EXPORT OK${NC}"
+echo "Relative: ${HOST_OUTPUT}"
+echo "Absolute: ${ABS_OUTPUT}"
+echo "Size:     $(du -h "${HOST_OUTPUT}" | cut -f1)"
+echo "=========================================="
 echo
-echo -e "${YELLOW}Later, after Postgres is up, import with:${NC}"
+echo -e "${YELLOW}Import later with:${NC}"
 echo "  ./import-data-to-postgres.sh ${HOST_OUTPUT}"
+echo "  ./import-data-to-postgres.sh \"${ABS_OUTPUT}\""

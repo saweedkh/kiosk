@@ -96,6 +96,11 @@ export const accountsApi = {
     return response.data
   },
 
+  checkBaleHealth: async (): Promise<ApiResponse<BaleBotHealth>> => {
+    const response = await apiClient.get('/kiosk/bale/health/')
+    return response.data
+  },
+
   updateBaleSettings: async (data: {
     is_enabled?: boolean
     bot_token?: string
@@ -109,10 +114,33 @@ export const accountsApi = {
 
 export interface BaleBotPanelSettings {
   is_enabled: boolean
+  env_enabled?: boolean
   has_token: boolean
   token_masked: string
   api_base: string
   is_runtime_active: boolean
+  last_poll_at?: string | null
+  last_poll_error?: string
   updated_at?: string | null
+}
+
+export interface BaleBotHealth {
+  checked_at: string
+  is_enabled: boolean
+  env_enabled?: boolean
+  has_token: boolean
+  is_runtime_active: boolean
+  api_base: string
+  api_ok: boolean
+  latency_ms: number | null
+  bot_id: number | null
+  bot_username: string | null
+  bot_name: string | null
+  worker_ok: boolean
+  last_poll_at: string | null
+  last_poll_age_seconds: number | null
+  last_poll_error: string
+  status: 'ok' | 'degraded' | 'down' | 'disabled' | 'misconfigured' | 'env_disabled' | string
+  message: string
 }
 

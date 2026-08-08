@@ -277,10 +277,15 @@ export default function CustomerPage() {
   const settings = settingsData?.result || {};
   const siteName = resolveSiteName(settings);
   const copyrightText = resolveCopyright(settings);
-  const serviceFee =
+  const configuredServiceFee =
     settings.service_enabled
       ? Math.max(0, Math.round(Number(settings.service_fee) || 0))
       : 0;
+  const cartHasServiceProduct = items.some(
+    (item) => Boolean(item.product?.service_fee_applicable)
+  );
+  const serviceFee =
+    configuredServiceFee > 0 && cartHasServiceProduct ? configuredServiceFee : 0;
   const checkoutTotal = getTotalPrice() + serviceFee;
   
   // Reset logo error when settings change

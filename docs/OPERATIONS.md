@@ -262,6 +262,7 @@ SELECT COUNT(*) FROM products_product;
 | اسکریپت | کار |
 |---------|-----|
 | `run.bat` | استارت روزمره + Chrome Kiosk |
+| `exit-kiosk.bat` | بستن Chrome کیوسک بدون stop سرویس‌ها (کار روی دسکتاپ) |
 | `stop.bat` | توقف استک |
 | `setup-startup.bat` | استارت با boot ویندوز |
 | `backup-database.bat` | بکاپ DB + media |

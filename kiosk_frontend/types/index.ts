@@ -45,6 +45,7 @@ export interface Product {
   stock_quantity: number
   is_active: boolean
   is_in_stock: string | boolean
+  service_fee_applicable?: boolean
   created_at?: string
   updated_at?: string
 }

@@ -38,6 +38,7 @@ copy /Y docker-compose.production.host-network.yml "%PACKAGE_DIR%\" >nul
 echo [startup scripts]
 copy /Y run.bat "%PACKAGE_DIR%\" >nul
 copy /Y stop.bat "%PACKAGE_DIR%\" >nul
+copy /Y exit-kiosk.bat "%PACKAGE_DIR%\" >nul
 copy /Y setup-startup.bat "%PACKAGE_DIR%\" >nul
 
 echo [database scripts]
@@ -99,6 +100,7 @@ for %%F in (
     docker-compose.production.host-network.yml
     run.bat
     stop.bat
+    exit-kiosk.bat
     setup-startup.bat
     backup-database.bat
     restore-database.bat
@@ -156,7 +158,7 @@ echo.
 echo Inside the ZIP (see PACKAGE_CONTENTS.md):
 echo   - docker-compose.yml + Postgres stack
 echo   - images\backend.tar frontend.tar nginx.tar
-echo   - run/stop/setup-startup
+echo   - run/stop/exit-kiosk/setup-startup
 echo   - backup/restore/access + SQLite migrate scripts
 echo   - .env / .env.example (COMPLETE)
 echo   - OPERATIONS.md + other docs

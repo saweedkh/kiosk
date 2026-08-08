@@ -1,8 +1,10 @@
+"""
+هندلر ربات بله — UX دکمه‌محور، انتخاب از لیست، تایید، و پیشرفت مراحل.
+"""
 from __future__ import annotations
 
 import logging
 import uuid
-from datetime import timedelta
 from typing import Any, Dict, Optional
 
 from django.contrib.auth import get_user_model
@@ -13,40 +15,70 @@ from apps.accounts.services.permission_service import PermissionService
 from apps.accounts.services.user_service import UserService
 from apps.bale_bot.client import BaleClient
 from apps.bale_bot.menus import (
+    PAGE_SIZE,
+    build_cancel_keyboard,
+    build_category_keyboard,
+    build_delete_confirm_keyboard,
     build_main_menu,
+    build_order_detail_keyboard,
+    build_order_list_keyboard,
+    build_order_status_keyboard,
     build_orders_menu,
+    build_product_detail_keyboard,
+    build_product_edit_fields_keyboard,
+    build_product_list_keyboard,
     build_products_menu,
+    build_report_result_keyboard,
     build_reports_menu,
+    build_skip_image_keyboard,
+    build_stock_after_keyboard,
     build_stock_menu,
+    build_stock_pick_keyboard,
+    cancel_hint,
+    fmt_money,
+    fmt_num,
+    fulfillment_label,
+    help_text,
+    order_status_label,
+    progress_bar,
+    section_title,
     welcome_text,
 )
 from apps.bale_bot.models import BotConversation
-from apps.admin_panel.services.report_service import ReportService
+from apps.bale_bot.reports import (
+    build_daily_report_text,
+    build_low_stock_report_header,
+    build_products_report_text,
+    build_sales7_report_text,
+    build_stock_report_text,
+    get_low_stock_products,
+)
+from apps.orders.models import Order
 from apps.products.models import Category, Product
 from apps.products.services.product_service import ProductService
 from apps.products.services.stock_service import StockService
-from apps.orders.models import Order
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 SKIP_IMAGE_WORDS = {'رد', 'بدون تصویر', 'بدون', 'skip', '/skip', 'نه'}
-
-
-def _fmt_num(value) -> str:
-    try:
-        return f'{int(value):,}'.replace(',', '٬')
-    except (TypeError, ValueError):
-        return str(value)
-
-
-def _fmt_money(value) -> str:
-    return f'{_fmt_num(value)} ریال'
+ADD_STEPS = 5
+PAYMENT_STATUS_LABELS = {
+    'pending': 'در انتظار',
+    'processing': 'در حال پردازش',
+    'paid': 'پرداخت‌شده',
+    'completed': 'تکمیل‌شده',
+    'cancelled': 'لغو‌شده',
+    'failed': 'ناموفق',
+    'refunded': 'بازگشت‌شده',
+}
 
 
 class UpdateHandler:
     def __init__(self, client: Optional[BaleClient] = None):
         self.client = client or BaleClient()
+
+    # ── entry ────────────────────────────────────────────────────────────
 
     def handle(self, update: Dict[str, Any]) -> None:
         try:
@@ -67,19 +99,38 @@ class UpdateHandler:
     def _send(self, chat_id, text: str, reply_markup=None):
         self.client.send_message(chat_id, text, reply_markup=reply_markup)
 
+    def _reply(
+        self,
+        chat_id,
+        text: str,
+        reply_markup=None,
+        *,
+        message_id: Optional[int] = None,
+        prefer_edit: bool = False,
+    ):
+        if prefer_edit and message_id:
+            try:
+                self.client.edit_message_text(chat_id, message_id, text, reply_markup=reply_markup)
+                return
+            except Exception:
+                logger.debug('editMessageText failed; falling back to send', exc_info=True)
+        self._send(chat_id, text, reply_markup)
+
     def _deny(self, chat_id):
         self._send(
             chat_id,
-            'شما به ربات دسترسی ندارید.\n'
-            f'شناسه چت شما: `{chat_id}`\n'
-            'این مقدار را به سوپریوزر بدهید تا در پنل مدیریت (تب کاربران) ثبت کند.',
+            'شما به ربات دسترسی ندارید.\n\n'
+            f'شناسه چت شما:\n`{chat_id}`\n\n'
+            'این عدد را به سوپریوزر بدهید تا در پنل (تب کاربران) ثبت کند.',
         )
 
     def _require(self, user: User, chat_id, codename: str) -> bool:
         if PermissionService.user_has_permission(user, codename):
             return True
-        self._send(chat_id, 'دسترسی لازم برای این عملیات را ندارید.')
+        self._send(chat_id, '⛔️ دسترسی لازم برای این عملیات را ندارید.', build_main_menu(user))
         return False
+
+    # ── media helpers ────────────────────────────────────────────────────
 
     def _extract_image_file_id(self, message: Dict[str, Any]) -> Optional[str]:
         photos = message.get('photo') or []
@@ -108,6 +159,45 @@ class UpdateHandler:
         product.image.save(safe_name, ContentFile(content), save=True)
         return product
 
+    def _product_card(self, product: Product) -> str:
+        status = '✅ فعال' if product.is_active else '⛔️ غیرفعال'
+        image = '🖼 دارد' if product.image else 'بدون تصویر'
+        stock = fmt_num(product.stock_quantity)
+        if product.stock_quantity <= 0:
+            stock_line = f'موجودی: {stock}  (ناموجود)'
+        elif product.stock_quantity <= 5:
+            stock_line = f'موجودی: {stock}  ⚠️ کم'
+        else:
+            stock_line = f'موجودی: {stock}'
+        return (
+            f'📦 {product.name}\n'
+            f'شناسه: #{product.id}\n'
+            f'قیمت: {fmt_money(product.price)}\n'
+            f'{stock_line}\n'
+            f'دسته: {product.category.name if product.category_id else "—"}\n'
+            f'تصویر: {image}\n'
+            f'وضعیت: {status}'
+        )
+
+    def _order_card(self, order: Order) -> str:
+        created = timezone.localtime(order.created_at).strftime('%H:%M') if order.created_at else '—'
+        fee = int(getattr(order, 'service_fee', 0) or 0)
+        lines = [
+            f'🧾 سفارش {order.order_number}',
+            f'ساعت: {created}',
+            f'مبلغ: {fmt_money(order.total_amount)}',
+        ]
+        if fee > 0:
+            lines.append(f'سرویس: {fmt_money(fee)}')
+        lines.extend([
+            f'وضعیت: {order_status_label(order.status)}',
+            f'پرداخت: {PAYMENT_STATUS_LABELS.get(order.payment_status, order.payment_status or "—")}',
+            f'نوع: {fulfillment_label(getattr(order, "fulfillment_type", "") or "dine_in")}',
+        ])
+        return '\n'.join(lines)
+
+    # ── messages ─────────────────────────────────────────────────────────
+
     def _handle_message(self, message: Dict[str, Any]) -> None:
         chat = message.get('chat') or {}
         chat_id = chat.get('id')
@@ -120,13 +210,13 @@ class UpdateHandler:
             return
 
         conv = self._conversation(chat_id)
-        if text in ('/start', 'شروع', 'منو'):
+        if text in ('/start', 'شروع', 'منو', '🏠'):
             conv.clear()
             self._send(chat_id, welcome_text(user), build_main_menu(user))
             return
 
         if text in ('/help', 'راهنما'):
-            self._send_help(chat_id, user)
+            self._send(chat_id, help_text(user), build_main_menu(user))
             return
 
         if conv.state:
@@ -145,12 +235,18 @@ class UpdateHandler:
             )
             self._send(
                 chat_id,
-                'برای تنظیم تصویر محصول، از منو «افزودن محصول» یا ویرایش → تصویر استفاده کنید.',
+                '🖼 برای ذخیره تصویر، از «افزودن محصول» یا جزئیات محصول → ویرایش → تصویر استفاده کنید.',
                 menu,
             )
             return
 
-        self._send(chat_id, 'دستور شناخته نشد. از منو استفاده کنید:', build_main_menu(user))
+        self._send(
+            chat_id,
+            'از منوی زیر استفاده کنید — نیازی به تایپ دستور نیست.',
+            build_main_menu(user),
+        )
+
+    # ── callbacks ────────────────────────────────────────────────────────
 
     def _handle_callback(self, callback: Dict[str, Any]) -> None:
         data = callback.get('data') or ''
@@ -158,6 +254,8 @@ class UpdateHandler:
         message = callback.get('message') or {}
         chat = message.get('chat') or {}
         chat_id = chat.get('id')
+        message_id = message.get('message_id')
+
         if cq_id:
             try:
                 self.client.answer_callback_query(cq_id)
@@ -172,53 +270,571 @@ class UpdateHandler:
             return
 
         conv = self._conversation(chat_id)
+        ctx = {'message_id': message_id}
+
+        if data == 'flow:cancel':
+            conv.clear()
+            self._reply(
+                chat_id,
+                'عملیات لغو شد.',
+                build_main_menu(user),
+                message_id=message_id,
+                prefer_edit=True,
+            )
+            return
 
         if data == 'menu:main':
             conv.clear()
-            self._send(chat_id, welcome_text(user), build_main_menu(user))
-        elif data == 'menu:reports':
+            self._reply(chat_id, welcome_text(user), build_main_menu(user), message_id=message_id, prefer_edit=True)
+            return
+        if data == 'menu:reports':
             if self._require(user, chat_id, 'view_reports'):
-                self._send(chat_id, 'نوع گزارش را انتخاب کنید:', build_reports_menu())
-        elif data == 'menu:products':
+                self._reply(
+                    chat_id,
+                    section_title('📊', 'گزارشات', 'نوع گزارش را انتخاب کنید:'),
+                    build_reports_menu(),
+                    message_id=message_id,
+                    prefer_edit=True,
+                )
+            return
+        if data == 'menu:products':
             if self._require(user, chat_id, 'view_products'):
-                self._send(chat_id, 'مدیریت محصولات:', build_products_menu(user))
-        elif data == 'menu:stock':
+                self._reply(
+                    chat_id,
+                    section_title('📦', 'محصولات', 'لیست را باز کنید یا محصول جدید بسازید.'),
+                    build_products_menu(user),
+                    message_id=message_id,
+                    prefer_edit=True,
+                )
+            return
+        if data == 'menu:stock':
             if self._require(user, chat_id, 'change_stock'):
-                self._send(chat_id, 'عملیات موجودی:', build_stock_menu())
-        elif data == 'menu:orders':
+                self._reply(
+                    chat_id,
+                    section_title('📥', 'موجودی', 'نوع تغییر را انتخاب کنید، بعد محصول را از لیست بزنید.'),
+                    build_stock_menu(),
+                    message_id=message_id,
+                    prefer_edit=True,
+                )
+            return
+        if data == 'menu:orders':
             if self._require(user, chat_id, 'view_orders'):
-                self._send(chat_id, 'سفارش‌ها:', build_orders_menu(user))
-        elif data == 'menu:help':
-            self._send_help(chat_id, user)
-        elif data.startswith('report:'):
-            self._handle_report(user, chat_id, data.split(':', 1)[1])
-        elif data.startswith('product:'):
-            self._handle_product_action(user, chat_id, conv, data.split(':', 1)[1])
-        elif data.startswith('stock:'):
-            self._handle_stock_action(user, chat_id, conv, data.split(':', 1)[1])
-        elif data.startswith('order:'):
-            self._handle_order_action(user, chat_id, conv, data.split(':', 1)[1])
-        else:
-            self._send(chat_id, 'گزینه نامعتبر است.', build_main_menu(user))
+                self._reply(
+                    chat_id,
+                    section_title('🧾', 'سفارش‌ها', 'سفارش‌های امروز را ببینید یا وضعیت را عوض کنید.'),
+                    build_orders_menu(user),
+                    message_id=message_id,
+                    prefer_edit=True,
+                )
+            return
+        if data == 'menu:help':
+            self._reply(chat_id, help_text(user), build_main_menu(user), message_id=message_id, prefer_edit=True)
+            return
 
-    def _send_help(self, chat_id, user: User):
-        lines = [
-            'راهنمای ربات کیوسک',
-            '',
-            '/start — منوی اصلی',
-            '/help — همین راهنما',
-        ]
-        if PermissionService.user_has_permission(user, 'view_reports'):
-            lines.append('/گزارش — گزارش امروز')
-        if PermissionService.user_has_permission(user, 'change_stock'):
-            lines.append('/موجودی <شناسه> <عدد> — تنظیم موجودی')
-        if PermissionService.user_has_permission(user, 'view_products'):
-            lines.append('/محصول <شناسه> — جزئیات محصول')
-            lines.append('ارسال عکس در افزودن/ویرایش محصول → ذخیره تصویر در پنل')
-        if not PermissionService.user_has_permission(user, 'delete_products'):
-            lines.append('')
-            lines.append('حذف محصول برای نقش شما غیرفعال است.')
-        self._send(chat_id, '\n'.join(lines), build_main_menu(user))
+        if data.startswith('report:'):
+            self._handle_report(user, chat_id, data.split(':', 1)[1], ctx)
+            return
+
+        # Products
+        if data.startswith('p:list:'):
+            page = int(data.split(':')[2])
+            self._show_product_list(user, chat_id, page, ctx)
+            return
+        if data == 'p:search':
+            if not self._require(user, chat_id, 'view_products'):
+                return
+            conv.set_state('product_search')
+            self._send(
+                chat_id,
+                f'🔍 نام محصول را بنویسید:\n{cancel_hint()}',
+                build_cancel_keyboard('menu:products'),
+            )
+            return
+        if data == 'p:add':
+            self._start_product_add(user, chat_id, conv)
+            return
+        if data.startswith('p:v:'):
+            self._show_product(user, chat_id, int(data.split(':')[2]), ctx)
+            return
+        if data.startswith('p:e:'):
+            self._show_product_edit_menu(user, chat_id, int(data.split(':')[2]), ctx)
+            return
+        if data.startswith('p:ef:'):
+            # p:ef:{id}:{field}
+            parts = data.split(':')
+            self._start_product_edit_field(user, chat_id, conv, int(parts[2]), parts[3], ctx)
+            return
+        if data.startswith('p:d:'):
+            self._ask_delete(user, chat_id, int(data.split(':')[2]), ctx)
+            return
+        if data.startswith('p:dc:'):
+            self._confirm_delete(user, chat_id, int(data.split(':')[2]), ctx)
+            return
+
+        if data.startswith('cat:'):
+            self._finish_product_category(user, chat_id, conv, int(data.split(':')[1]))
+            return
+
+        if data == 'img:skip':
+            self._skip_image(user, chat_id, conv)
+            return
+
+        # Stock
+        if data.startswith('s:mode:'):
+            mode = data.split(':')[2]
+            if not self._require(user, chat_id, 'change_stock'):
+                return
+            self._show_stock_pick(user, chat_id, 0, mode, ctx)
+            return
+        if data.startswith('s:pick:'):
+            parts = data.split(':')
+            page = int(parts[2])
+            mode = parts[3] if len(parts) > 3 else 'set'
+            if not self._require(user, chat_id, 'change_stock'):
+                return
+            self._show_stock_pick(user, chat_id, page, mode, ctx)
+            return
+        if data.startswith('s:p:'):
+            # s:p:{id}:{mode}
+            parts = data.split(':')
+            self._start_stock_qty(user, chat_id, conv, int(parts[2]), parts[3])
+            return
+
+        # Orders
+        if data.startswith('o:today:'):
+            self._show_orders_today(user, chat_id, int(data.split(':')[2]), ctx)
+            return
+        if data == 'o:status':
+            if not self._require(user, chat_id, 'change_orders'):
+                return
+            conv.set_state('order_status_number')
+            self._send(
+                chat_id,
+                f'شماره سفارش را بنویسید:\n{cancel_hint()}',
+                build_cancel_keyboard('menu:orders'),
+            )
+            return
+        if data.startswith('o:v:'):
+            self._show_order(user, chat_id, int(data.split(':')[2]), ctx)
+            return
+        if data.startswith('o:es:'):
+            oid = int(data.split(':')[2])
+            if not self._require(user, chat_id, 'change_orders'):
+                return
+            self._reply(
+                chat_id,
+                'وضعیت جدید را انتخاب کنید:',
+                build_order_status_keyboard(oid),
+                message_id=message_id,
+                prefer_edit=True,
+            )
+            return
+        if data.startswith('o:st:'):
+            # o:st:{id}:{status}
+            parts = data.split(':')
+            self._set_order_status(user, chat_id, int(parts[2]), parts[3], ctx)
+            return
+
+        self._reply(chat_id, 'گزینه نامعتبر است.', build_main_menu(user), message_id=message_id, prefer_edit=True)
+
+    # ── product flows ────────────────────────────────────────────────────
+
+    def _show_product_list(self, user, chat_id, page: int, ctx: dict):
+        if not self._require(user, chat_id, 'view_products'):
+            return
+        page = max(0, page)
+        qs = Product.objects.select_related('category').order_by('-id')
+        start = page * PAGE_SIZE
+        chunk = list(qs[start : start + PAGE_SIZE + 1])
+        has_next = len(chunk) > PAGE_SIZE
+        products = chunk[:PAGE_SIZE]
+        if not products and page == 0:
+            self._reply(
+                chat_id,
+                'هنوز محصولی ثبت نشده.\nبا دکمه افزودن شروع کنید.',
+                build_products_menu(user),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+            return
+        if not products:
+            page = max(0, page - 1)
+            return self._show_product_list(user, chat_id, page, ctx)
+        text = section_title('📋', f'لیست محصولات (صفحه {page + 1})', 'برای جزئیات روی محصول بزنید:')
+        self._reply(
+            chat_id,
+            text,
+            build_product_list_keyboard(products, page, has_next, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _show_product(self, user, chat_id, product_id: int, ctx: dict):
+        if not self._require(user, chat_id, 'view_products'):
+            return
+        try:
+            product = Product.objects.select_related('category').get(pk=product_id)
+        except Product.DoesNotExist:
+            self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
+            return
+        self._reply(
+            chat_id,
+            self._product_card(product),
+            build_product_detail_keyboard(product.id, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _show_product_edit_menu(self, user, chat_id, product_id: int, ctx: dict):
+        if not self._require(user, chat_id, 'change_products'):
+            return
+        try:
+            product = Product.objects.select_related('category').get(pk=product_id)
+        except Product.DoesNotExist:
+            self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
+            return
+        self._reply(
+            chat_id,
+            f'{self._product_card(product)}\n\nکدام مورد را ویرایش کنیم؟',
+            build_product_edit_fields_keyboard(product.id, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _start_product_edit_field(self, user, chat_id, conv, product_id: int, field: str, ctx: dict):
+        if not self._require(user, chat_id, 'change_products'):
+            return
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
+            return
+
+        if field == 'on':
+            product = ProductService.update_product(product, {'is_active': True})
+            self._reply(
+                chat_id,
+                f'✅ محصول فعال شد.\n\n{self._product_card(product)}',
+                build_product_detail_keyboard(product.id, user),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+            return
+        if field == 'off':
+            product = ProductService.update_product(product, {'is_active': False})
+            self._reply(
+                chat_id,
+                f'⛔️ محصول غیرفعال شد.\n\n{self._product_card(product)}',
+                build_product_detail_keyboard(product.id, user),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+            return
+        if field == 'image':
+            conv.set_state('product_edit_image', product_id=product_id)
+            self._send(
+                chat_id,
+                f'🖼 تصویر جدید «{product.name}» را بفرستید.\n{cancel_hint()}',
+                build_skip_image_keyboard(),
+            )
+            return
+        if field == 'stock':
+            if not PermissionService.user_has_permission(user, 'change_stock'):
+                self._send(chat_id, 'دسترسی تغییر موجودی ندارید.')
+                return
+            conv.set_state('stock_set_qty', product_id=product_id, mode='set')
+            self._send(
+                chat_id,
+                f'📥 موجودی جدید برای «{product.name}» (فعلی {fmt_num(product.stock_quantity)}):\n{cancel_hint()}',
+                build_cancel_keyboard(f'p:v:{product_id}'),
+            )
+            return
+
+        field_map = {'name': 'name', 'price': 'price', 'description': 'description', 'stock': 'stock_quantity'}
+        key = field_map.get(field)
+        if not key:
+            self._send(chat_id, 'فیلد نامعتبر.')
+            return
+        prompts = {
+            'name': 'نام جدید را بنویسید:',
+            'price': 'قیمت جدید (ریال، فقط عدد) را بنویسید:',
+            'description': 'توضیحات جدید را بنویسید:',
+        }
+        conv.set_state('product_edit_value', product_id=product_id, field=key)
+        self._send(chat_id, f'{prompts[key]}\n{cancel_hint()}', build_cancel_keyboard(f'p:e:{product_id}'))
+
+    def _ask_delete(self, user, chat_id, product_id: int, ctx: dict):
+        if not self._require(user, chat_id, 'delete_products'):
+            return
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
+            return
+        self._reply(
+            chat_id,
+            f'⚠️ حذف «{product.name}» برگشت‌ناپذیر است.\nمطمئن هستید؟',
+            build_delete_confirm_keyboard(product_id),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _confirm_delete(self, user, chat_id, product_id: int, ctx: dict):
+        if not self._require(user, chat_id, 'delete_products'):
+            return
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
+            return
+        name = product.name
+        product.delete()
+        self._reply(
+            chat_id,
+            f'🗑 محصول «{name}» حذف شد.',
+            build_products_menu(user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _start_product_add(self, user, chat_id, conv):
+        if not self._require(user, chat_id, 'add_products'):
+            return
+        conv.set_state('product_add_name', draft={})
+        self._send(
+            chat_id,
+            f'➕ افزودن محصول\n{progress_bar(1, ADD_STEPS)}\n\nنام محصول را بنویسید:\n{cancel_hint()}',
+            build_cancel_keyboard('menu:products'),
+        )
+
+    def _finish_product_category(self, user, chat_id, conv, category_id: int):
+        if conv.state != 'product_add_category':
+            self._send(chat_id, 'این مرحله منقضی شده. از منو دوباره شروع کنید.', build_products_menu(user))
+            return
+        data = dict(conv.data or {})
+        draft = data.get('draft') or {}
+        try:
+            category = Category.objects.get(pk=category_id, is_active=True)
+        except Category.DoesNotExist:
+            self._send(chat_id, 'دسته‌بندی نامعتبر است.')
+            return
+        try:
+            product = ProductService.create_product({
+                'name': draft['name'],
+                'price': draft['price'],
+                'stock_quantity': draft.get('stock_quantity', 0),
+                'category': category,
+                'description': '',
+                'is_active': True,
+            })
+        except Exception as exc:
+            conv.clear()
+            self._send(chat_id, f'خطا در ایجاد محصول: {exc}', build_products_menu(user))
+            return
+        conv.set_state('product_add_image', product_id=product.id)
+        self._send(
+            chat_id,
+            f'✅ محصول ساخته شد (#{product.id})\n{progress_bar(5, ADD_STEPS)}\n\n'
+            f'🖼 تصویر را بفرستید یا «بدون تصویر» را بزنید.',
+            build_skip_image_keyboard(),
+        )
+
+    def _skip_image(self, user, chat_id, conv):
+        state = conv.state
+        data = dict(conv.data or {})
+        if state == 'product_add_image':
+            try:
+                product = Product.objects.select_related('category').get(pk=data.get('product_id'))
+            except Product.DoesNotExist:
+                conv.clear()
+                self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
+                return
+            conv.clear()
+            self._send(
+                chat_id,
+                f'محصول بدون تصویر ذخیره شد.\n\n{self._product_card(product)}',
+                build_product_detail_keyboard(product.id, user),
+            )
+            return
+        if state == 'product_edit_image':
+            conv.clear()
+            pid = data.get('product_id')
+            self._send(chat_id, 'تغییر تصویر لغو شد.', build_product_detail_keyboard(pid, user) if pid else build_products_menu(user))
+            return
+        self._send(chat_id, 'مرحله‌ای برای رد کردن نیست.', build_main_menu(user))
+
+    # ── stock ────────────────────────────────────────────────────────────
+
+    def _show_stock_pick(self, user, chat_id, page: int, mode: str, ctx: dict):
+        page = max(0, page)
+        mode = mode if mode in ('set', 'inc', 'dec') else 'set'
+        qs = Product.objects.order_by('stock_quantity', 'name')
+        start = page * PAGE_SIZE
+        chunk = list(qs[start : start + PAGE_SIZE + 1])
+        has_next = len(chunk) > PAGE_SIZE
+        products = chunk[:PAGE_SIZE]
+        mode_title = {'set': 'تنظیم دقیق', 'inc': 'افزایش', 'dec': 'کاهش'}[mode]
+        if not products:
+            self._reply(chat_id, 'محصولی نیست.', build_stock_menu(), message_id=ctx.get('message_id'), prefer_edit=True)
+            return
+        self._reply(
+            chat_id,
+            section_title('📥', f'انتخاب محصول — {mode_title}', 'روی محصول بزنید:'),
+            build_stock_pick_keyboard(products, page, has_next, mode),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _start_stock_qty(self, user, chat_id, conv, product_id: int, mode: str):
+        if not self._require(user, chat_id, 'change_stock'):
+            return
+        try:
+            product = Product.objects.get(pk=product_id)
+        except Product.DoesNotExist:
+            self._send(chat_id, 'محصول یافت نشد.', build_stock_menu())
+            return
+        mode = mode if mode in ('set', 'inc', 'dec') else 'set'
+        conv.set_state('stock_set_qty', product_id=product.id, mode=mode)
+        prompts = {
+            'set': f'🎯 موجودی جدید «{product.name}» (فعلی {fmt_num(product.stock_quantity)}):',
+            'inc': f'➕ چقدر به «{product.name}» اضافه شود؟ (فعلی {fmt_num(product.stock_quantity)})',
+            'dec': f'➖ چقدر از «{product.name}» کم شود؟ (فعلی {fmt_num(product.stock_quantity)})',
+        }
+        self._send(chat_id, f'{prompts[mode]}\n{cancel_hint()}', build_cancel_keyboard('menu:stock'))
+
+    # ── orders ───────────────────────────────────────────────────────────
+
+    def _show_orders_today(self, user, chat_id, page: int, ctx: dict):
+        if not self._require(user, chat_id, 'view_orders'):
+            return
+        page = max(0, page)
+        start_date = timezone.localdate()
+        qs = Order.objects.filter(created_at__date=start_date).order_by('-id')
+        start = page * PAGE_SIZE
+        chunk = list(qs[start : start + PAGE_SIZE + 1])
+        has_next = len(chunk) > PAGE_SIZE
+        orders = chunk[:PAGE_SIZE]
+        if not orders and page == 0:
+            self._reply(
+                chat_id,
+                'امروز هنوز سفارشی ثبت نشده.',
+                build_orders_menu(user),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+            return
+        self._reply(
+            chat_id,
+            section_title('🧾', f'سفارش‌های امروز (صفحه {page + 1})', 'برای جزئیات روی سفارش بزنید:'),
+            build_order_list_keyboard(orders, page, has_next, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _show_order(self, user, chat_id, order_id: int, ctx: dict):
+        if not self._require(user, chat_id, 'view_orders'):
+            return
+        try:
+            order = Order.objects.get(pk=order_id)
+        except Order.DoesNotExist:
+            self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
+            return
+        self._reply(
+            chat_id,
+            self._order_card(order),
+            build_order_detail_keyboard(order.id, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _set_order_status(self, user, chat_id, order_id: int, status_value: str, ctx: dict):
+        if not self._require(user, chat_id, 'change_orders'):
+            return
+        allowed = {c[0] for c in Order.STATUS_CHOICES}
+        if status_value not in allowed:
+            self._send(chat_id, 'وضعیت نامعتبر است.')
+            return
+        try:
+            order = Order.objects.get(pk=order_id)
+        except Order.DoesNotExist:
+            self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
+            return
+        order.status = status_value
+        update_fields = ['status']
+        if hasattr(order, 'updated_at'):
+            update_fields.append('updated_at')
+        order.save(update_fields=update_fields)
+        self._reply(
+            chat_id,
+            f'✅ وضعیت به «{order_status_label(status_value)}» تغییر کرد.\n\n{self._order_card(order)}',
+            build_order_detail_keyboard(order.id, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    # ── reports / commands ───────────────────────────────────────────────
+
+    def _handle_report(self, user, chat_id, kind: str, ctx: Optional[dict] = None):
+        ctx = ctx or {}
+        if not self._require(user, chat_id, 'view_reports'):
+            return
+        try:
+            if kind == 'daily':
+                text = build_daily_report_text(user=user)
+            elif kind == 'sales7':
+                text = build_sales7_report_text(user=user)
+            elif kind == 'stock':
+                text = build_stock_report_text(user=user)
+            elif kind == 'products':
+                text = build_products_report_text(user=user)
+            elif kind == 'low_stock':
+                products = get_low_stock_products(limit=20)
+                if not products:
+                    text = (
+                        '✅ موجودی کم / ناموجود\n'
+                        'همه محصولات بالای ۵ عدد موجودی دارند.'
+                    )
+                    self._reply(
+                        chat_id,
+                        text,
+                        build_report_result_keyboard('low_stock'),
+                        message_id=ctx.get('message_id'),
+                        prefer_edit=True,
+                    )
+                    return
+                self._reply(
+                    chat_id,
+                    build_low_stock_report_header(products),
+                    build_product_list_keyboard(products, 0, False, user),
+                    message_id=ctx.get('message_id'),
+                    prefer_edit=True,
+                )
+                return
+            else:
+                text = 'نوع گزارش نامعتبر است.'
+                self._reply(
+                    chat_id,
+                    text,
+                    build_reports_menu(),
+                    message_id=ctx.get('message_id'),
+                    prefer_edit=True,
+                )
+                return
+
+            # Bale/Telegram hard limit ~4096 chars
+            if len(text) > 3900:
+                text = text[:3890] + '\n…'
+
+            self._reply(
+                chat_id,
+                text,
+                build_report_result_keyboard(kind),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+        except Exception as exc:
+            logger.exception('report failed')
+            self._send(chat_id, f'خطا در تهیه گزارش: {exc}', build_reports_menu())
 
     def _handle_command(self, user: User, chat_id, text: str):
         parts = text.split()
@@ -229,162 +845,22 @@ class UpdateHandler:
             if not self._require(user, chat_id, 'change_stock'):
                 return
             try:
-                product_id = int(parts[1])
-                qty = int(parts[2])
                 product = StockService.update_stock(
-                    product_id, qty, change_type='manual', admin_user=user, notes='via bale bot'
+                    int(parts[1]), int(parts[2]), change_type='manual', admin_user=user, notes='via bale bot'
                 )
                 self._send(
                     chat_id,
-                    f'موجودی «{product.name}» به {_fmt_num(product.stock_quantity)} عدد تنظیم شد.',
-                    build_main_menu(user),
+                    f'✅ موجودی «{product.name}» → {fmt_num(product.stock_quantity)}',
+                    build_stock_after_keyboard(product.id),
                 )
             except Exception as exc:
                 self._send(chat_id, f'خطا: {exc}')
         elif cmd in ('/محصول', '/product') and len(parts) >= 2:
-            if not self._require(user, chat_id, 'view_products'):
-                return
-            try:
-                product = Product.objects.select_related('category').get(pk=int(parts[1]))
-                self._send(chat_id, self._product_text(product), build_products_menu(user))
-            except Product.DoesNotExist:
-                self._send(chat_id, 'محصول یافت نشد.')
+            self._show_product(user, chat_id, int(parts[1]), {})
         else:
-            self._send(chat_id, 'دستور نامعتبر است.', build_main_menu(user))
+            self._send(chat_id, 'از منوی دکمه‌ای استفاده کنید.', build_main_menu(user))
 
-    def _handle_report(self, user: User, chat_id, kind: str):
-        if not self._require(user, chat_id, 'view_reports'):
-            return
-        try:
-            if kind == 'daily':
-                report = ReportService.get_daily_report(date=timezone.localdate(), user=user)
-                total_orders = report.get('total_orders', 0) or 0
-                total_sales = report.get('total_sales', 0) or 0
-                avg = (total_sales / total_orders) if total_orders else 0
-                text = (
-                    f'📅 گزارش امروز ({timezone.localdate()})\n'
-                    f'سفارش‌ها: {_fmt_num(total_orders)}\n'
-                    f'فروش: {_fmt_money(total_sales)}\n'
-                    f'میانگین سبد: {_fmt_money(avg)}'
-                )
-            elif kind == 'sales7':
-                end = timezone.now()
-                start = end - timedelta(days=7)
-                report = ReportService.get_sales_report(start_date=start, end_date=end, user=user)
-                text = (
-                    '📈 فروش ۷ روز اخیر\n'
-                    f'سفارش‌ها: {_fmt_num(report.get("total_orders", 0))}\n'
-                    f'فروش: {_fmt_money(report.get("total_sales", 0))}\n'
-                    f'تراکنش موفق: {_fmt_num(report.get("successful_transactions", 0))}'
-                )
-            elif kind == 'stock':
-                report = ReportService.get_stock_report(user=user)
-                text = (
-                    '📦 موجودی انبار\n'
-                    f'اقلام: {_fmt_num(report.get("total_items", 0))}\n'
-                    f'ارزش موجودی: {_fmt_money(report.get("total_stock_value", 0))}'
-                )
-            elif kind == 'low_stock':
-                products = Product.objects.filter(stock_quantity__lte=5).order_by('stock_quantity')[:20]
-                if not products:
-                    text = 'محصولی با موجودی کم یافت نشد.'
-                else:
-                    lines = ['⚠️ موجودی کم / ناموجود:']
-                    for p in products:
-                        lines.append(f'#{p.id} {p.name}: {_fmt_num(p.stock_quantity)}')
-                    text = '\n'.join(lines)
-            else:
-                text = 'نوع گزارش نامعتبر است.'
-            self._send(chat_id, text, build_reports_menu())
-        except Exception as exc:
-            logger.exception('report failed')
-            self._send(chat_id, f'خطا در تهیه گزارش: {exc}')
-
-    def _product_text(self, product: Product) -> str:
-        has_image = bool(product.image)
-        return (
-            f'#{product.id} — {product.name}\n'
-            f'قیمت: {_fmt_money(product.price)}\n'
-            f'موجودی: {_fmt_num(product.stock_quantity)}\n'
-            f'دسته: {product.category.name if product.category_id else "-"}\n'
-            f'تصویر: {"دارد" if has_image else "ندارد"}\n'
-            f'وضعیت: {"فعال" if product.is_active else "غیرفعال"}'
-        )
-
-    def _handle_product_action(self, user: User, chat_id, conv: BotConversation, action: str):
-        if action == 'list':
-            if not self._require(user, chat_id, 'view_products'):
-                return
-            products = Product.objects.select_related('category').order_by('-id')[:15]
-            if not products:
-                self._send(chat_id, 'محصولی ثبت نشده است.', build_products_menu(user))
-                return
-            lines = ['آخرین محصولات:']
-            for p in products:
-                lines.append(
-                    f'#{p.id} {p.name} | {_fmt_money(p.price)} | موجودی {_fmt_num(p.stock_quantity)}'
-                )
-            self._send(chat_id, '\n'.join(lines), build_products_menu(user))
-        elif action == 'search':
-            if not self._require(user, chat_id, 'view_products'):
-                return
-            conv.set_state('product_search')
-            self._send(chat_id, 'نام محصول را برای جستجو بفرستید:')
-        elif action == 'add':
-            if not self._require(user, chat_id, 'add_products'):
-                return
-            conv.set_state('product_add_name', draft={})
-            self._send(chat_id, 'نام محصول جدید را بفرستید:\n(برای انصراف: انصراف)')
-        elif action == 'edit':
-            if not self._require(user, chat_id, 'change_products'):
-                return
-            conv.set_state('product_edit_id')
-            self._send(chat_id, 'شناسه محصول برای ویرایش را بفرستید:')
-        elif action == 'delete':
-            if not self._require(user, chat_id, 'delete_products'):
-                return
-            conv.set_state('product_delete_id')
-            self._send(chat_id, 'شناسه محصول برای حذف را بفرستید:\n(این عمل برگشت‌ناپذیر است)')
-        else:
-            self._send(chat_id, 'عملیات نامعتبر.', build_products_menu(user))
-
-    def _handle_stock_action(self, user: User, chat_id, conv: BotConversation, action: str):
-        if not self._require(user, chat_id, 'change_stock'):
-            return
-        if action == 'set':
-            conv.set_state('stock_set_id', mode='set')
-            self._send(chat_id, 'شناسه محصول را بفرستید:')
-        elif action == 'inc':
-            conv.set_state('stock_set_id', mode='inc')
-            self._send(chat_id, 'شناسه محصول را بفرستید:')
-        elif action == 'dec':
-            conv.set_state('stock_set_id', mode='dec')
-            self._send(chat_id, 'شناسه محصول را بفرستید:')
-        else:
-            self._send(chat_id, 'عملیات نامعتبر.', build_stock_menu())
-
-    def _handle_order_action(self, user: User, chat_id, conv: BotConversation, action: str):
-        if action == 'today':
-            if not self._require(user, chat_id, 'view_orders'):
-                return
-            start = timezone.localdate()
-            orders = Order.objects.filter(created_at__date=start).order_by('-id')[:15]
-            if not orders:
-                self._send(chat_id, 'سفارشی برای امروز نیست.', build_orders_menu(user))
-                return
-            lines = ['سفارش‌های امروز:']
-            for o in orders:
-                lines.append(
-                    f'{o.order_number} | {_fmt_money(o.total_amount)} | {o.status}'
-                )
-            self._send(chat_id, '\n'.join(lines), build_orders_menu(user))
-        elif action == 'status':
-            if not self._require(user, chat_id, 'change_orders'):
-                return
-            conv.set_state('order_status_number')
-            self._send(chat_id, 'شماره سفارش را بفرستید:')
-        else:
-            self._send(chat_id, 'عملیات نامعتبر.', build_orders_menu(user))
+    # ── conversation text input ──────────────────────────────────────────
 
     def _handle_conversation_input(
         self,
@@ -395,7 +871,7 @@ class UpdateHandler:
         message: Optional[Dict[str, Any]] = None,
     ):
         message = message or {}
-        if text in ('انصراف', '/cancel', 'cancel'):
+        if text in ('انصراف', '/cancel', 'cancel', 'لغو'):
             conv.clear()
             self._send(chat_id, 'عملیات لغو شد.', build_main_menu(user))
             return
@@ -403,76 +879,52 @@ class UpdateHandler:
         state = conv.state
         data = dict(conv.data or {})
 
-        # Image steps first (photo may have empty text)
         if state in ('product_add_image', 'product_edit_image'):
             file_id = self._extract_image_file_id(message)
             if file_id:
                 try:
-                    if state == 'product_add_image':
-                        product = Product.objects.get(pk=data.get('product_id'))
-                        self._attach_image_to_product(product, file_id)
-                        product.refresh_from_db()
-                        conv.clear()
-                        self._send(
-                            chat_id,
-                            f'تصویر ذخیره شد و در پنل نمایش داده می‌شود.\n{self._product_text(product)}',
-                            build_products_menu(user),
-                        )
-                        return
-                    product = Product.objects.get(pk=data.get('product_id'))
+                    product = Product.objects.select_related('category').get(pk=data.get('product_id'))
                     self._attach_image_to_product(product, file_id)
                     product.refresh_from_db()
                     conv.clear()
+                    label = 'تصویر ذخیره شد' if state == 'product_add_image' else 'تصویر به‌روز شد'
                     self._send(
                         chat_id,
-                        f'تصویر محصول به‌روز شد.\n{self._product_text(product)}',
-                        build_products_menu(user),
+                        f'🖼 {label}.\n\n{self._product_card(product)}',
+                        build_product_detail_keyboard(product.id, user),
                     )
-                    return
                 except Exception as exc:
                     logger.exception('image attach failed')
-                    self._send(chat_id, f'خطا در ذخیره تصویر: {exc}\nدوباره عکس بفرستید یا «رد» بزنید.')
-                    return
-
-            if text.strip().lower() in SKIP_IMAGE_WORDS or text.strip() in SKIP_IMAGE_WORDS:
-                if state == 'product_add_image':
-                    try:
-                        product = Product.objects.get(pk=data.get('product_id'))
-                    except Product.DoesNotExist:
-                        conv.clear()
-                        self._send(chat_id, 'محصول یافت نشد.', build_products_menu(user))
-                        return
-                    conv.clear()
-                    self._send(
-                        chat_id,
-                        f'محصول بدون تصویر ذخیره شد.\n{self._product_text(product)}',
-                        build_products_menu(user),
-                    )
-                    return
-                conv.clear()
-                self._send(chat_id, 'تغییر تصویر لغو شد.', build_products_menu(user))
+                    self._send(chat_id, f'خطا در ذخیره تصویر: {exc}\nدوباره بفرستید یا «بدون تصویر» را بزنید.')
                 return
-
-            self._send(chat_id, 'لطفاً یک تصویر بفرستید، یا برای رد کردن بنویسید: رد')
+            if text.strip().lower() in SKIP_IMAGE_WORDS or text.strip() in SKIP_IMAGE_WORDS:
+                self._skip_image(user, chat_id, conv)
+                return
+            self._send(chat_id, 'لطفاً تصویر بفرستید یا دکمه «بدون تصویر» را بزنید.', build_skip_image_keyboard())
             return
 
         if state == 'product_search':
-            products = Product.objects.filter(name__icontains=text).order_by('name')[:10]
+            products = list(Product.objects.filter(name__icontains=text).order_by('name')[:PAGE_SIZE])
             conv.clear()
             if not products:
-                self._send(chat_id, 'نتیجه‌ای یافت نشد.', build_products_menu(user))
+                self._send(chat_id, f'نتیجه‌ای برای «{text}» پیدا نشد.', build_products_menu(user))
                 return
-            lines = [f'نتایج جستجو برای «{text}»:']
-            for p in products:
-                lines.append(f'#{p.id} {p.name} | {_fmt_money(p.price)}')
-            self._send(chat_id, '\n'.join(lines), build_products_menu(user))
+            self._send(
+                chat_id,
+                section_title('🔍', f'نتایج «{text}»', 'روی محصول بزنید:'),
+                build_product_list_keyboard(products, 0, False, user),
+            )
             return
 
         if state == 'product_add_name':
             draft = data.get('draft') or {}
             draft['name'] = text
             conv.set_state('product_add_price', draft=draft)
-            self._send(chat_id, 'قیمت محصول (ریال، فقط عدد) را بفرستید:')
+            self._send(
+                chat_id,
+                f'➕ افزودن محصول\n{progress_bar(2, ADD_STEPS)}\n\nقیمت (ریال، فقط عدد):\n{cancel_hint()}',
+                build_cancel_keyboard('menu:products'),
+            )
             return
 
         if state == 'product_add_price':
@@ -486,7 +938,11 @@ class UpdateHandler:
             draft = data.get('draft') or {}
             draft['price'] = price
             conv.set_state('product_add_stock', draft=draft)
-            self._send(chat_id, 'موجودی اولیه را بفرستید:')
+            self._send(
+                chat_id,
+                f'➕ افزودن محصول\n{progress_bar(3, ADD_STEPS)}\n\nموجودی اولیه (≥ ۰):\n{cancel_hint()}',
+                build_cancel_keyboard('menu:products'),
+            )
             return
 
         if state == 'product_add_stock':
@@ -499,145 +955,47 @@ class UpdateHandler:
                 return
             draft = data.get('draft') or {}
             draft['stock_quantity'] = stock
-            cats = list(Category.objects.filter(is_active=True).order_by('display_order', 'name')[:20])
+            cats = list(Category.objects.filter(is_active=True).order_by('display_order', 'name')[:30])
             if not cats:
                 conv.clear()
-                self._send(chat_id, 'هیچ دسته‌بندی فعالی نیست. اول از پنل دسته بسازید.')
+                self._send(chat_id, 'هیچ دسته‌بندی فعالی نیست. اول از پنل دسته بسازید.', build_main_menu(user))
                 return
-            lines = ['شناسه دسته‌بندی را بفرستید:']
-            for c in cats:
-                lines.append(f'#{c.id} {c.name}')
             conv.set_state('product_add_category', draft=draft)
-            self._send(chat_id, '\n'.join(lines))
+            self._send(
+                chat_id,
+                f'➕ افزودن محصول\n{progress_bar(4, ADD_STEPS)}\n\nدسته‌بندی را انتخاب کنید:',
+                build_category_keyboard(cats),
+            )
             return
 
         if state == 'product_add_category':
-            try:
-                category = Category.objects.get(pk=int(text.strip()), is_active=True)
-            except (ValueError, Category.DoesNotExist):
-                self._send(chat_id, 'دسته‌بندی نامعتبر است. شناسه معتبر بفرستید:')
-                return
-            draft = data.get('draft') or {}
-            try:
-                product = ProductService.create_product({
-                    'name': draft['name'],
-                    'price': draft['price'],
-                    'stock_quantity': draft.get('stock_quantity', 0),
-                    'category': category,
-                    'description': '',
-                    'is_active': True,
-                })
-            except Exception as exc:
-                conv.clear()
-                self._send(chat_id, f'خطا در ایجاد محصول: {exc}')
-                return
-            conv.set_state('product_add_image', product_id=product.id)
-            self._send(
-                chat_id,
-                f'محصول ایجاد شد (#{product.id}).\n'
-                'حالا تصویر محصول را بفرستید.\n'
-                'اگر تصویر ندارید بنویسید: رد',
-            )
-            return
-
-        if state == 'product_edit_id':
-            try:
-                product = Product.objects.get(pk=int(text.strip()))
-            except (ValueError, Product.DoesNotExist):
-                self._send(chat_id, 'محصول یافت نشد. شناسه معتبر بفرستید:')
-                return
-            conv.set_state('product_edit_field', product_id=product.id)
-            self._send(
-                chat_id,
-                f'{self._product_text(product)}\n\n'
-                'فیلد را بفرستید: نام | قیمت | موجودی | توضیحات | تصویر | فعال | غیرفعال',
-            )
-            return
-
-        if state == 'product_edit_field':
-            field_map = {
-                'نام': 'name',
-                'قیمت': 'price',
-                'موجودی': 'stock_quantity',
-                'توضیحات': 'description',
-                'تصویر': 'image',
-                'فعال': 'activate',
-                'غیرفعال': 'deactivate',
-            }
-            key = field_map.get(text.strip())
-            if not key:
-                self._send(chat_id, 'فیلد نامعتبر. یکی از: نام | قیمت | موجودی | توضیحات | تصویر | فعال | غیرفعال')
-                return
-            product_id = data.get('product_id')
-            if key == 'activate':
-                product = ProductService.update_product(Product.objects.get(pk=product_id), {'is_active': True})
-                conv.clear()
-                self._send(chat_id, f'محصول فعال شد.\n{self._product_text(product)}', build_products_menu(user))
-                return
-            if key == 'deactivate':
-                product = ProductService.update_product(Product.objects.get(pk=product_id), {'is_active': False})
-                conv.clear()
-                self._send(chat_id, f'محصول غیرفعال شد.\n{self._product_text(product)}', build_products_menu(user))
-                return
-            if key == 'image':
-                conv.set_state('product_edit_image', product_id=product_id)
-                self._send(chat_id, 'تصویر جدید محصول را بفرستید (یا برای انصراف: رد)')
-                return
-            conv.set_state('product_edit_value', product_id=product_id, field=key)
-            self._send(chat_id, 'مقدار جدید را بفرستید:')
+            self._send(chat_id, 'لطفاً از دکمه‌های دسته‌بندی استفاده کنید.', build_category_keyboard(
+                Category.objects.filter(is_active=True).order_by('display_order', 'name')[:30]
+            ))
             return
 
         if state == 'product_edit_value':
             product_id = data.get('product_id')
             field = data.get('field')
             try:
-                product = Product.objects.get(pk=product_id)
+                product = Product.objects.select_related('category').get(pk=product_id)
                 value: Any = text
                 if field == 'price':
                     value = int(text.replace(',', '').replace('٬', '').strip())
                 elif field == 'stock_quantity':
                     value = int(text.strip())
-                    if not PermissionService.user_has_permission(user, 'change_stock') and value != product.stock_quantity:
-                        # allow if they have change_products - stock via edit is ok if change_stock OR change_products
-                        if not PermissionService.user_has_permission(user, 'change_products'):
-                            raise PermissionError('no stock permission')
+                    if not PermissionService.user_has_any(user, ['change_stock', 'change_products']):
+                        raise PermissionError('no stock permission')
                 ProductService.update_product(product, {field: value})
                 product.refresh_from_db()
                 conv.clear()
-                self._send(chat_id, f'به‌روزرسانی شد.\n{self._product_text(product)}', build_products_menu(user))
+                self._send(
+                    chat_id,
+                    f'✅ ذخیره شد.\n\n{self._product_card(product)}',
+                    build_product_detail_keyboard(product.id, user),
+                )
             except Exception as exc:
                 self._send(chat_id, f'خطا: {exc}')
-            return
-
-        if state == 'product_delete_id':
-            if not self._require(user, chat_id, 'delete_products'):
-                conv.clear()
-                return
-            try:
-                product = Product.objects.get(pk=int(text.strip()))
-            except (ValueError, Product.DoesNotExist):
-                self._send(chat_id, 'محصول یافت نشد.')
-                return
-            name = product.name
-            product.delete()
-            conv.clear()
-            self._send(chat_id, f'محصول «{name}» حذف شد.', build_products_menu(user))
-            return
-
-        if state == 'stock_set_id':
-            try:
-                product = Product.objects.get(pk=int(text.strip()))
-            except (ValueError, Product.DoesNotExist):
-                self._send(chat_id, 'محصول یافت نشد. شناسه معتبر بفرستید:')
-                return
-            mode = data.get('mode', 'set')
-            conv.set_state('stock_set_qty', product_id=product.id, mode=mode)
-            prompt = {
-                'set': f'موجودی جدید برای «{product.name}» (فعلی {_fmt_num(product.stock_quantity)}):',
-                'inc': f'مقدار افزایش برای «{product.name}»:',
-                'dec': f'مقدار کاهش برای «{product.name}»:',
-            }.get(mode, 'مقدار را بفرستید:')
-            self._send(chat_id, prompt)
             return
 
         if state == 'stock_set_qty':
@@ -659,11 +1017,11 @@ class UpdateHandler:
                 conv.clear()
                 self._send(
                     chat_id,
-                    f'موجودی «{product.name}» اکنون {_fmt_num(product.stock_quantity)} عدد است.',
-                    build_stock_menu(),
+                    f'✅ موجودی «{product.name}» اکنون {fmt_num(product.stock_quantity)} عدد است.',
+                    build_stock_after_keyboard(product.id),
                 )
             except Exception as exc:
-                self._send(chat_id, f'خطا: {exc}')
+                self._send(chat_id, f'خطا: {exc}\nعدد معتبر بفرستید یا انصراف.')
             return
 
         if state == 'order_status_number':
@@ -672,36 +1030,13 @@ class UpdateHandler:
             except Order.DoesNotExist:
                 self._send(chat_id, 'سفارش یافت نشد. شماره معتبر بفرستید:')
                 return
-            conv.set_state('order_status_value', order_id=order.id)
+            conv.clear()
             self._send(
                 chat_id,
-                f'سفارش {order.order_number} — وضعیت فعلی: {order.status}\n'
-                'وضعیت جدید را بفرستید: pending | processing | paid | completed | cancelled',
+                f'{self._order_card(order)}\n\nوضعیت جدید را انتخاب کنید:',
+                build_order_status_keyboard(order.id),
             )
             return
 
-        if state == 'order_status_value':
-            if not self._require(user, chat_id, 'change_orders'):
-                conv.clear()
-                return
-            status_value = text.strip().lower()
-            allowed = {'pending', 'processing', 'paid', 'completed', 'cancelled'}
-            if status_value not in allowed:
-                self._send(chat_id, 'وضعیت نامعتبر است.')
-                return
-            try:
-                order = Order.objects.get(pk=data.get('order_id'))
-                order.status = status_value
-                order.save(update_fields=['status', 'updated_at'] if hasattr(order, 'updated_at') else ['status'])
-                conv.clear()
-                self._send(
-                    chat_id,
-                    f'وضعیت سفارش {order.order_number} به {status_value} تغییر کرد.',
-                    build_orders_menu(user),
-                )
-            except Exception as exc:
-                self._send(chat_id, f'خطا: {exc}')
-            return
-
         conv.clear()
-        self._send(chat_id, 'گفتگو نامعتبر بود. از منو دوباره شروع کنید.', build_main_menu(user))
+        self._send(chat_id, 'گفتگو منقضی شد. از منو دوباره شروع کنید.', build_main_menu(user))

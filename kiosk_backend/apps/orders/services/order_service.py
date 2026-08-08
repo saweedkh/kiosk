@@ -55,7 +55,8 @@ class OrderService:
         
         order_number = OrderService.generate_order_number()
         order_items_data, items_total = OrderService._validate_and_prepare_items(items)
-        service_fee = SiteSettings.get_settings().get_active_service_fee()
+        products = [row['product'] for row in order_items_data]
+        service_fee = SiteSettings.get_settings().resolve_order_service_fee(products)
         total_amount = items_total + service_fee
         
         # Create order and items in a transaction (commit before payment processing)

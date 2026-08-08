@@ -258,8 +258,16 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Bale Bot
+def _env_bool(name: str, default: bool = True) -> bool:
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == '':
+        return default
+    return str(raw).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 BALE_BOT_TOKEN = os.getenv('BALE_BOT_TOKEN', '')
 BALE_API_BASE = os.getenv('BALE_API_BASE', 'https://tapi.bale.ai')
 BALE_POLL_TIMEOUT = int(os.getenv('BALE_POLL_TIMEOUT', '30'))
-BALE_BOT_ENABLED = os.getenv('BALE_BOT_ENABLED', 'True') == 'True'
+# Master kill-switch: if False, bale_poll exits immediately and never long-polls.
+BALE_BOT_ENABLED = _env_bool('BALE_BOT_ENABLED', True)
 

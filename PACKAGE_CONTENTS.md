@@ -10,7 +10,7 @@ kiosk-app/
 ├── docker-compose.production.host-network.yml  # اختیاری (WSL2/Linux host network)
 ├── .env                                    # تنظیمات — قبل از اجرا ویرایش کنید
 ├── .env.example                            # همان قالب (مرجع)
-├── run.bat / stop.bat / setup-startup.bat
+├── run.bat / stop.bat / exit-kiosk.bat / setup-startup.bat
 ├── images/
 │   ├── backend.tar
 │   ├── frontend.tar

@@ -164,7 +164,7 @@ docker compose up -d bale_bot
 docker logs -f kiosk_bale_bot
 ```
 
-اگر `BALE_BOT_TOKEN` خالی باشد، پروسه با خطا خارج می‌شود و در لاگ مشخص است.
+اگر `BALE_BOT_ENABLED=False` باشد، پروسهٔ `bale_poll` **اصلاً polling را شروع نمی‌کند** و با کد ۰ خارج می‌شود (کانتینر `restart: on-failure` دوباره بالا نمی‌آید). سوییچ پنل فقط وقتی اثر دارد که ENV روشن باشد.
 
 ### بدون Docker
 

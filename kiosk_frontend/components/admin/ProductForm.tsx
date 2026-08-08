@@ -17,6 +17,7 @@ const productSchema = z.object({
   category: z.number().nullable(),
   stock_quantity: z.number().min(0, 'تعداد موجودی باید مثبت باشد').optional(),
   is_active: z.boolean().optional(),
+  service_fee_applicable: z.boolean().optional(),
   image: z.any().optional(),
 }).refine((data) => data.category !== null && data.category !== undefined, {
   message: 'دسته‌بندی الزامی است',
@@ -32,6 +33,8 @@ interface ProductFormProps {
   onCancel: () => void
   isLoading?: boolean
   apiErrors?: Record<string, string[]>
+  /** When false, stock field is hidden (use dedicated stock update instead). */
+  canEditStock?: boolean
 }
 
 export function ProductForm({
@@ -41,6 +44,7 @@ export function ProductForm({
   onCancel,
   isLoading = false,
   apiErrors = {},
+  canEditStock = true,
 }: ProductFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(
     product?.image || null
@@ -60,6 +64,7 @@ export function ProductForm({
       category: product?.category || null,
       stock_quantity: product?.stock_quantity || 0,
       is_active: product?.is_active ?? true,
+      service_fee_applicable: product?.service_fee_applicable ?? false,
     },
   })
 
@@ -136,7 +141,7 @@ export function ProductForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className={`grid grid-cols-1 ${canEditStock ? 'md:grid-cols-2' : ''} gap-6`}>
         <div>
           <Input
             label={
@@ -151,14 +156,16 @@ export function ProductForm({
           />
         </div>
 
-        <div>
-          <Input
-            label="تعداد موجودی"
-            type="number"
-            {...register('stock_quantity', { valueAsNumber: true })}
-            error={errors.stock_quantity?.message}
-          />
-        </div>
+        {canEditStock && (
+          <div>
+            <Input
+              label="تعداد موجودی"
+              type="number"
+              {...register('stock_quantity', { valueAsNumber: true })}
+              error={errors.stock_quantity?.message}
+            />
+          </div>
+        )}
       </div>
 
       <Controller
@@ -212,6 +219,21 @@ export function ProductForm({
           />
         )}
       />
+
+      <Controller
+        name="service_fee_applicable"
+        control={control}
+        render={({ field }) => (
+          <Switch
+            checked={field.value ?? false}
+            onChange={field.onChange}
+            label="اعمال هزینه سرویس"
+          />
+        )}
+      />
+      <p className="text-sm text-gray-500 dark:text-gray-400 -mt-4">
+        اگر فعال باشد و حداقل یک محصول از این نوع در سفارش باشد، مبلغ سرویس تنظیمات یک‌بار به فاکتور اضافه می‌شود.
+      </p>
 
       <div className="flex gap-4">
         <Button type="submit" variant="primary" isLoading={isLoading}>

@@ -11,6 +11,7 @@ class ProductUpdateSerializerInput(serializers.Serializer):
     image = serializers.ImageField(required=False, label=_('تصویر'))
     stock_quantity = serializers.IntegerField(required=False, label=_('موجودی'))
     is_active = serializers.BooleanField(required=False, label=_('فعال'))
+    service_fee_applicable = serializers.BooleanField(required=False, label=_('اعمال هزینه سرویس'))
 
 class AdminProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True, label=_('نام دسته‌بندی'))
@@ -25,7 +26,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'name', 'description', 'price', 'category', 'category_name',
-            'image', 'stock_quantity', 'is_active',
+            'image', 'stock_quantity', 'is_active', 'service_fee_applicable',
             'is_in_stock', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'is_in_stock', 'created_at', 'updated_at']
@@ -55,7 +56,7 @@ class AdminProductListSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'name', 'description', 'price', 'category_name', 'category',
-            'image', 'stock_quantity', 'is_active', 'is_in_stock'
+            'image', 'stock_quantity', 'is_active', 'service_fee_applicable', 'is_in_stock'
         ]
         read_only_fields = ['id', 'is_in_stock']
     

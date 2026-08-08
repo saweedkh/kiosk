@@ -31,8 +31,11 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category', 'price', 'stock_quantity', 'is_active', 'created_at']
-    list_filter = ['category', 'is_active', 'created_at']
+    list_display = [
+        'name', 'category', 'price', 'stock_quantity',
+        'service_fee_applicable', 'is_active', 'created_at',
+    ]
+    list_filter = ['category', 'service_fee_applicable', 'is_active', 'created_at']
     search_fields = ['name', 'description']
     readonly_fields = ['is_in_stock', 'created_at', 'updated_at']
     fieldsets = (
@@ -46,7 +49,7 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('stock_quantity', 'is_in_stock')
         }),
         ('Status', {
-            'fields': ('is_active',)
+            'fields': ('is_active', 'service_fee_applicable')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at')

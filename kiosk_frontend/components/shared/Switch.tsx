@@ -20,6 +20,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
           type="button"
           role="switch"
           aria-checked={checked}
+          aria-label={label}
           disabled={disabled}
           onClick={() => !disabled && onChange(!checked)}
           className={cn(
@@ -48,7 +49,7 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
             )}
             onClick={() => !disabled && onChange(!checked)}
           >
-            {checked ? 'فعال' : 'غیرفعال'}
+            {label}
           </label>
         )}
       </div>
@@ -57,4 +58,3 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(
 )
 
 Switch.displayName = 'Switch'
-

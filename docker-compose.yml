@@ -101,7 +101,8 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    # Exit 0 when BALE_BOT_ENABLED=False — do not restart-loop
+    restart: on-failure
 
   nginx:
     build:

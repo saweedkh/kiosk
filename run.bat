@@ -160,7 +160,7 @@ echo Service is ready!
 echo.
 
 :open_browser
-echo Opening Chrome in kiosk mode...
+echo Opening Chrome in fullscreen app mode...
 
 set "CHROME_PATH="
 if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
@@ -178,13 +178,23 @@ if "%CHROME_PATH%"=="" (
     goto done
 )
 
-start "" "%CHROME_PATH%" --kiosk http://localhost --no-first-run --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --disable-extensions --disable-plugins --disable-default-apps --disable-sync --disable-translate --disable-notifications --disable-password-generation --disable-save-password-bubble
+REM Dedicated profile so exit-kiosk.bat can close only this Chrome.
+REM Use --app (not --kiosk / --start-fullscreen) so the admin touch
+REM button can exit/enter via the Fullscreen API. Customer page
+REM enters fullscreen on first touch.
+set "KIOSK_PROFILE=%LOCALAPPDATA%\KioskAppChrome"
+
+start "" "%CHROME_PATH%" --user-data-dir="%KIOSK_PROFILE%" --app=http://localhost --start-maximized --no-first-run --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --disable-extensions --disable-plugins --disable-default-apps --disable-sync --disable-translate --disable-notifications --disable-password-generation --disable-save-password-bubble
 
 echo.
 echo ==========================================
-echo Browser opened in kiosk mode.
+echo Browser opened in app mode.
 echo App: http://localhost
-echo Stop with: stop.bat
+echo.
+echo Staff exit on touch kiosk:
+echo   - Admin panel button: "خروج از تمام‌صفحه"
+echo   - Or double-click exit-kiosk.bat to close Chrome
+echo Stop containers with: stop.bat
 echo ==========================================
 echo.
 

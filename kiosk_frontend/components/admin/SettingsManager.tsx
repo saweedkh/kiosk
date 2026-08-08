@@ -95,6 +95,26 @@ export function SettingsManager() {
     }))
   }
 
+  const handleReceiptCopyModeChange = async (mode: 'single' | 'dual') => {
+    const previous = (settings.receipt_copy_mode as 'single' | 'dual' | undefined) || 'dual'
+    handleChange('receipt_copy_mode', mode)
+    setApiErrors({})
+    try {
+      const response = await patchMutation.mutateAsync({ receipt_copy_mode: mode })
+      if (response?.result) {
+        setSettings((prev) => ({ ...prev, ...response.result }))
+      }
+      setSuccessMessage(
+        mode === 'single'
+          ? 'حالت چاپ روی تک فیش ذخیره شد.'
+          : 'حالت چاپ روی دو فیش ذخیره شد.'
+      )
+      setTimeout(() => setSuccessMessage(null), 4000)
+    } catch {
+      handleChange('receipt_copy_mode', previous)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setApiErrors({})
@@ -227,7 +247,7 @@ export function SettingsManager() {
             سرویس
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            در صورت فعال بودن، مبلغ سرویس به جمع کل فاکتور و پرداخت اضافه می‌شود.
+            مبلغ سرویس را اینجا مشخص کنید. اعمال روی فاکتور فقط وقتی است که حداقل یک محصول سفارش تیک «اعمال هزینه سرویس» داشته باشد؛ در آن صورت مبلغ یک‌بار به کل فاکتور اضافه می‌شود.
           </p>
 
           <div className="space-y-4">
@@ -243,7 +263,7 @@ export function SettingsManager() {
                   فعال‌سازی هزینه سرویس
                 </span>
                 <span className="block text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  با تیک زدن، مبلغ زیر به مبلغ کل سفارش اضافه می‌شود.
+                  با روشن بودن، مبلغ زیر برای سفارش‌هایی که محصول مشمول سرویس دارند یک‌بار اعمال می‌شود.
                 </span>
               </span>
             </label>
@@ -282,6 +302,58 @@ export function SettingsManager() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
+        >
+          <h3 className="text-xl font-bold text-text dark:text-text-dark mb-2">
+            تعداد فیش چاپی
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            بعد از پرداخت موفق، چند برگ فیش چاپ شود؟ انتخاب بلافاصله ذخیره می‌شود.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              {
+                id: 'single' as const,
+                title: 'تک فیش',
+                desc: 'فقط یک برگ فیش چاپ می‌شود.',
+              },
+              {
+                id: 'dual' as const,
+                title: 'دو فیش',
+                desc: 'فاکتور مشتری و فاکتور فروشنده جداگانه چاپ می‌شوند.',
+              },
+            ].map((mode) => {
+              const selected = (settings.receipt_copy_mode || 'dual') === mode.id
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  disabled={patchMutation.isPending}
+                  onClick={() => handleReceiptCopyModeChange(mode.id)}
+                  className={`text-right rounded-xl border p-4 transition-colors disabled:opacity-60 ${
+                    selected
+                      ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
+                      : 'border-border dark:border-border-dark hover:border-primary/40'
+                  }`}
+                >
+                  <p className="font-bold text-text dark:text-text-dark">{mode.title}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{mode.desc}</p>
+                </button>
+              )
+            })}
+          </div>
+          {apiErrors.receipt_copy_mode?.[0] && (
+            <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+              {apiErrors.receipt_copy_mode[0]}
+            </p>
+          )}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
           className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
         >
@@ -308,48 +380,6 @@ export function SettingsManager() {
               error={apiErrors.receipt_footer?.[0]}
               placeholder="ممنون از خرید شما"
             />
-
-            <div>
-              <label className="block mb-3 text-sm font-medium text-text dark:text-text-dark">
-                تعداد فیش چاپی
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
-                {[
-                  {
-                    id: 'single',
-                    title: 'تک فیش',
-                    desc: 'بعد از پرداخت فقط یک برگ فیش چاپ می‌شود.',
-                  },
-                  {
-                    id: 'dual',
-                    title: 'دو فیش',
-                    desc: 'فاکتور مشتری و فاکتور فروشنده جداگانه چاپ می‌شوند.',
-                  },
-                ].map((mode) => {
-                  const selected = (settings.receipt_copy_mode || 'dual') === mode.id
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      onClick={() => handleChange('receipt_copy_mode', mode.id)}
-                      className={`text-right rounded-xl border p-4 transition-colors ${
-                        selected
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
-                          : 'border-border dark:border-border-dark hover:border-primary/40'
-                      }`}
-                    >
-                      <p className="font-bold text-text dark:text-text-dark">{mode.title}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{mode.desc}</p>
-                    </button>
-                  )
-                })}
-              </div>
-              {apiErrors.receipt_copy_mode?.[0] && (
-                <p className="mb-3 text-sm text-red-600 dark:text-red-400">
-                  {apiErrors.receipt_copy_mode[0]}
-                </p>
-              )}
-            </div>
 
             <div>
               <label className="block mb-3 text-sm font-medium text-text dark:text-text-dark">

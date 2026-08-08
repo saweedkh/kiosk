@@ -55,6 +55,18 @@ class BaleBotSettings(TimeStampedModel):
         default='https://tapi.bale.ai',
         verbose_name=_('آدرس API بله'),
     )
+    last_poll_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('آخرین دریافت موفق'),
+        help_text=_('آخرین باری که worker با موفقیت getUpdates زد'),
+    )
+    last_poll_error = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        verbose_name=_('آخرین خطای polling'),
+    )
 
     class Meta:
         verbose_name = _('تنظیمات ربات بله')
@@ -111,5 +123,12 @@ class BaleBotSettings(TimeStampedModel):
             or 'https://tapi.bale.ai'
         ).rstrip('/')
 
+    def is_env_enabled(self) -> bool:
+        """Master switch from BALE_BOT_ENABLED env (compose/.env)."""
+        from django.conf import settings as django_settings
+
+        return bool(getattr(django_settings, 'BALE_BOT_ENABLED', True))
+
     def is_runtime_active(self) -> bool:
-        return bool(self.is_enabled and self.resolve_token())
+        """True only when env allows + panel enabled + token present."""
+        return bool(self.is_env_enabled() and self.is_enabled and self.resolve_token())

@@ -57,6 +57,11 @@ class Product(TimeStampedModel):
         verbose_name=_('موجودی')
     )
     is_active = models.BooleanField(default=True, verbose_name=_('فعال'))
+    service_fee_applicable = models.BooleanField(
+        default=False,
+        verbose_name=_('اعمال هزینه سرویس'),
+        help_text=_('اگر فعال باشد، هزینه سرویس تنظیمات یک‌بار روی فاکتوری که این محصول در آن باشد اعمال می‌شود'),
+    )
     
     objects = ProductManager()
     

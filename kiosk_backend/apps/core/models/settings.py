@@ -133,16 +133,16 @@ class SiteSettings(models.Model):
         help_text='تک فیش: یک برگ بعد از پرداخت. دو فیش: فاکتور مشتری و فاکتور فروشنده.'
     )
 
-    # هزینه سرویس (اختیاری — به مبلغ کل سفارش اضافه می‌شود)
+    # هزینه سرویس: مبلغ در تنظیمات؛ اعمال روی فاکتور فقط اگر حداقل یک محصول سفارش تیک داشته باشد
     service_enabled = models.BooleanField(
         default=False,
         verbose_name='فعال‌سازی سرویس',
-        help_text='در صورت فعال بودن، مبلغ سرویس به جمع فاکتور اضافه می‌شود'
+        help_text='اگر روشن باشد و مبلغ بیشتر از صفر باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار اعمال می‌شود'
     )
     service_fee = models.PositiveIntegerField(
         default=0,
         verbose_name='مبلغ سرویس (ریال)',
-        help_text='مبلغ سرویس به ریال که هنگام فعال بودن به مبلغ کل اضافه می‌شود'
+        help_text='مبلغ ثابت سرویس (ریال). روی کل فاکتور فقط یک‌بار اضافه می‌شود'
     )
 
     # شمارنده پایدار شماره فیش (با ری‌استارت سیستم ریست نمی‌شود)
@@ -240,10 +240,23 @@ class SiteSettings(models.Model):
         return self.RECEIPT_TEMPLATE_MODERN
 
     def get_active_service_fee(self) -> int:
-        """Service fee in rials to add to order total (0 when disabled)."""
+        """Configured service fee in rials (0 when feature off or amount is 0)."""
         if not self.service_enabled:
             return 0
         return max(int(self.service_fee or 0), 0)
+
+    def resolve_order_service_fee(self, products) -> int:
+        """
+        Apply configured fee once if any product has service_fee_applicable=True.
+        `products` is an iterable of Product instances (or objects with the flag).
+        """
+        fee = self.get_active_service_fee()
+        if fee <= 0:
+            return 0
+        for product in products:
+            if getattr(product, 'service_fee_applicable', False):
+                return fee
+        return 0
 
     @classmethod
     def _local_today(cls):

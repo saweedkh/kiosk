@@ -37,6 +37,10 @@ class Command(BaseCommand):
         register_sqlite_database(str(sqlite_path))
         self.stdout.write(self.style.SUCCESS(f'SQLite readable: {sqlite_path}'))
 
+        # Bring old SQLite schema up to current models so dumpdata fields match.
+        self.stdout.write('Applying migrations to SQLite source (non-destructive)...')
+        call_command('migrate', database='sqlite_source', interactive=False, verbosity=1)
+
         output.parent.mkdir(parents=True, exist_ok=True)
         self.stdout.write(f'Writing export to {output} ...')
         with output.open('w', encoding='utf-8') as fh:

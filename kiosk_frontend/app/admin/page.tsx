@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
+import { FullscreenToggle } from '@/components/shared/FullscreenToggle'
 import { Button } from '@/components/shared/Button'
 import { ReportsManager } from '@/components/admin/ReportsManager'
 import { CategoriesManager } from '@/components/admin/CategoriesManager'
@@ -70,13 +71,14 @@ export default function AdminPage() {
               <h1 className="text-3xl font-bold text-text dark:text-text-dark">
                 پنل مدیریت
               </h1>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 flex-wrap justify-end">
+                <FullscreenToggle />
                 <ThemeToggle />
                 <div className="text-sm text-text-secondary dark:text-gray-400">
                   {user?.username}
                   {user?.is_superuser ? ' (سوپریوزر)' : ''}
                 </div>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
+                <Button variant="outline" size="sm" onClick={handleLogout} className="min-h-11 touch-manipulation">
                   خروج
                 </Button>
               </div>

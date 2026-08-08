@@ -23,10 +23,17 @@ Install & start:
 4. Double-click run.bat
    - Loads Docker images only if they are missing (does NOT delete images every time)
    - Starts Postgres + backend + frontend + nginx (+ bale_bot)
-   - Opens Chrome in kiosk mode at http://localhost
+   - Opens Chrome fullscreen (app mode) at http://localhost
 
-Stop:
------
+Exit fullscreen / work on the PC (touch kiosk):
+-----------------------------------------------
+1. Open admin panel (/admin) and tap "خروج از تمام‌صفحه"
+   Tap "تمام‌صفحه" again to return to fullscreen.
+2. Or double-click exit-kiosk.bat to close Chrome entirely
+   (containers keep running; run.bat again for customer mode)
+
+Stop containers:
+---------------
 Run stop.bat
 
 Auto-start on Windows boot:

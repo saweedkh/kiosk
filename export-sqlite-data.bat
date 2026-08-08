@@ -69,9 +69,13 @@ if errorlevel 1 (
 docker exec %BACKEND_CONTAINER% rm -f %CONTAINER_OUTPUT% 2>nul
 
 echo.
-echo [OK] Export saved: %HOST_OUTPUT%
+echo ==========================================
+echo [OK] EXPORT DONE
+echo Relative: %HOST_OUTPUT%
+echo Absolute: %CD%\%HOST_OUTPUT%
+echo ==========================================
 echo.
-echo [HINT] Later, after Postgres is up, import with:
+echo [HINT] Import later with:
 echo   import-data-to-postgres.bat %HOST_OUTPUT%
-echo See docs\MIGRATE_SQLITE_TO_POSTGRES.md
+echo See MIGRATE_SQLITE_TO_POSTGRES.md
 endlocal

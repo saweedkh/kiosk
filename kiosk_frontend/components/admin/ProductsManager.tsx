@@ -17,8 +17,14 @@ export function ProductsManager() {
   const canAdd = !!user?.is_superuser || (user?.permissions || []).includes('add_products')
   const canChange = !!user?.is_superuser || (user?.permissions || []).includes('change_products')
   const canDelete = !!user?.is_superuser || (user?.permissions || []).includes('delete_products')
+  const canChangeStock =
+    !!user?.is_superuser || (user?.permissions || []).includes('change_stock')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [stockProduct, setStockProduct] = useState<Product | null>(null)
+  const [stockQuantity, setStockQuantity] = useState(0)
+  const [stockNotes, setStockNotes] = useState('')
+  const [stockError, setStockError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<string>('-id') // Default: newest first
   const [currentPage, setCurrentPage] = useState(1)
@@ -101,6 +107,20 @@ export function ProductsManager() {
     },
   })
 
+  const stockMutation = useMutation({
+    mutationFn: ({ id, stock_quantity, notes }: { id: number; stock_quantity: number; notes?: string }) =>
+      adminApi.updateProductStock(id, { stock_quantity, notes }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-products'] })
+      setStockProduct(null)
+      setStockNotes('')
+      setStockError(null)
+    },
+    onError: (error: any) => {
+      setStockError(translateError(error) || 'خطا در به‌روزرسانی موجودی.')
+    },
+  })
+
   // Handle search with debounce
   const handleSearchChange = (value: string) => {
     setSearchTerm(value)
@@ -133,10 +153,14 @@ export function ProductsManager() {
     if (data.description) formData.append('description', data.description)
     if (data.price !== undefined) formData.append('price', data.price.toString())
     if (data.category) formData.append('category', data.category.toString())
-    if (data.stock_quantity !== undefined)
+    // Stock via product form only when allowed (create always; edit needs change_stock)
+    const allowStockInForm = !editingProduct || canChangeStock
+    if (allowStockInForm && data.stock_quantity !== undefined)
       formData.append('stock_quantity', data.stock_quantity.toString())
     if (data.is_active !== undefined)
       formData.append('is_active', data.is_active.toString())
+    if (data.service_fee_applicable !== undefined)
+      formData.append('service_fee_applicable', data.service_fee_applicable.toString())
     
     // Handle image upload
     if (data.image instanceof File) {
@@ -159,6 +183,13 @@ export function ProductsManager() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product)
     setIsFormOpen(true)
+  }
+
+  const openStockEditor = (product: Product) => {
+    setStockProduct(product)
+    setStockQuantity(product.stock_quantity ?? 0)
+    setStockNotes('')
+    setStockError(null)
   }
 
   // اسکرول به فرم وقتی باز می‌شود یا محصول ویرایش تغییر می‌کند
@@ -230,7 +261,55 @@ export function ProductsManager() {
             onCancel={handleCancel}
             isLoading={createMutation.isPending || updateMutation.isPending}
             apiErrors={apiErrors}
+            canEditStock={!editingProduct || canChangeStock}
           />
+        </motion.div>
+      )}
+
+      {stockProduct && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark space-y-4"
+        >
+          <h3 className="text-xl font-bold text-text dark:text-text-dark">
+            تغییر موجودی — {stockProduct.name}
+          </h3>
+          {stockError && (
+            <p className="text-sm text-red-600 dark:text-red-400">{stockError}</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="موجودی جدید"
+              type="number"
+              min={0}
+              value={String(stockQuantity)}
+              onChange={(e) => setStockQuantity(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+            />
+            <Input
+              label="یادداشت (اختیاری)"
+              value={stockNotes}
+              onChange={(e) => setStockNotes(e.target.value)}
+              placeholder="مثلاً شمارش انبار"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() =>
+                stockMutation.mutate({
+                  id: stockProduct.id,
+                  stock_quantity: stockQuantity,
+                  notes: stockNotes || undefined,
+                })
+              }
+              isLoading={stockMutation.isPending}
+            >
+              ذخیره موجودی
+            </Button>
+            <Button variant="outline" onClick={() => setStockProduct(null)}>
+              انصراف
+            </Button>
+          </div>
         </motion.div>
       )}
 
@@ -350,6 +429,11 @@ export function ProductsManager() {
                   <span className="text-xl font-bold text-primary dark:text-primary-light">
                     {formatCurrency(product.price)}
                   </span>
+                  <span className="text-sm text-text-secondary dark:text-gray-400">
+                    موجودی: {product.stock_quantity}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mb-4">
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-bold ${
                       product.is_active
@@ -360,7 +444,7 @@ export function ProductsManager() {
                     {product.is_active ? 'فعال' : 'غیرفعال'}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {canChange && (
                     <Button
                       variant="outline"
@@ -369,6 +453,16 @@ export function ProductsManager() {
                       className="flex-1"
                     >
                       ویرایش
+                    </Button>
+                  )}
+                  {canChangeStock && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openStockEditor(product)}
+                      className="flex-1"
+                    >
+                      موجودی
                     </Button>
                   )}
                   {canDelete && (

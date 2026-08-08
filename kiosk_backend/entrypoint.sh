@@ -19,6 +19,12 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
+# Custom command (e.g. bale_poll): skip migrate/collectstatic to avoid races with backend
+if [ "$#" -gt 0 ]; then
+  echo "Starting: $*"
+  exec "$@"
+fi
+
 echo "Running migrations..."
 python manage.py migrate --noinput
 

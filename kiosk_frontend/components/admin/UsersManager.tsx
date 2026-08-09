@@ -354,7 +354,7 @@ export function UsersManager() {
           {usersLoading ? (
             <p>در حال بارگذاری...</p>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-border dark:border-border-dark">
+            <div className="kiosk-scroll-x rounded-2xl border border-border dark:border-border-dark">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40">
                   <tr>

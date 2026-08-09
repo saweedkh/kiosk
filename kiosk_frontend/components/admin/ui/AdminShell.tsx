@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { FullscreenToggle } from '@/components/shared/FullscreenToggle'
+import { KioskScroll } from '@/components/shared/KioskScroll'
 
 export type AdminNavId =
   | 'dashboard'
@@ -132,7 +133,7 @@ export function AdminShell({
   const activeLabel = navItems.find((n) => n.id === activeId)?.label
 
   return (
-    <div className="min-h-dvh bg-[hsl(30_40%_97%)] text-foreground dark:bg-[hsl(0_0%_7%)]">
+    <div className="h-dvh overflow-hidden bg-[hsl(30_40%_97%)] text-foreground dark:bg-[hsl(0_0%_7%)]">
       {/* subtle atmosphere */}
       <div
         aria-hidden
@@ -145,9 +146,9 @@ export function AdminShell({
         }}
       />
 
-      <div className="mx-auto flex min-h-dvh max-w-[1600px]">
+      <div className="mx-auto flex h-full max-w-[1600px]">
         {/* Sidebar — RTL: sits on the right visually via flex order */}
-        <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col border-s border-border/70 bg-card/80 px-3 py-5 backdrop-blur-xl lg:flex dark:bg-card/60">
+        <aside className="hidden h-full w-[248px] shrink-0 flex-col border-s border-border/70 bg-card/80 px-3 py-5 backdrop-blur-xl lg:flex dark:bg-card/60">
           <div className="mb-8 px-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-sm font-black text-white shadow-lg shadow-primary/25">
@@ -208,7 +209,7 @@ export function AdminShell({
         </aside>
 
         {/* Main column */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Mobile / tablet top bar */}
           <header className="sticky top-0 z-30 border-b border-border/70 bg-card/85 backdrop-blur-xl">
             <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:hidden">
@@ -231,7 +232,12 @@ export function AdminShell({
             </div>
 
             {/* Mobile nav chips */}
-            <div className="kiosk-scroll-x flex gap-1.5 overflow-x-auto px-4 pb-3 lg:hidden">
+            <KioskScroll
+              orientation="horizontal"
+              showRail={false}
+              className="lg:hidden"
+              contentClassName="flex gap-1.5 px-4 pb-3"
+            >
               {navItems.map((item) => {
                 const selected = activeId === item.id
                 return (
@@ -250,7 +256,7 @@ export function AdminShell({
                   </button>
                 )
               })}
-            </div>
+            </KioskScroll>
 
             {/* Desktop top context bar */}
             <div className="hidden items-center justify-between px-8 py-4 lg:flex">
@@ -264,7 +270,12 @@ export function AdminShell({
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+          <KioskScroll
+            className="min-h-0 flex-1"
+            contentClassName="px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+          >
+            {children}
+          </KioskScroll>
         </div>
       </div>
     </div>

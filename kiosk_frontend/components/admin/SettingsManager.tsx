@@ -1135,7 +1135,7 @@ export function SettingsManager() {
 
               <AdminSurface className="mt-6 !shadow-none">
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  در حالت افقی، دکمه‌های «جزئیات» برای انتخاب نوع سفارش فعال و کد تخفیف باز می‌شود.
+                  در حالت افقی، نوع سفارش (سالن / بیرون‌بر) روی نوار سبد دیده می‌شود؛ کد تخفیف جداگانه باز می‌شود.
                   در حالت کناری همه کنترل‌ها همیشه در همان ستون دیده می‌شوند.
                 </p>
               </AdminSurface>

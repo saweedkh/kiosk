@@ -5,6 +5,7 @@ import { useCartStore } from '@/lib/store/cart-store'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
 import { ProductThumb } from '@/components/customer/ProductThumb'
+import { KioskScroll } from '@/components/shared/KioskScroll'
 
 interface CartSidebarProps {
   isOpen: boolean
@@ -85,7 +86,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
               )}
             </div>
 
-            <div className="kiosk-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-6">
+            <KioskScroll className="min-h-0 flex-1" contentClassName="p-6">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <svg
@@ -201,7 +202,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
                   ))}
                 </div>
               )}
-            </div>
+            </KioskScroll>
 
             {items.length > 0 && (
               <div className="p-6 border-t border-border dark:border-border-dark space-y-4">

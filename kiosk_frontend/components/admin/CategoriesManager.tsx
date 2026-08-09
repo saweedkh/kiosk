@@ -262,7 +262,7 @@ export function CategoriesManager() {
         </AdminSurface>
       ) : (
         <AdminSurface padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="kiosk-scroll-x">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/80 bg-muted/40">

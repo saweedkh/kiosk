@@ -69,8 +69,16 @@ function softOk(c?: HealthComponent) {
     c.ok ||
     c.status === 'mock' ||
     c.status === 'disabled' ||
-    c.status === 'env_disabled'
+    c.status === 'env_disabled' ||
+    c.status === 'misconfigured'
   )
+}
+
+/** Soft but not fully healthy (mock / off / incomplete config) — amber, not green. */
+function softAmber(c?: HealthComponent) {
+  if (!c) return false
+  const s = (c.status || '').toLowerCase()
+  return s === 'mock' || s === 'disabled' || s === 'env_disabled' || s === 'misconfigured'
 }
 
 function overallTone(overall?: string): 'success' | 'warning' | 'danger' | 'neutral' {
@@ -224,21 +232,24 @@ export function DashboardManager() {
           </AdminStatusBadge>
           {healthItems.map((item) => {
             const ok = softOk(item.component)
+            const amber = softAmber(item.component)
             return (
               <span
                 key={item.key}
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold',
-                  ok
-                    ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
-                    : 'border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-300'
+                  !ok
+                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-300'
+                    : amber
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200'
+                      : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
                 )}
                 title={item.component?.message || ''}
               >
                 <span
                   className={cn(
                     'h-1.5 w-1.5 rounded-full',
-                    ok ? 'bg-emerald-500' : 'bg-rose-500'
+                    !ok ? 'bg-rose-500' : amber ? 'bg-amber-500' : 'bg-emerald-500'
                   )}
                 />
                 {item.title}

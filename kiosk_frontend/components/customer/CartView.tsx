@@ -8,6 +8,7 @@ import { useCartStore } from '@/lib/store/cart-store'
 import { couponsApi } from '@/lib/api/dashboard'
 import { formatCurrency, formatNumber, cn } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
+import { KioskScroll } from '@/components/shared/KioskScroll'
 
 export type CartLayout = 'side' | 'bottom'
 
@@ -23,6 +24,9 @@ interface CartViewProps {
   fulfillmentChoiceEnabled?: boolean
   dineInEnabled?: boolean
   takeawayEnabled?: boolean
+  /** Compact copyright line inside bottom cart (not used for side layout). */
+  footerCopyright?: string
+  footerPhone?: string
 }
 
 export function CartView({
@@ -35,6 +39,8 @@ export function CartView({
   fulfillmentChoiceEnabled = true,
   dineInEnabled = true,
   takeawayEnabled = true,
+  footerCopyright,
+  footerPhone,
 }: CartViewProps) {
   const [isMounted, setIsMounted] = useState(false)
   const [fulfillmentType, setFulfillmentType] = useState<'dine_in' | 'takeaway' | null>(null)
@@ -134,7 +140,9 @@ export function CartView({
       <div
         className={cn(
           'bg-card',
-          layout === 'side' ? 'flex h-full flex-col' : 'min-h-[7.5rem] w-full border-t portrait:min-h-[22vh]'
+          layout === 'side'
+            ? 'flex h-full flex-col'
+            : 'min-h-[11rem] w-full border-t portrait:min-h-[30vh]'
         )}
       />
     )
@@ -172,6 +180,8 @@ export function CartView({
         onRemove={(key) => removeItem(key)}
         onQuantity={(key, qty) => updateQuantity(key, qty)}
         onCheckout={() => fulfillmentType && onCheckout(fulfillmentType)}
+        footerCopyright={footerCopyright}
+        footerPhone={footerPhone}
       />
     )
   }
@@ -237,12 +247,15 @@ function FulfillmentToggle({
   value,
   onChange,
   compact = false,
+  large = false,
   dineInEnabled = true,
   takeawayEnabled = true,
 }: {
   value: 'dine_in' | 'takeaway' | null
   onChange: (v: 'dine_in' | 'takeaway') => void
   compact?: boolean
+  /** Bigger hit targets for bottom cart strip */
+  large?: boolean
   dineInEnabled?: boolean
   takeawayEnabled?: boolean
 }) {
@@ -264,7 +277,7 @@ function FulfillmentToggle({
       <div
         className={cn(
           'rounded-2xl bg-primary/10 px-3 text-center font-bold text-primary',
-          compact ? 'py-2 text-xs' : 'py-2.5 text-sm'
+          large ? 'py-3 text-sm' : compact ? 'py-2 text-xs' : 'py-2.5 text-sm'
         )}
       >
         {opts[0].label}
@@ -276,7 +289,8 @@ function FulfillmentToggle({
     <div
       className={cn(
         'grid grid-cols-2 gap-1.5 rounded-2xl bg-muted/60 p-1',
-        compact && 'gap-1 p-0.5'
+        compact && !large && 'gap-1 p-0.5',
+        large && 'gap-1.5 p-1.5'
       )}
     >
       {opts.map((o) => (
@@ -286,7 +300,11 @@ function FulfillmentToggle({
           onClick={() => onChange(o.id)}
           className={cn(
             'rounded-xl font-bold transition-all',
-            compact ? 'px-2.5 py-2 text-xs' : 'px-3 py-2.5 text-sm',
+            large
+              ? 'min-h-12 px-3 py-3 text-sm portrait:min-h-14 portrait:text-base'
+              : compact
+                ? 'px-2.5 py-2 text-xs'
+                : 'px-3 py-2.5 text-sm',
             value === o.id
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
@@ -325,7 +343,10 @@ function SideCart(props: CartSharedProps) {
         ) : null}
       </div>
 
-      <div className="kiosk-scroll relative z-[1] min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4">
+      <KioskScroll
+        className="relative z-[1] min-h-0 flex-1"
+        contentClassName="px-4 py-4"
+      >
         {empty ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-muted/80">
@@ -422,7 +443,7 @@ function SideCart(props: CartSharedProps) {
             </AnimatePresence>
           </div>
         )}
-      </div>
+      </KioskScroll>
 
       {!empty ? (
         <div className="relative z-[1] space-y-3 border-t border-border/70 bg-card/95 px-4 py-4 backdrop-blur">
@@ -504,253 +525,298 @@ function BottomCart(
     expanded: boolean
     onExpand: () => void
     onCollapse: () => void
+    footerCopyright?: string
+    footerPhone?: string
   }
 ) {
   const empty = props.items.length === 0
+  const year = new Date().getFullYear()
+  const copyright = (props.footerCopyright || '').trim()
+  const phone = (props.footerPhone || '').trim()
+  const footerBits = [
+    `© ${year}${copyright ? ` ${copyright}` : ''}`,
+    phone || null,
+  ].filter(Boolean)
 
   return (
     <div
       className={cn(
-        'relative z-40 w-full flex-shrink-0 border-t border-border/80 bg-card/95 shadow-[0_-12px_40px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:shadow-[0_-12px_40px_rgba(0,0,0,0.35)]',
-        // Landscape / wide: compact strip. Portrait kiosks: taller for easy touch.
-        'min-h-[7.5rem] sm:min-h-[8.25rem]',
-        'portrait:min-h-[22vh] portrait:max-h-[38vh] sm:portrait:min-h-[24vh]'
+        'relative z-40 flex w-full flex-shrink-0 flex-col overflow-hidden',
+        'border-t border-border/70 bg-gradient-to-t from-card via-card to-[hsl(30_55%_97%)]',
+        'shadow-[0_-8px_32px_rgba(225,113,0,0.08)] dark:to-[hsl(0_0%_11%)] dark:shadow-[0_-8px_32px_rgba(0,0,0,0.4)]',
+        'min-h-[11rem] sm:min-h-[12rem]',
+        'portrait:min-h-[30vh] portrait:max-h-[42vh] sm:portrait:min-h-[32vh]'
       )}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-16 h-16 bg-gradient-to-t from-card/80 to-transparent"
+        className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-l from-primary via-primary/70 to-transparent"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-10 h-20 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(225,113,0,0.12),transparent)]"
       />
 
       <AnimatePresence>
-        {props.expanded && !empty ? (
+        {props.expanded && !empty && props.couponsEnabled ? (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b border-border/60"
+            className="relative z-[1] overflow-hidden border-b border-border/50 bg-muted/30"
           >
-            <div className="space-y-3 px-4 py-3 sm:px-6 portrait:px-5 portrait:py-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold portrait:text-base">جزئیات سفارش</p>
+            <div className="flex flex-col gap-3 px-4 py-3 sm:px-6 portrait:px-5 portrait:py-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-bold portrait:text-base">کد تخفیف</p>
                 <button
                   type="button"
                   onClick={props.onCollapse}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-muted portrait:h-11 portrait:w-11"
+                  className="flex size-9 items-center justify-center rounded-xl bg-background/80 hover:bg-muted portrait:size-11"
                   aria-label="بستن"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="size-4" />
                 </button>
               </div>
-              {props.showFulfillmentChoice ? (
-                <FulfillmentToggle
-                  value={props.fulfillmentType}
-                  onChange={props.onFulfillment}
-                  compact
-                  dineInEnabled={props.dineInEnabled}
-                  takeawayEnabled={props.takeawayEnabled}
-                />
-              ) : null}
-              {props.couponsEnabled ? (
-                <div className="space-y-1.5">
-                  <div className="flex gap-2">
-                    <input
-                      value={props.couponInput}
-                      onChange={(e) => props.onCouponInput(e.target.value)}
-                      placeholder="کد تخفیف"
-                      className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm portrait:py-3 portrait:text-base"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={props.couponLoading}
-                      onClick={props.onApplyCoupon}
-                    >
-                      اعمال
+              <div className="flex flex-col gap-1.5">
+                <div className="flex gap-2">
+                  <input
+                    value={props.couponInput}
+                    onChange={(e) => props.onCouponInput(e.target.value)}
+                    placeholder="کد تخفیف"
+                    className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm portrait:py-3 portrait:text-base"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={props.couponLoading}
+                    onClick={props.onApplyCoupon}
+                  >
+                    اعمال
+                  </Button>
+                  {props.couponCode ? (
+                    <Button type="button" variant="ghost" size="sm" onClick={props.onClearCoupon}>
+                      حذف کد
                     </Button>
-                    {props.couponCode ? (
-                      <Button type="button" variant="ghost" size="sm" onClick={props.onClearCoupon}>
-                        حذف کد
-                      </Button>
-                    ) : null}
-                  </div>
-                  {props.couponMsg ? (
-                    <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
                   ) : null}
                 </div>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                {props.fee > 0 ? (
-                  <span className="text-muted-foreground">
-                    سرویس: {formatCurrency(props.fee)}
-                  </span>
-                ) : null}
-                {props.discountAmount > 0 ? (
-                  <span className="text-emerald-600">
-                    تخفیف: -{formatCurrency(props.discountAmount)}
-                  </span>
+                {props.couponMsg ? (
+                  <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
                 ) : null}
               </div>
+              {(props.fee > 0 || props.discountAmount > 0) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                  {props.fee > 0 ? (
+                    <span className="text-muted-foreground">
+                      سرویس: {formatCurrency(props.fee)}
+                    </span>
+                  ) : null}
+                  {props.discountAmount > 0 ? (
+                    <span className="font-medium text-emerald-600">
+                      تخفیف: -{formatCurrency(props.discountAmount)}
+                    </span>
+                  ) : null}
+                </div>
+              )}
             </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
 
+      {/* RTL: first = right (items), last = left (big pay) */}
       <div
         className={cn(
-          'flex h-full min-h-[inherit] items-stretch gap-3 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4',
+          'relative z-[1] flex min-h-0 flex-1 items-stretch gap-3 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4',
           'portrait:gap-4 portrait:px-4 portrait:py-4'
         )}
       >
-        {/* CTA cluster */}
+        {/* Items strip — right side (no fat rail; it was crushing cart height) */}
+        <div className="relative min-h-0 min-w-0 flex-1 self-stretch">
+          <div
+            className={cn(
+              'kiosk-scroll-pane flex h-full min-h-0 items-stretch overflow-x-auto overflow-y-hidden overscroll-x-contain',
+              'touch-pan-x pe-1'
+            )}
+          >
+            {empty ? (
+              <div className="flex h-full min-h-[7.5rem] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/60 bg-muted/20 px-6 portrait:min-h-[14vh] portrait:gap-3">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/80 portrait:size-14">
+                  <ShoppingBag className="size-5 text-muted-foreground/55 portrait:size-6" />
+                </div>
+                <p className="text-sm font-bold text-muted-foreground portrait:text-base">
+                  سبد خالی است
+                </p>
+              </div>
+            ) : (
+              <div className="flex h-full min-h-[7.5rem] items-stretch gap-3 pe-2 portrait:min-h-[14vh] portrait:gap-3.5">
+                <AnimatePresence initial={false}>
+                  {props.items.map((item) => {
+                    const unit = props.getLineUnitPrice(item)
+                    return (
+                      <motion.div
+                        key={item.key}
+                        layout
+                        initial={{ opacity: 0, x: 12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        className={cn(
+                          'flex w-[210px] flex-shrink-0 gap-2.5 rounded-2xl border border-border/60 bg-card/90 p-2.5 shadow-sm',
+                          'ring-1 ring-black/[0.03] dark:ring-white/[0.04]',
+                          'portrait:w-[248px] portrait:gap-3 portrait:p-3'
+                        )}
+                      >
+                        <div className="relative size-[4.75rem] flex-shrink-0 overflow-hidden rounded-xl bg-muted portrait:size-24">
+                          {item.product.image ? (
+                            <Image
+                              src={item.product.image}
+                              alt={item.product.name}
+                              fill
+                              className="object-cover"
+                              sizes="96px"
+                              unoptimized={
+                                item.product.image.startsWith('http://') ||
+                                item.product.image.startsWith('https://')
+                              }
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">
+                              —
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div className="flex items-start justify-between gap-1">
+                            <p className="line-clamp-2 text-xs font-bold leading-snug portrait:text-sm">
+                              {item.product.name}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => props.onRemove(item.key)}
+                              className="flex size-7 flex-shrink-0 items-center justify-center rounded-lg text-destructive/80 hover:bg-destructive/10 hover:text-destructive portrait:size-9"
+                              aria-label="حذف"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                          {item.selectedOptions?.length ? (
+                            <p className="truncate text-[10px] text-muted-foreground portrait:text-[11px]">
+                              {item.selectedOptions.map((o) => o.name).join(' · ')}
+                            </p>
+                          ) : null}
+                          <p className="mt-auto text-xs font-black tabular-nums text-primary portrait:text-sm">
+                            {formatCurrency(unit * item.quantity)}
+                          </p>
+                          <div className="inline-flex items-center self-start rounded-full border border-border/80 bg-muted/40 p-0.5">
+                            <button
+                              type="button"
+                              className="flex size-7 items-center justify-center rounded-full hover:bg-background portrait:size-8"
+                              onClick={() => props.onQuantity(item.key, item.quantity - 1)}
+                              aria-label="کاهش"
+                            >
+                              <Minus className="size-3" />
+                            </button>
+                            <span className="min-w-[1.35rem] text-center text-[11px] font-bold tabular-nums portrait:min-w-[1.6rem] portrait:text-sm">
+                              {formatNumber(item.quantity)}
+                            </span>
+                            <button
+                              type="button"
+                              className="flex size-7 items-center justify-center rounded-full hover:bg-background disabled:opacity-40 portrait:size-8"
+                              disabled={item.quantity >= item.product.stock_quantity}
+                              onClick={() => props.onQuantity(item.key, item.quantity + 1)}
+                              aria-label="افزایش"
+                            >
+                              <Plus className="size-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Total + fulfillment — middle */}
         <div
           className={cn(
-            'flex w-[min(280px,34%)] flex-shrink-0 flex-col justify-center gap-2',
-            'portrait:w-[min(320px,38%)] portrait:gap-3'
+            'flex w-[min(220px,26%)] flex-shrink-0 flex-col justify-center gap-2.5 rounded-2xl border border-border/60 bg-card/80 p-3',
+            'portrait:w-[min(260px,28%)] portrait:gap-3 portrait:p-3.5'
           )}
         >
-          <div className="flex items-baseline justify-between gap-2 px-1">
-            <span className="text-xs text-muted-foreground portrait:text-sm">جمع</span>
-            <span className="text-lg font-black text-primary sm:text-xl portrait:text-2xl">
-              {empty ? formatCurrency(0) : formatCurrency(props.grandTotal)}
-            </span>
-          </div>
-          {!empty ? (
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 rounded-xl portrait:h-14 portrait:text-base"
-                onClick={props.expanded ? props.onCollapse : props.onExpand}
-              >
-                {props.expanded ? 'بستن' : 'جزئیات'}
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                className="flex-[1.4] rounded-xl font-black shadow-md shadow-primary/20 portrait:h-14 portrait:text-base"
-                disabled={!props.fulfillmentType}
-                onClick={() => {
-                  if (!props.fulfillmentType) {
-                    props.onExpand()
-                    return
-                  }
-                  props.onCheckout()
-                }}
-              >
-                پرداخت
-              </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary portrait:size-11">
+              <ShoppingBag className="size-4 portrait:size-5" />
             </div>
-          ) : null}
-        </div>
-
-        {/* Horizontal items / empty */}
-        <div className="kiosk-scroll min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
-          {empty ? (
-            <div className="flex h-full min-h-[5.5rem] items-center justify-center rounded-2xl border border-dashed border-border/80 bg-muted/25 px-5 portrait:min-h-[12vh]">
-              <p className="text-base font-bold text-muted-foreground portrait:text-lg">
-                سبد خالی است
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-muted-foreground portrait:text-xs">
+                {empty ? 'سبد خرید' : `${formatNumber(props.itemCount)} قلم`}
+              </p>
+              <p className="truncate text-base font-black tabular-nums tracking-tight text-primary sm:text-lg portrait:text-xl">
+                {empty ? formatCurrency(0) : formatCurrency(props.grandTotal)}
               </p>
             </div>
-          ) : (
-            <div className="flex h-full items-stretch gap-2.5 pe-2 portrait:gap-3">
-              {props.items.map((item) => {
-                const unit = props.getLineUnitPrice(item)
-                return (
-                  <motion.div
-                    key={item.key}
-                    layout
-                    className={cn(
-                      'flex w-[200px] flex-shrink-0 gap-2.5 rounded-2xl border border-border/70 bg-gradient-to-br from-background to-muted/40 p-2.5 shadow-sm',
-                      'portrait:w-[240px] portrait:gap-3 portrait:p-3'
-                    )}
-                  >
-                    <div className="relative h-[72px] w-[72px] flex-shrink-0 overflow-hidden rounded-xl bg-muted portrait:h-24 portrait:w-24">
-                      {item.product.image ? (
-                        <Image
-                          src={item.product.image}
-                          alt={item.product.name}
-                          fill
-                          className="object-cover"
-                          sizes="96px"
-                          unoptimized={
-                            item.product.image.startsWith('http://') ||
-                            item.product.image.startsWith('https://')
-                          }
-                        />
-                      ) : null}
-                      <span className="absolute bottom-1 start-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[10px] font-bold text-white portrait:text-xs">
-                        ×{formatNumber(item.quantity)}
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="line-clamp-2 text-xs font-bold leading-snug portrait:text-sm">
-                          {item.product.name}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => props.onRemove(item.key)}
-                          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 portrait:h-9 portrait:w-9"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <p className="mt-auto text-xs font-black text-primary portrait:text-sm">
-                        {formatCurrency(unit * item.quantity)}
-                      </p>
-                      <div className="mt-1 inline-flex items-center gap-0.5 self-start rounded-lg border border-border bg-background/80 p-0.5 portrait:mt-2">
-                        <button
-                          type="button"
-                          className="flex h-7 w-7 items-center justify-center portrait:h-9 portrait:w-9"
-                          onClick={() => props.onQuantity(item.key, item.quantity - 1)}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="min-w-[1.25rem] text-center text-[11px] font-bold portrait:min-w-[1.5rem] portrait:text-sm">
-                          {formatNumber(item.quantity)}
-                        </span>
-                        <button
-                          type="button"
-                          className="flex h-7 w-7 items-center justify-center disabled:opacity-40 portrait:h-9 portrait:w-9"
-                          disabled={item.quantity >= item.product.stock_quantity}
-                          onClick={() => props.onQuantity(item.key, item.quantity + 1)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+          </div>
 
-        {!empty && props.showFulfillmentChoice ? (
-          <div className="hidden w-28 flex-shrink-0 flex-col justify-center gap-1.5 lg:flex portrait:w-32">
-            <span className="text-center text-[11px] font-medium text-muted-foreground portrait:text-xs">
-              {formatNumber(props.itemCount)} قلم
-            </span>
+          {!empty && props.showFulfillmentChoice ? (
             <FulfillmentToggle
               value={props.fulfillmentType}
               onChange={props.onFulfillment}
-              compact
+              large
               dineInEnabled={props.dineInEnabled}
               takeawayEnabled={props.takeawayEnabled}
             />
-          </div>
-        ) : !empty ? (
-          <div className="hidden w-28 flex-shrink-0 flex-col justify-center gap-1.5 lg:flex portrait:w-32">
-            <span className="text-center text-[11px] font-medium text-muted-foreground portrait:text-xs">
-              {formatNumber(props.itemCount)} قلم
-            </span>
-          </div>
-        ) : null}
+          ) : null}
+
+          {!empty && props.couponsEnabled ? (
+            <button
+              type="button"
+              onClick={props.expanded ? props.onCollapse : props.onExpand}
+              className="text-center text-[11px] font-semibold text-primary underline-offset-2 hover:underline portrait:text-xs"
+            >
+              {props.expanded ? 'بستن کد تخفیف' : 'کد تخفیف'}
+              {props.discountAmount > 0 ? ` (−${formatCurrency(props.discountAmount)})` : ''}
+            </button>
+          ) : empty ? (
+            <p className="text-center text-[11px] text-muted-foreground portrait:text-xs">
+              محصول را از منو اضافه کنید
+            </p>
+          ) : null}
+        </div>
+
+        {/* Big pay — left side (visual end in RTL) */}
+        <div className="flex w-[min(200px,24%)] flex-shrink-0 self-stretch portrait:w-[min(240px,26%)]">
+          <button
+            type="button"
+            disabled={empty || !props.fulfillmentType}
+            className={cn(
+              'flex h-full min-h-[7.5rem] w-full flex-col items-center justify-center gap-1 rounded-2xl',
+              'bg-primary px-3 text-lg font-black text-primary-foreground shadow-lg shadow-primary/30',
+              'transition hover:brightness-105 active:scale-[0.98]',
+              'portrait:min-h-[14vh] portrait:text-xl',
+              'disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none'
+            )}
+            onClick={() => {
+              if (empty || !props.fulfillmentType) return
+              props.onCheckout()
+            }}
+          >
+            <span>پرداخت</span>
+            {!empty ? (
+              <span className="text-sm font-bold opacity-90 portrait:text-base">
+                {formatCurrency(props.grandTotal)}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </div>
+
+      <footer className="relative z-[1] flex h-6 flex-shrink-0 items-center justify-center border-t border-border/40 bg-muted/20 px-3">
+        <p className="truncate text-[10px] leading-none text-muted-foreground/80">
+          {footerBits.join(' · ')}
+        </p>
+      </footer>
     </div>
   )
 }

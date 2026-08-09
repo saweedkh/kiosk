@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { KioskScroll } from "@/components/shared/KioskScroll";
 import { ProductCard } from "@/components/customer/ProductCard";
 import { CartView } from "@/components/customer/CartView";
 import { CategoryFilter } from "@/components/customer/CategoryFilter";
@@ -748,7 +749,19 @@ export default function CustomerPage() {
     fulfillmentChoiceEnabled: settings.fulfillment_choice_enabled !== false,
     dineInEnabled: settings.dine_in_enabled !== false,
     takeawayEnabled: settings.takeaway_enabled !== false,
+    footerCopyright: copyrightText,
+    footerPhone: settings.contact_phone || undefined,
   } as const;
+
+  const siteFooter = (
+    <footer className="mt-auto flex h-8 flex-shrink-0 items-center justify-center border-t border-border px-4 dark:border-border-dark">
+      <p className="truncate text-[11px] leading-none text-text-secondary dark:text-gray-400">
+        © {new Date().getFullYear()}
+        {copyrightText ? ` ${copyrightText}` : ''}
+        {settings.contact_phone ? ` · ${settings.contact_phone}` : ''}
+      </p>
+    </footer>
+  );
 
   return (
     <div
@@ -887,7 +900,10 @@ export default function CustomerPage() {
         </header>
 
         {/* Products Section - Scrollable (min-h-0 required for flex touch scroll) */}
-        <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-8">
+        <KioskScroll
+          className="min-h-0 flex-1"
+          contentClassName="px-6 py-8"
+        >
           <div className="mb-8">
             {categoriesPending && categories.length === 0 ? (
               <CategoryFilterSkeleton />
@@ -928,22 +944,10 @@ export default function CustomerPage() {
               </p>
             </div>
           )}
-        </main>
+        </KioskScroll>
 
-        {/* Footer stays at bottom of column, not after short product lists */}
-        <footer className="mt-auto flex-shrink-0 border-t border-border py-6 dark:border-border-dark">
-          <div className="flex flex-col items-center justify-center gap-2">
-            <p className="text-center text-sm text-text-secondary dark:text-gray-400">
-              © {new Date().getFullYear()}
-              {copyrightText ? ` ${copyrightText}` : ''}
-            </p>
-            {settings.contact_phone && (
-              <div className="text-xs text-text-secondary dark:text-gray-400">
-                {settings.contact_phone}
-              </div>
-            )}
-          </div>
-        </footer>
+        {/* Side layout only — bottom cart embeds its own compact footer */}
+        {!isBottomCart && siteFooter}
       </div>
 
       {isBottomCart ? (

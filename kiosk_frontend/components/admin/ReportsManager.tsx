@@ -389,7 +389,7 @@ export function ReportsManager() {
               {salesData.result.results && salesData.result.results.length > 0 && (
                 <>
                   <AdminSurface padded={false} className="overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <div className="kiosk-scroll-x">
                       <table className="w-full">
                         <thead>
                           <tr className="border-b border-border/80 bg-muted/40">
@@ -472,7 +472,7 @@ export function ReportsManager() {
               {productsData.result.results && productsData.result.results.length > 0 && (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
-                    <div className="overflow-x-auto">
+                    <div className="kiosk-scroll-x">
                       <table className="w-full">
                         <thead className="bg-muted/40">
                           <tr>
@@ -530,7 +530,7 @@ export function ReportsManager() {
               {stockData.result.results && stockData.result.results.length > 0 && (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
-                    <div className="overflow-x-auto">
+                    <div className="kiosk-scroll-x">
                       <table className="w-full">
                         <thead className="bg-muted/40">
                           <tr>
@@ -606,7 +606,7 @@ export function ReportsManager() {
               {dailyData.result.results && dailyData.result.results.length > 0 && (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
-                    <div className="overflow-x-auto">
+                    <div className="kiosk-scroll-x">
                       <table className="w-full">
                         <thead className="bg-muted/40">
                           <tr>

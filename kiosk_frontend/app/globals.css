@@ -144,50 +144,47 @@
   .text-balance {
     text-wrap: balance;
   }
-
-  /* Vertical scroll panes inside flex layouts */
-  .kiosk-scroll {
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    overscroll-behavior-y: contain;
-  }
-
-  /* Horizontal chip / tab rows */
-  .kiosk-scroll-x {
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-x;
-    overscroll-behavior-x: contain;
-  }
 }
 
-/* Touch-friendly scrollbars (kiosk finger targets ~28px) */
+/* Native bars still auto-hide on macOS/touch — hide them on custom panes */
+.kiosk-scroll-pane {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.kiosk-scroll-pane::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Fallback native bars — slim, not a giant orange strip */
 * {
-  scrollbar-width: auto;
-  scrollbar-color: hsl(var(--primary) / 0.55) hsl(var(--muted));
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.55) transparent;
 }
 
 ::-webkit-scrollbar {
-  width: 28px;
-  height: 28px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 9999px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.55);
+  background: hsl(var(--primary) / 0.45);
   border-radius: 9999px;
-  border: 6px solid hsl(var(--muted));
+  border: 2px solid transparent;
   background-clip: padding-box;
-  min-height: 48px;
+  min-height: 36px;
+  min-width: 36px;
 }
 
-::-webkit-scrollbar-thumb:hover,
-::-webkit-scrollbar-thumb:active {
-  background: hsl(var(--primary) / 0.85);
-  border: 6px solid hsl(var(--muted));
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.75);
+  border: 2px solid transparent;
   background-clip: padding-box;
 }
 

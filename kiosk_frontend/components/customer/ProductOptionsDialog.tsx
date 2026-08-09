@@ -14,6 +14,7 @@ import {
 import { cn, formatCurrency } from '@/lib/utils'
 import type { CartSelectedOption } from '@/lib/store/cart-store'
 import type { Product, ProductOptionGroup } from '@/types'
+import { KioskScroll } from '@/components/shared/KioskScroll'
 
 interface ProductOptionsDialogProps {
   product: Product
@@ -175,7 +176,7 @@ export function ProductOptionsDialog({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
+        <KioskScroll className="min-h-0 flex-1" contentClassName="space-y-6 px-6 py-5">
           {groups.map((group) => {
             const selectedIds = selectedByGroup[group.id] || []
             const multi = (group.max_select || 1) > 1
@@ -261,7 +262,7 @@ export function ProductOptionsDialog({
               </section>
             )
           })}
-        </div>
+        </KioskScroll>
 
         <div className="shrink-0 space-y-3 border-t border-border/50 bg-background/95 px-6 py-4 backdrop-blur">
           {error ? (

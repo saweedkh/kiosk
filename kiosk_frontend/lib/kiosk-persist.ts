@@ -25,6 +25,14 @@ export type KioskSettingsSnapshot = Pick<
   | 'service_fee'
   | 'service_fee_dine_in'
   | 'service_fee_takeaway'
+  | 'catalog_revision'
+  | 'landing_theme'
+  | 'landing_cta_text'
+  | 'landing_accent_color'
+  | 'landing_bg_color'
+  | 'landing_text_color'
+  | 'landing_muted_color'
+  | 'landing_background_url'
 > & {
   cached_at?: number
 }
@@ -76,11 +84,22 @@ export function writeCachedSettings(settings?: Settings | null): void {
     service_fee: settings.service_fee,
     service_fee_dine_in: settings.service_fee_dine_in,
     service_fee_takeaway: settings.service_fee_takeaway,
+    catalog_revision: Number(settings.catalog_revision) || 0,
+    landing_theme: settings.landing_theme || 'cinema',
+    landing_cta_text: settings.landing_cta_text || '',
+    landing_accent_color: settings.landing_accent_color || '',
+    landing_bg_color: settings.landing_bg_color || '',
+    landing_text_color: settings.landing_text_color || '',
+    landing_muted_color: settings.landing_muted_color || '',
+    landing_background_url: settings.landing_background_url || '',
     cached_at: Date.now(),
   }
   writeJson(SETTINGS_KEY, snapshot)
   if (snapshot.logo_url) {
     void preloadImage(snapshot.logo_url)
+  }
+  if (snapshot.landing_background_url) {
+    void preloadImage(snapshot.landing_background_url)
   }
 }
 

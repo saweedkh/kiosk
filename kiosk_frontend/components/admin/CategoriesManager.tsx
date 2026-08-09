@@ -8,6 +8,16 @@ import { CategoryForm } from './CategoryForm'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 import {
+  AdminAlert,
+  AdminEmpty,
+  AdminMeta,
+  AdminPageHeader,
+  AdminSelect,
+  AdminStatusBadge,
+  AdminSurface,
+  AdminToolbar,
+} from '@/components/admin/ui/primitives'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -158,160 +168,138 @@ export function CategoriesManager() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-text dark:text-text-dark">
-          مدیریت دسته‌بندی‌ها
-        </h2>
-        {canAdd && (
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingCategory(null)
-              setIsFormOpen(true)
-            }}
-          >
-            + افزودن دسته‌بندی
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="دسته‌بندی‌ها"
+        description="ساختار منوی کیوسک را مدیریت کنید."
+        actions={
+          canAdd ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setEditingCategory(null)
+                setIsFormOpen(true)
+              }}
+            >
+              افزودن دسته‌بندی
+            </Button>
+          ) : undefined
+        }
+      />
 
       {isFormOpen && (
         <motion.div
           key={editingCategory?.id || 'new'}
           ref={formRef}
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
         >
-          <h3 className="text-xl font-bold text-text dark:text-text-dark mb-6">
-            {editingCategory ? 'ویرایش دسته‌بندی' : 'ایجاد دسته‌بندی جدید'}
-          </h3>
-          <CategoryForm
-            category={editingCategory || undefined}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            isLoading={createMutation.isPending || updateMutation.isPending}
-          />
+          <AdminSurface>
+            <h3 className="mb-5 text-base font-bold text-foreground">
+              {editingCategory ? 'ویرایش دسته‌بندی' : 'دسته‌بندی جدید'}
+            </h3>
+            <CategoryForm
+              category={editingCategory || undefined}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isLoading={createMutation.isPending || updateMutation.isPending}
+            />
+          </AdminSurface>
         </motion.div>
       )}
 
-      {/* Delete Error Message */}
       {deleteError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-red-800 dark:text-red-200">{deleteError}</p>
-            <button
-              onClick={() => setDeleteError(null)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <AdminAlert tone="danger" onClose={() => setDeleteError(null)}>
+          {deleteError}
+        </AdminAlert>
       )}
 
-      {/* Search and Sort Controls */}
-      <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search Input */}
-          <div className="flex-1">
-            <Input
-              type="text"
-              placeholder="جستجو در دسته‌بندی‌ها..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          
-          {/* Sort Select */}
-          <div className="w-full md:w-64">
-            <select
-              value={sortBy}
-              onChange={(e) => handleSortChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-border dark:border-border-dark bg-card dark:bg-card-dark text-text dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="-id">جدیدترین</option>
-              <option value="id">قدیمی‌ترین</option>
-              <option value="name">نام (صعودی)</option>
-              <option value="-name">نام (نزولی)</option>
-              <option value="display_order">ترتیب نمایش (کم به زیاد)</option>
-              <option value="-display_order">ترتیب نمایش (زیاد به کم)</option>
-            </select>
-          </div>
+      <AdminToolbar>
+        <div className="min-w-0 flex-1">
+          <Input
+            type="text"
+            placeholder="جستجو در دسته‌بندی‌ها..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full"
+          />
         </div>
-        
-        {/* Results Count */}
-        {currentCount > 0 && (
-          <div className="mt-4 text-sm text-text-secondary dark:text-gray-400">
-            نمایش {((currentPage - 1) * pageSize) + 1} تا {Math.min(currentPage * pageSize, currentCount)} از {currentCount} دسته‌بندی
-          </div>
-        )}
-      </div>
+        <div className="w-full md:w-56">
+          <AdminSelect
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+          >
+            <option value="-id">جدیدترین</option>
+            <option value="id">قدیمی‌ترین</option>
+            <option value="name">نام (صعودی)</option>
+            <option value="-name">نام (نزولی)</option>
+            <option value="display_order">ترتیب نمایش ↑</option>
+            <option value="-display_order">ترتیب نمایش ↓</option>
+          </AdminSelect>
+        </div>
+      </AdminToolbar>
+
+      {currentCount > 0 && (
+        <AdminMeta>
+          نمایش {((currentPage - 1) * pageSize) + 1} تا{' '}
+          {Math.min(currentPage * pageSize, currentCount)} از {currentCount} دسته‌بندی
+        </AdminMeta>
+      )}
 
       {isLoading ? (
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="h-20 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"
-            />
+        <AdminSurface className="space-y-3">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />
           ))}
-        </div>
+        </AdminSurface>
       ) : categories.length === 0 ? (
-        <div className="bg-card dark:bg-card-dark rounded-2xl p-8 border border-border dark:border-border-dark text-center">
-          <p className="text-text-secondary dark:text-gray-400">
-            هیچ دسته‌بندی‌ای وجود ندارد
-          </p>
-        </div>
+        <AdminSurface padded={false}>
+          <AdminEmpty
+            title="دسته‌بندی‌ای وجود ندارد"
+            description="اولین دسته‌بندی منو را بسازید."
+          />
+        </AdminSurface>
       ) : (
-        <div className="bg-card dark:bg-card-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden">
+        <AdminSurface padded={false} className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">
+              <thead>
+                <tr className="border-b border-border/80 bg-muted/40">
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
                     نام
                   </th>
-                  <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">
-                    ترتیب نمایش
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
+                    ترتیب
                   </th>
-                  <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
                     وضعیت
                   </th>
-                  <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
                     عملیات
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border dark:divide-border-dark">
+              <tbody className="divide-y divide-border/70">
                 {categories.map((category: Category, index: number) => (
                   <motion.tr
                     key={category.id}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    transition={{ delay: Math.min(index * 0.03, 0.2) }}
+                    className="transition-colors hover:bg-muted/40"
                   >
-                    <td className="px-6 py-4 text-sm text-text dark:text-text-dark">
+                    <td className="px-5 py-3.5 text-sm font-semibold text-foreground">
                       {category.name}
                     </td>
-                    <td className="px-6 py-4 text-sm text-text dark:text-text-dark">
+                    <td className="px-5 py-3.5 text-sm text-muted-foreground">
                       {category.display_order || 0}
                     </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          category.is_active
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}
-                      >
+                    <td className="px-5 py-3.5">
+                      <AdminStatusBadge tone={category.is_active ? 'success' : 'danger'}>
                         {category.is_active ? 'فعال' : 'غیرفعال'}
-                      </span>
+                      </AdminStatusBadge>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         {canChange && (
                           <Button
@@ -338,12 +326,11 @@ export function CategoriesManager() {
               </tbody>
             </table>
           </div>
-        </div>
+        </AdminSurface>
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
+        <div className="flex items-center justify-center gap-2 pt-2">
           <Button
             variant="outline"
             size="sm"

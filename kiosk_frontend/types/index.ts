@@ -34,6 +34,25 @@ export interface User {
 }
 
 // Product Types
+export interface ProductOption {
+  id: number
+  name: string
+  price_delta: number
+  display_order?: number
+  is_active?: boolean
+}
+
+export interface ProductOptionGroup {
+  id: number
+  name: string
+  min_select: number
+  max_select: number
+  is_required: boolean
+  display_order?: number
+  is_active?: boolean
+  options: ProductOption[]
+}
+
 export interface Product {
   id: number
   name: string
@@ -46,6 +65,7 @@ export interface Product {
   is_active: boolean
   is_in_stock: string | boolean
   service_fee_applicable?: boolean
+  option_groups?: ProductOptionGroup[]
   created_at?: string
   updated_at?: string
 }
@@ -69,6 +89,12 @@ export interface OrderItem {
   quantity: number
   unit_price: number
   subtotal: number
+  selected_options?: {
+    id: number
+    name: string
+    group_name?: string
+    price_delta: number
+  }[]
 }
 
 export interface Order {
@@ -79,6 +105,9 @@ export interface Order {
   payment_status: string
   total_amount: number
   service_fee?: number
+  discount_amount?: number
+  coupon_code?: string
+  landing_theme?: string
   fulfillment_type?: FulfillmentType
   items: OrderItem[]
   created_at: string
@@ -93,8 +122,91 @@ export interface OrderCreateRequest {
   items: {
     product_id: number
     quantity: number
+    option_ids?: number[]
   }[]
   fulfillment_type: FulfillmentType
+  coupon_code?: string
+  landing_theme?: string
+}
+
+export interface Coupon {
+  id: number
+  code: string
+  discount_type: 'percent' | 'fixed'
+  value: number
+  min_order_amount: number
+  max_discount_amount?: number | null
+  max_uses?: number | null
+  used_count: number
+  valid_from?: string | null
+  valid_until?: string | null
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CouponPreview {
+  code: string
+  discount_type: string
+  value: number
+  discount_amount: number
+  items_total: number
+  service_fee: number
+  payable: number
+}
+
+export interface LiveDashboardData {
+  live: {
+    date: string
+    sales_today: number
+    orders_today: number
+    avg_basket: number
+    payment_attempts: number
+    cancelled_payments: number
+    cancel_rate: number
+    pending_payments: number
+  }
+  heatmap: {
+    days: number
+    max_orders: number
+    hours: { hour: number; orders: number; sales: number; intensity: number }[]
+  }
+  landing_ab: {
+    days: number
+    ab_enabled: boolean
+    theme_a: string
+    theme_b: string
+    split_a_percent: number
+    variants: {
+      theme: string
+      impressions: number
+      starts: number
+      start_rate: number
+    }[]
+  }
+}
+
+export interface SystemHealthData {
+  overall: string
+  checked_at: string
+  components: {
+    pos: HealthComponent
+    printer: HealthComponent
+    bale: HealthComponent & { raw?: unknown }
+  }
+}
+
+export interface HealthComponent {
+  ok: boolean
+  status: string
+  latency_ms?: number | null
+  host?: string | null
+  port?: number | null
+  error?: string | null
+  message?: string
+  api_ok?: boolean
+  worker_ok?: boolean
+  bot_username?: string
 }
 
 // Payment Types
@@ -141,13 +253,32 @@ export interface PaginatedResponse<T> {
 }
 
 // Settings Types
+export type LandingTheme = 'cinema' | 'neon' | 'fresh' | 'editorial'
+
 export interface Settings {
   site_name?: string
   copyright_text?: string
   contact_phone?: string
   contact_email?: string
   address?: string
+  description?: string
   logo_url?: string
+  landing_theme?: LandingTheme | string
+  landing_cta_text?: string
+  landing_accent_color?: string
+  landing_bg_color?: string
+  landing_text_color?: string
+  landing_muted_color?: string
+  landing_background_url?: string
+  landing_background?: string
+  landing_background_file?: File
+  landing_background_preview?: string
+  landing_ab_enabled?: boolean
+  landing_theme_b?: LandingTheme | string
+  landing_ab_split?: number
+  logo_file?: File
+  logo_preview?: string
+  logo?: string
   receipt_header?: string
   receipt_footer?: string
   receipt_template?: 'modern' | 'classic' | 'minimal' | 'elegant' | 'bold' | 'ticket' | 'market' | 'banner' | string
@@ -158,6 +289,7 @@ export interface Settings {
   service_fee?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
+  catalog_revision?: number
   receipt_number_mode?: 'manual' | 'automatic' | string
   last_receipt_number?: number
   next_receipt_number?: number

@@ -18,6 +18,7 @@ APP_PERMISSIONS: List[Tuple[str, str]] = [
     ('view_orders', 'مشاهده سفارشات'),
     ('change_orders', 'تغییر وضعیت سفارش'),
     ('change_settings', 'تغییر تنظیمات'),
+    ('manage_coupons', 'مدیریت کوپن تخفیف'),
     ('manage_users', 'مدیریت کاربران و گروه‌ها'),
 ]
 
@@ -56,6 +57,7 @@ DEFAULT_GROUPS: Dict[str, List[str]] = {
         'view_orders',
         'change_orders',
         'change_settings',
+        'manage_coupons',
     ],
 }
 

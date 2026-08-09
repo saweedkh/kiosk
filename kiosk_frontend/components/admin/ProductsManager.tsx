@@ -6,8 +6,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { adminApi } from '@/lib/api/admin'
 import { ProductForm } from './ProductForm'
+import { ProductOptionsEditor } from './ProductOptionsEditor'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
+import {
+  AdminAlert,
+  AdminEmpty,
+  AdminMeta,
+  AdminPageHeader,
+  AdminSelect,
+  AdminStatusBadge,
+  AdminSurface,
+  AdminToolbar,
+} from '@/components/admin/ui/primitives'
 import { formatCurrency, translateError } from '@/lib/utils'
 import type { Product, Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
@@ -236,176 +247,166 @@ export function ProductsManager() {
 
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-text dark:text-text-dark">
-          مدیریت محصولات
-        </h2>
-        {canAdd && (
-          <Button
-            variant="primary"
-            onClick={() => {
-              setEditingProduct(null)
-              setIsFormOpen(true)
-            }}
-          >
-            + افزودن محصول
-          </Button>
-        )}
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="محصولات"
+        description="کاتالوگ کیوسک را بسازید و موجودی را کنترل کنید."
+        actions={
+          canAdd ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                setEditingProduct(null)
+                setIsFormOpen(true)
+              }}
+            >
+              افزودن محصول
+            </Button>
+          ) : undefined
+        }
+      />
 
       {isFormOpen && (
         <motion.div
           key={editingProduct?.id || 'new'}
           ref={formRef}
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark"
         >
-          <h3 className="text-xl font-bold text-text dark:text-text-dark mb-6">
-            {editingProduct ? 'ویرایش محصول' : 'ایجاد محصول جدید'}
-          </h3>
-          <ProductForm
-            product={editingProduct || undefined}
-            categories={categories}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
-            isLoading={createMutation.isPending || updateMutation.isPending}
-            apiErrors={apiErrors}
-            canEditStock={!editingProduct || canChangeStock}
-          />
+          <AdminSurface>
+            <h3 className="mb-5 text-base font-bold text-foreground">
+              {editingProduct ? 'ویرایش محصول' : 'محصول جدید'}
+            </h3>
+            <ProductForm
+              product={editingProduct || undefined}
+              categories={categories}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isLoading={createMutation.isPending || updateMutation.isPending}
+              apiErrors={apiErrors}
+              canEditStock={!editingProduct || canChangeStock}
+            />
+            {editingProduct ? (
+              <ProductOptionsEditor
+                productId={editingProduct.id}
+                canEdit={canChange}
+              />
+            ) : null}
+          </AdminSurface>
         </motion.div>
       )}
 
       {stockProduct && (
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark space-y-4"
         >
-          <h3 className="text-xl font-bold text-text dark:text-text-dark">
-            تغییر موجودی — {stockProduct.name}
-          </h3>
-          {stockError && (
-            <p className="text-sm text-red-600 dark:text-red-400">{stockError}</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="موجودی جدید"
-              type="number"
-              min={0}
-              value={String(stockQuantity)}
-              onChange={(e) => setStockQuantity(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-            />
-            <Input
-              label="یادداشت (اختیاری)"
-              value={stockNotes}
-              onChange={(e) => setStockNotes(e.target.value)}
-              placeholder="مثلاً شمارش انبار"
-            />
-          </div>
-          <div className="flex gap-3">
-            <Button
-              onClick={() =>
-                stockMutation.mutate({
-                  id: stockProduct.id,
-                  stock_quantity: stockQuantity,
-                  notes: stockNotes || undefined,
-                })
-              }
-              isLoading={stockMutation.isPending}
-            >
-              ذخیره موجودی
-            </Button>
-            <Button variant="outline" onClick={() => setStockProduct(null)}>
-              انصراف
-            </Button>
-          </div>
+          <AdminSurface className="space-y-4">
+            <h3 className="text-base font-bold text-foreground">
+              تغییر موجودی — {stockProduct.name}
+            </h3>
+            {stockError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{stockError}</p>
+            )}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Input
+                label="موجودی جدید"
+                type="number"
+                min={0}
+                value={String(stockQuantity)}
+                onChange={(e) =>
+                  setStockQuantity(Math.max(0, Math.floor(Number(e.target.value) || 0)))
+                }
+              />
+              <Input
+                label="یادداشت (اختیاری)"
+                value={stockNotes}
+                onChange={(e) => setStockNotes(e.target.value)}
+                placeholder="مثلاً شمارش انبار"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={() =>
+                  stockMutation.mutate({
+                    id: stockProduct.id,
+                    stock_quantity: stockQuantity,
+                    notes: stockNotes || undefined,
+                  })
+                }
+                isLoading={stockMutation.isPending}
+              >
+                ذخیره موجودی
+              </Button>
+              <Button variant="outline" onClick={() => setStockProduct(null)}>
+                انصراف
+              </Button>
+            </div>
+          </AdminSurface>
         </motion.div>
       )}
 
-      {/* Delete Error Message */}
       {deleteError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-red-800 dark:text-red-200">{deleteError}</p>
-            <button
-              onClick={() => setDeleteError(null)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
+        <AdminAlert tone="danger" onClose={() => setDeleteError(null)}>
+          {deleteError}
+        </AdminAlert>
       )}
 
-      {/* Search and Sort Controls */}
-      <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search Input */}
-          <div className="flex-1">
-            <Input
-              type="text"
-              placeholder="جستجو در محصولات..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          
-          {/* Sort Select */}
-          <div className="w-full md:w-64">
-            <select
-              value={sortBy}
-              onChange={(e) => handleSortChange(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-border dark:border-border-dark bg-card dark:bg-card-dark text-text dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="-id">جدیدترین</option>
-              <option value="id">قدیمی‌ترین</option>
-              <option value="name">نام (صعودی)</option>
-              <option value="-name">نام (نزولی)</option>
-              <option value="price">قیمت (کم به زیاد)</option>
-              <option value="-price">قیمت (زیاد به کم)</option>
-              <option value="stock_quantity">موجودی (کم به زیاد)</option>
-              <option value="-stock_quantity">موجودی (زیاد به کم)</option>
-            </select>
-          </div>
+      <AdminToolbar>
+        <div className="min-w-0 flex-1">
+          <Input
+            type="text"
+            placeholder="جستجو در محصولات..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full"
+          />
         </div>
-        
-        {/* Results Count */}
-        {currentCount > 0 && (
-          <div className="mt-4 text-sm text-text-secondary dark:text-gray-400">
-            نمایش {((currentPage - 1) * pageSize) + 1} تا {Math.min(currentPage * pageSize, currentCount)} از {currentCount} محصول
-          </div>
-        )}
-      </div>
+        <div className="w-full md:w-56">
+          <AdminSelect value={sortBy} onChange={(e) => handleSortChange(e.target.value)}>
+            <option value="-id">جدیدترین</option>
+            <option value="id">قدیمی‌ترین</option>
+            <option value="name">نام (صعودی)</option>
+            <option value="-name">نام (نزولی)</option>
+            <option value="price">قیمت ↑</option>
+            <option value="-price">قیمت ↓</option>
+            <option value="stock_quantity">موجودی ↑</option>
+            <option value="-stock_quantity">موجودی ↓</option>
+          </AdminSelect>
+        </div>
+      </AdminToolbar>
+
+      {currentCount > 0 && (
+        <AdminMeta>
+          نمایش {((currentPage - 1) * pageSize) + 1} تا{' '}
+          {Math.min(currentPage * pageSize, currentCount)} از {currentCount} محصول
+        </AdminMeta>
+      )}
 
       {productsLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="h-64 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"
-            />
+            <div key={i} className="h-64 animate-pulse rounded-2xl bg-muted" />
           ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="bg-card dark:bg-card-dark rounded-2xl p-8 border border-border dark:border-border-dark text-center">
-          <p className="text-text-secondary dark:text-gray-400">
-            هیچ محصولی وجود ندارد
-          </p>
-        </div>
+        <AdminSurface padded={false}>
+          <AdminEmpty
+            title="محصولی وجود ندارد"
+            description="اولین محصول کاتالوگ را اضافه کنید."
+          />
+        </AdminSurface>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {products.map((product: Product, index: number) => (
               <motion.div
                 key={product.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-card dark:bg-card-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden"
+                transition={{ delay: Math.min(index * 0.03, 0.2) }}
+                className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02] transition-shadow hover:shadow-md"
               >
-                <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-800">
+                <div className="relative h-44 w-full bg-muted">
                   {product.image ? (
                     <Image
                       src={product.image}
@@ -440,20 +441,14 @@ export function ProductsManager() {
                   <span className="text-xl font-bold text-primary dark:text-primary-light">
                     {formatCurrency(product.price)}
                   </span>
-                  <span className="text-sm text-text-secondary dark:text-gray-400">
+                  <span className="text-sm text-muted-foreground">
                     موجودی: {product.stock_quantity}
                   </span>
                 </div>
-                <div className="flex items-center justify-between mb-4">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      product.is_active
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                    }`}
-                  >
+                <div className="mb-4 flex items-center justify-between">
+                  <AdminStatusBadge tone={product.is_active ? 'success' : 'danger'}>
                     {product.is_active ? 'فعال' : 'غیرفعال'}
-                  </span>
+                  </AdminStatusBadge>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {canChange && (

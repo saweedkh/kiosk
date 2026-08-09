@@ -12,18 +12,16 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = [
             'id', 'product', 'product_name', 'product_price',
-            'quantity', 'unit_price', 'subtotal'
+            'quantity', 'unit_price', 'subtotal', 'selected_options',
         ]
-        read_only_fields = ['id', 'subtotal', 'product_name', 'product_price']
+        read_only_fields = ['id', 'subtotal', 'product_name', 'product_price', 'selected_options']
     
     def get_product_name(self, obj):
-        """Return product name from product if exists, otherwise from product_name backup."""
         if obj.product:
             return obj.product.name
         return obj.product_name or _('محصول حذف شده')
     
     def get_product_price(self, obj):
-        """Return product price from product if exists, otherwise None."""
         if obj.product:
             return obj.product.price
         return None
@@ -36,24 +34,31 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'service_fee', 'fulfillment_type', 'items',
+            'payment_status', 'total_amount', 'service_fee', 'discount_amount',
+            'coupon_code', 'landing_theme', 'fulfillment_type', 'items',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'service_fee', 'fulfillment_type',
+            'payment_status', 'total_amount', 'service_fee', 'discount_amount',
+            'coupon_code', 'landing_theme', 'fulfillment_type',
             'created_at', 'updated_at'
         ]
 
 
 class OrderItemCreateSerializer(serializers.Serializer):
-    """Serializer for order item creation."""
     product_id = serializers.IntegerField(label=_('شناسه محصول'))
     quantity = serializers.IntegerField(min_value=1, label=_('تعداد'))
+    option_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=True,
+        default=list,
+        label=_('شناسه آپشن‌ها'),
+    )
 
 
 class OrderCreateSerializer(serializers.Serializer):
-    """Serializer for order creation from frontend."""
     items = OrderItemCreateSerializer(many=True, label=_('آیتم‌های سفارش'))
     fulfillment_type = serializers.ChoiceField(
         choices=['dine_in', 'takeaway'],
@@ -61,10 +66,20 @@ class OrderCreateSerializer(serializers.Serializer):
         label=_('نوع سفارش'),
         help_text=_('dine_in = داخل سالن، takeaway = بیرون‌بر'),
     )
+    coupon_code = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=40,
+        label=_('کد تخفیف'),
+    )
+    landing_theme = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=20,
+        label=_('تم لندینگ'),
+    )
     
     def validate_items(self, value):
-        """Validate that items list is not empty."""
         if not value:
             raise serializers.ValidationError(_('لیست آیتم‌های سفارش نمی‌تواند خالی باشد.'))
         return value
-

@@ -18,12 +18,14 @@ class CategorySelector:
     
     @staticmethod
     def get_category_products(category_id):
-        from apps.products.models import Product
+        from apps.products.selectors.product_selector import ProductSelector
         return Product.objects.filter(
             category_id=category_id,
             is_active=True
-        ).select_related('category').order_by(
-            '-stock_quantity',  # Products with stock first (descending order)
-            'name'  # Then by name for consistent ordering
+        ).select_related('category').prefetch_related(
+            ProductSelector._options_prefetch()
+        ).order_by(
+            '-stock_quantity',
+            'name'
         )
 

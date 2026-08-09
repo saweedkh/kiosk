@@ -1,5 +1,34 @@
+import re
+
 from rest_framework import serializers
 from apps.core.models.settings import SiteSettings
+
+
+_HEX_RE = re.compile(r'^#[0-9A-Fa-f]{6}$')
+
+
+def _media_url(file_field):
+    """Same-origin relative /media URL (works behind nginx)."""
+    if file_field and hasattr(file_field, 'url'):
+        url = file_field.url
+        if url.startswith('http://') or url.startswith('https://'):
+            return url
+        if not url.startswith('/'):
+            url = f'/{url}'
+        return url
+    return None
+
+
+def _clean_hex_color(value):
+    """Allow empty (theme default) or #RRGGBB."""
+    if value is None:
+        return ''
+    cleaned = str(value).strip()
+    if not cleaned:
+        return ''
+    if not _HEX_RE.match(cleaned):
+        raise serializers.ValidationError('رنگ باید به صورت #RRGGBB باشد.')
+    return cleaned.upper()
 
 
 class SiteSettingsSerializer(serializers.ModelSerializer):
@@ -7,9 +36,10 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
     Serializer برای تنظیمات کامل سایت (برای Admin)
     """
     logo_url = serializers.SerializerMethodField()
+    landing_background_url = serializers.SerializerMethodField()
     next_receipt_number = serializers.SerializerMethodField()
     active_receipt_template = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = SiteSettings
         fields = [
@@ -22,6 +52,17 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'contact_email',
             'contact_address',
             'description',
+            'landing_theme',
+            'landing_cta_text',
+            'landing_accent_color',
+            'landing_bg_color',
+            'landing_text_color',
+            'landing_muted_color',
+            'landing_background',
+            'landing_background_url',
+            'landing_ab_enabled',
+            'landing_theme_b',
+            'landing_ab_split',
             'receipt_header',
             'receipt_footer',
             'receipt_template',
@@ -32,6 +73,7 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'service_fee',
             'service_fee_dine_in',
             'service_fee_takeaway',
+            'catalog_revision',
             'receipt_number_mode',
             'last_receipt_number',
             'next_receipt_number',
@@ -43,23 +85,30 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'logo_url',
+            'landing_background_url',
             'last_receipt_number',
             'next_receipt_number',
             'active_receipt_template',
+            'catalog_revision',
         ]
-    
+
+    def validate_landing_accent_color(self, value):
+        return _clean_hex_color(value)
+
+    def validate_landing_bg_color(self, value):
+        return _clean_hex_color(value)
+
+    def validate_landing_text_color(self, value):
+        return _clean_hex_color(value)
+
+    def validate_landing_muted_color(self, value):
+        return _clean_hex_color(value)
+
     def get_logo_url(self, obj):
-        """
-        Same-origin relative /media URL (works behind nginx on customer installs).
-        """
-        if obj.logo and hasattr(obj.logo, 'url'):
-            url = obj.logo.url
-            if url.startswith('http://') or url.startswith('https://'):
-                return url
-            if not url.startswith('/'):
-                url = f'/{url}'
-            return url
-        return None
+        return _media_url(obj.logo)
+
+    def get_landing_background_url(self, obj):
+        return _media_url(obj.landing_background)
 
     def get_next_receipt_number(self, obj):
         return obj.effective_next_receipt_number()
@@ -74,7 +123,8 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
     برای استفاده در frontend
     """
     logo_url = serializers.SerializerMethodField()
-    
+    landing_background_url = serializers.SerializerMethodField()
+
     class Meta:
         model = SiteSettings
         fields = [
@@ -85,6 +135,16 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             'contact_email',
             'contact_address',
             'description',
+            'landing_theme',
+            'landing_cta_text',
+            'landing_accent_color',
+            'landing_bg_color',
+            'landing_text_color',
+            'landing_muted_color',
+            'landing_background_url',
+            'landing_ab_enabled',
+            'landing_theme_b',
+            'landing_ab_split',
             'receipt_header',
             'receipt_footer',
             'receipt_template',
@@ -92,19 +152,11 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             'service_fee',
             'service_fee_dine_in',
             'service_fee_takeaway',
+            'catalog_revision',
         ]
-    
-    def get_logo_url(self, obj):
-        """
-        Prefer same-origin relative /media URL so SSR metadata and browser
-        both work behind nginx (avoids backend:8000 absolute hosts).
-        """
-        if obj.logo and hasattr(obj.logo, 'url'):
-            url = obj.logo.url
-            if url.startswith('http://') or url.startswith('https://'):
-                return url
-            if not url.startswith('/'):
-                url = f'/{url}'
-            return url
-        return None
 
+    def get_logo_url(self, obj):
+        return _media_url(obj.logo)
+
+    def get_landing_background_url(self, obj):
+        return _media_url(obj.landing_background)

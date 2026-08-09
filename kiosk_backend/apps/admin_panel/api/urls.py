@@ -8,5 +8,7 @@ urlpatterns = [
     path('categories/', include('apps.admin_panel.api.categories.urls')),
     path('orders/', include('apps.admin_panel.api.orders.urls')),
     path('reports/', include('apps.admin_panel.api.reports.urls')),
+    path('dashboard/', include('apps.admin_panel.api.dashboard.urls')),
+    path('coupons/', include('apps.admin_panel.api.coupons.urls')),
 ]
 

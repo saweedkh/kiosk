@@ -1,11 +1,12 @@
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 from django.db import transaction
 from django.utils import timezone
 from apps.orders.models import Order, OrderItem
 from apps.orders.selectors.order_selector import OrderSelector
 from apps.orders.services.receipt_service import ReceiptService
 from apps.orders.services.print_service import PrintService
-from apps.products.models import Product
+from apps.orders.services.coupon_service import CouponService
+from apps.products.models import Product, ProductOption
 from apps.products.services.stock_service import StockService
 from apps.logs.services.log_service import LogService
 from apps.core.exceptions.order import OrderNotFoundException, InsufficientStockException
@@ -24,15 +25,6 @@ class OrderService:
     
     @staticmethod
     def generate_order_number() -> str:
-        """
-        Generate unique order number.
-        
-        Format: ORD-YYYYMMDDHHMMSS-XXXX
-        Where XXXX is microsecond suffix for uniqueness.
-        
-        Returns:
-            str: Unique order number
-        """
         timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
         random_suffix = str(timezone.now().microsecond)[:4]
         return f"ORD-{timestamp}-{random_suffix}"
@@ -43,10 +35,9 @@ class OrderService:
         items: List[Dict],
         process_payment: bool = True,
         fulfillment_type: str = 'dine_in',
+        coupon_code: Optional[str] = None,
+        landing_theme: str = '',
     ) -> Order:
-        """
-        Create order from items data sent from frontend and process payment directly.
-        """
         if not items:
             raise ValueError('Items list is empty')
 
@@ -60,9 +51,17 @@ class OrderService:
             products,
             fulfillment_type=fulfillment_type,
         )
-        total_amount = items_total + service_fee
+
+        coupon = None
+        discount_amount = 0
+        if coupon_code:
+            coupon = CouponService.get_active_coupon(coupon_code)
+            discount_amount = CouponService.calculate_discount(
+                coupon, items_total, service_fee
+            )
+
+        total_amount = max(items_total + service_fee - discount_amount, 0)
         
-        # Create order and items in a transaction (commit before payment processing)
         order = OrderService._create_order_with_items(
             order_number,
             session_key,
@@ -70,35 +69,84 @@ class OrderService:
             order_items_data,
             service_fee=service_fee,
             fulfillment_type=fulfillment_type,
+            discount_amount=discount_amount,
+            coupon=coupon,
+            landing_theme=landing_theme or '',
         )
         
-        # Process payment immediately if requested (outside transaction to ensure order is saved)
         if process_payment:
             OrderService._process_payment(order, order_number, total_amount)
+            # Consume coupon only after successful payment
+            order.refresh_from_db()
+            if order.payment_status == 'paid' and coupon:
+                try:
+                    CouponService.consume(coupon)
+                except ValueError:
+                    # Race: coupon exhausted after payment — log, keep order paid
+                    LogService.log_warning(
+                        'order',
+                        'coupon_consume_failed',
+                        details={'order_id': order.id, 'coupon': coupon.code},
+                    )
         
         return order
     
     @staticmethod
+    def _resolve_selected_options(product: Product, option_ids: Optional[List[int]]) -> tuple[List[Dict[str, Any]], int]:
+        option_ids = list(option_ids or [])
+        groups = list(
+            product.option_groups.filter(is_active=True).prefetch_related('options')
+        )
+        if not groups and not option_ids:
+            return [], 0
+
+        selected_map: Dict[int, ProductOption] = {}
+        if option_ids:
+            opts = ProductOption.objects.filter(
+                id__in=option_ids,
+                is_active=True,
+                group__product=product,
+                group__is_active=True,
+            ).select_related('group')
+            selected_map = {o.id: o for o in opts}
+            if len(selected_map) != len(set(option_ids)):
+                raise ValueError(f'آپشن نامعتبر برای محصول {product.name}')
+
+        # Validate group constraints
+        for group in groups:
+            selected_in_group = [o for o in selected_map.values() if o.group_id == group.id]
+            count = len(selected_in_group)
+            min_sel = int(group.min_select or 0)
+            max_sel = int(group.max_select or 1)
+            if group.is_required and count < max(min_sel, 1):
+                raise ValueError(f'انتخاب «{group.name}» برای {product.name} اجباری است')
+            if count < min_sel:
+                raise ValueError(f'حداقل {min_sel} گزینه برای «{group.name}» لازم است')
+            if count > max_sel:
+                raise ValueError(f'حداکثر {max_sel} گزینه برای «{group.name}» مجاز است')
+
+        snapshot = [
+            {
+                'id': o.id,
+                'name': o.name,
+                'group_id': o.group_id,
+                'group_name': o.group.name,
+                'price_delta': int(o.price_delta or 0),
+            }
+            for o in selected_map.values()
+        ]
+        extra = sum(int(s['price_delta']) for s in snapshot)
+        return snapshot, extra
+
+    @staticmethod
     def _validate_and_prepare_items(items: List[Dict]) -> tuple[List[Dict], int]:
-        """
-        Validate products and prepare order items data.
-        
-        Args:
-            items: List of order items with product_id and quantity
-            
-        Returns:
-            Tuple of (order_items_data, total_amount)
-            
-        Raises:
-            ValueError: If product not found
-            InsufficientStockException: If insufficient stock
-        """
         order_items_data = []
         total_amount = 0
         
         for item in items:
             product_id = item['product_id']
             quantity = item['quantity']
+            option_ids = item.get('option_ids') or []
             
             try:
                 product = Product.objects.get(id=product_id, is_active=True)
@@ -110,13 +158,17 @@ class OrderService:
                     f'Insufficient stock for product {product.name}. '
                     f'Available: {product.stock_quantity}, Requested: {quantity}'
                 )
-            
-            unit_price = product.price
+
+            selected_options, options_extra = OrderService._resolve_selected_options(
+                product, option_ids
+            )
+            unit_price = int(product.price) + int(options_extra)
             total_amount += quantity * unit_price
             order_items_data.append({
                 'product': product,
                 'quantity': quantity,
-                'unit_price': unit_price
+                'unit_price': unit_price,
+                'selected_options': selected_options,
             })
         
         return order_items_data, total_amount
@@ -129,10 +181,10 @@ class OrderService:
         order_items_data: List[Dict],
         service_fee: int = 0,
         fulfillment_type: str = 'dine_in',
+        discount_amount: int = 0,
+        coupon=None,
+        landing_theme: str = '',
     ) -> Order:
-        """
-        Create order and order items in a transaction.
-        """
         with transaction.atomic():
             order = Order.objects.create(
                 order_number=order_number,
@@ -140,6 +192,10 @@ class OrderService:
                 status='pending',
                 total_amount=total_amount,
                 service_fee=max(int(service_fee or 0), 0),
+                discount_amount=max(int(discount_amount or 0), 0),
+                coupon=coupon,
+                coupon_code=(coupon.code if coupon else ''),
+                landing_theme=(landing_theme or '')[:20],
                 payment_status='pending',
                 fulfillment_type=fulfillment_type or 'dine_in',
             )
@@ -148,9 +204,10 @@ class OrderService:
                 OrderItem.objects.create(
                     order=order,
                     product=item_data['product'],
-                    product_name=item_data['product'].name,  # Save product name as backup
+                    product_name=item_data['product'].name,
                     quantity=item_data['quantity'],
-                    unit_price=item_data['unit_price']
+                    unit_price=item_data['unit_price'],
+                    selected_options=item_data.get('selected_options') or [],
                 )
             
             LogService.log_info(
@@ -161,12 +218,14 @@ class OrderService:
                     'order_number': order_number,
                     'session_key': session_key,
                     'total_amount': total_amount,
+                    'discount_amount': discount_amount,
+                    'coupon': coupon.code if coupon else None,
                     'fulfillment_type': order.fulfillment_type,
+                    'landing_theme': landing_theme,
                 }
             )
         
         return order
-    
     @staticmethod
     def _process_payment(order: Order, order_number: str, total_amount: int) -> None:
         """

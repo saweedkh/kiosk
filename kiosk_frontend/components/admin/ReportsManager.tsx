@@ -7,6 +7,11 @@ import { reportsApi } from '@/lib/api/reports'
 import { ordersApi } from '@/lib/api/orders'
 import { Button } from '@/components/shared/Button'
 import { DatePicker } from '@/components/admin/DatePicker'
+import {
+  AdminPageHeader,
+  AdminSegmented,
+  AdminSurface,
+} from '@/components/admin/ui/primitives'
 import { formatCurrency, formatNumber, toEnglishDigits } from '@/lib/utils'
 import { formatJalaliDate, formatJalaliDateTime, getTodayJalali, convertJalaliToMiladi } from '@/lib/utils/date'
 import moment from 'moment-jalaali'
@@ -235,51 +240,28 @@ export function ReportsManager() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-text dark:text-text-dark">
-          گزارشات
-        </h2>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        title="گزارشات"
+        description="فروش، محصولات، موجودی و عملکرد روزانه."
+      />
 
-      {/* Report Type Tabs */}
-      <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={activeReport === 'sales' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => handleReportChange('sales')}
-            >
-              گزارش فروش
-            </Button>
-            <Button
-              variant={activeReport === 'products' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => handleReportChange('products')}
-            >
-              گزارش محصولات
-            </Button>
-            <Button
-              variant={activeReport === 'stock' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => handleReportChange('stock')}
-            >
-              گزارش موجودی
-            </Button>
-            <Button
-              variant={activeReport === 'daily' ? 'primary' : 'outline'}
-              size="sm"
-              onClick={() => handleReportChange('daily')}
-            >
-              گزارش روزانه
-            </Button>
-          </div>
-        </div>
+      <AdminSurface>
+        <AdminSegmented
+          value={activeReport}
+          onChange={handleReportChange}
+          className="mb-5"
+          options={[
+            { id: 'sales', label: 'فروش' },
+            { id: 'products', label: 'محصولات' },
+            { id: 'stock', label: 'موجودی' },
+            { id: 'daily', label: 'روزانه' },
+          ]}
+        />
 
         {/* Date Filters */}
         {activeReport === 'sales' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <DatePicker
               label="از تاریخ"
               value={startDate}
@@ -352,7 +334,7 @@ export function ReportsManager() {
         )}
 
         {activeReport === 'daily' && (
-          <div className="mb-6">
+          <div className="mb-2">
             <DatePicker
               label="تاریخ"
               value={dailyDate}
@@ -363,63 +345,63 @@ export function ReportsManager() {
             />
           </div>
         )}
-      </div>
+      </AdminSurface>
 
       {/* Report Content */}
       {isLoading ? (
-        <div className="bg-card dark:bg-card-dark rounded-2xl p-8 border border-border dark:border-border-dark text-center">
-          <p className="text-text-secondary dark:text-gray-400">در حال بارگذاری...</p>
-        </div>
+        <AdminSurface className="py-12 text-center">
+          <p className="text-muted-foreground">در حال بارگذاری...</p>
+        </AdminSurface>
       ) : (
         <>
           {/* Sales Report */}
           {activeReport === 'sales' && salesData?.result && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
+              className="space-y-5"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">مجموع فروش</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <AdminSurface>
+                  <p className="mb-2 text-sm text-muted-foreground">مجموع فروش</p>
+                  <p className="text-2xl font-black text-foreground">
                     {formatCurrency(salesData.result.summary?.total_sales || 0)}
                   </p>
-                </div>
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">تعداد سفارشات</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                </AdminSurface>
+                <AdminSurface>
+                  <p className="mb-2 text-sm text-muted-foreground">تعداد سفارشات</p>
+                  <p className="text-2xl font-black text-foreground">
                     {formatNumber(salesData.result.summary?.total_orders || 0)}
                   </p>
-                </div>
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">میانگین ارزش سفارش</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                </AdminSurface>
+                <AdminSurface>
+                  <p className="mb-2 text-sm text-muted-foreground">میانگین ارزش سفارش</p>
+                  <p className="text-2xl font-black text-foreground">
                     {formatCurrency(salesData.result.summary?.average_order_value || 0)}
                   </p>
-                </div>
+                </AdminSurface>
               </div>
 
               {salesData.result.results && salesData.result.results.length > 0 && (
                 <>
-                  <div className="bg-card dark:bg-card-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden">
+                  <AdminSurface padded={false} className="overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
-                          <tr>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">شماره سفارش</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">مبلغ</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">وضعیت</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">تاریخ</th>
-                            <th className="px-6 py-4 text-center text-sm font-bold text-text dark:text-text-dark">عملیات</th>
+                        <thead>
+                          <tr className="border-b border-border/80 bg-muted/40">
+                            <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">شماره سفارش</th>
+                            <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">مبلغ</th>
+                            <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">وضعیت</th>
+                            <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">تاریخ</th>
+                            <th className="px-5 py-3.5 text-center text-xs font-bold text-muted-foreground">عملیات</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border dark:divide-border-dark">
+                        <tbody className="divide-y divide-border/70">
                           {salesData.result.results.map((order) => (
-                            <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{order.order_number}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatCurrency(order.total_amount)}</td>
-                              <td className="px-6 py-4 text-sm">
+                            <tr key={order.id} className="hover:bg-muted/40">
+                              <td className="px-5 py-3.5 text-sm font-medium text-foreground">{order.order_number}</td>
+                              <td className="px-5 py-3.5 text-sm text-foreground">{formatCurrency(order.total_amount)}</td>
+                              <td className="px-5 py-3.5 text-sm">
                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                                   order.status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
                                   order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
@@ -429,7 +411,7 @@ export function ReportsManager() {
                                   {translateOrderStatus(order.status)}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">
+                              <td className="px-6 py-4 text-sm text-foreground">
                                 {formatJalaliDateTime(order.created_at)}
                               </td>
                               <td className="px-6 py-4 text-sm">
@@ -444,7 +426,7 @@ export function ReportsManager() {
                                       چاپ مجدد
                                     </Button>
                                   ) : (
-                                    <span className="text-lg text-text-secondary dark:text-gray-400">-</span>
+                                    <span className="text-lg text-muted-foreground">-</span>
                                   )}
                                 </div>
                               </td>
@@ -453,7 +435,7 @@ export function ReportsManager() {
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                  </AdminSurface>
                   {renderPagination(salesPage, setSalesPage, salesData.result.count, !!salesData.result.next)}
                 </>
               )}
@@ -468,14 +450,14 @@ export function ReportsManager() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">کل محصولات</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">کل محصولات</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatNumber(productsData.result.summary?.total_products || 0)}
                   </p>
                 </div>
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">محصولات فعال</p>
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">محصولات فعال</p>
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {formatNumber(productsData.result.summary?.active_products || 0)}
                   </p>
@@ -484,28 +466,28 @@ export function ReportsManager() {
 
               {productsData.result.results && productsData.result.results.length > 0 && (
                 <>
-                  <div className="bg-card dark:bg-card-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden">
+                  <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
+                        <thead className="bg-muted/40">
                           <tr>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">نام محصول</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">دسته‌بندی</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">قیمت</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">موجودی</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">تعداد فروخته شده</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">درآمد کل</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">نام محصول</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">دسته‌بندی</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">قیمت</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">موجودی</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">تعداد فروخته شده</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">درآمد کل</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border dark:divide-border-dark">
+                        <tbody className="divide-y divide-border/70">
                           {productsData.result.results.map((product) => (
-                            <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{product.name}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{product.category_name}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatCurrency(product.price)}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatNumber(product.stock_quantity)}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatNumber(product.total_sold)}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatCurrency(product.total_revenue)}</td>
+                            <tr key={product.id} className="hover:bg-muted/40">
+                              <td className="px-6 py-4 text-sm text-foreground">{product.name}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{product.category_name}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatCurrency(product.price)}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatNumber(product.stock_quantity)}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatNumber(product.total_sold)}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatCurrency(product.total_revenue)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -526,15 +508,15 @@ export function ReportsManager() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">ارزش کل موجودی</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">ارزش کل موجودی</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatCurrency(stockData.result.summary?.total_stock_value || 0)}
                   </p>
                 </div>
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">تعداد کل آیتم‌ها</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">تعداد کل آیتم‌ها</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatNumber(stockData.result.summary?.total_items || 0)}
                   </p>
                 </div>
@@ -542,25 +524,25 @@ export function ReportsManager() {
 
               {stockData.result.results && stockData.result.results.length > 0 && (
                 <>
-                  <div className="bg-card dark:bg-card-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden">
+                  <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
+                        <thead className="bg-muted/40">
                           <tr>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">نام محصول</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">موجودی</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">قیمت</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">ارزش موجودی</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">وضعیت</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">نام محصول</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">موجودی</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">قیمت</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">ارزش موجودی</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">وضعیت</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border dark:divide-border-dark">
+                        <tbody className="divide-y divide-border/70">
                           {stockData.result.results.map((item) => (
-                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{item.name}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatNumber(item.stock_quantity)}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatCurrency(item.price)}</td>
-                              <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatCurrency(item.stock_value)}</td>
+                            <tr key={item.id} className="hover:bg-muted/40">
+                              <td className="px-6 py-4 text-sm text-foreground">{item.name}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatNumber(item.stock_quantity)}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatCurrency(item.price)}</td>
+                              <td className="px-6 py-4 text-sm text-foreground">{formatCurrency(item.stock_value)}</td>
                               <td className="px-6 py-4 text-sm">
                                 {item.is_out_of_stock ? (
                                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
@@ -596,21 +578,21 @@ export function ReportsManager() {
               className="space-y-6"
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">مجموع فروش</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">مجموع فروش</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatCurrency(dailyData.result.summary?.total_sales || 0)}
                   </p>
                 </div>
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">تعداد سفارشات</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">تعداد سفارشات</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatNumber(dailyData.result.summary?.total_orders || 0)}
                   </p>
                 </div>
-                <div className="bg-card dark:bg-card-dark rounded-2xl p-6 border border-border dark:border-border-dark">
-                  <p className="text-sm text-text-secondary dark:text-gray-400 mb-2">تعداد تراکنش‌ها</p>
-                  <p className="text-2xl font-bold text-text dark:text-text-dark">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm shadow-black/[0.02]">
+                  <p className="text-sm text-muted-foreground mb-2">تعداد تراکنش‌ها</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {formatNumber(dailyData.result.summary?.total_transactions || 0)}
                   </p>
                 </div>
@@ -618,26 +600,26 @@ export function ReportsManager() {
 
               {dailyData.result.results && dailyData.result.results.length > 0 && (
                 <>
-                  <div className="bg-card dark:bg-card-dark rounded-2xl border border-border dark:border-border-dark overflow-hidden">
+                  <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-800">
+                        <thead className="bg-muted/40">
                           <tr>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">شماره سفارش</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">مبلغ</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">وضعیت</th>
-                            <th className="px-6 py-4 text-right text-sm font-bold text-text dark:text-text-dark">تاریخ</th>
-                            <th className="px-6 py-4 text-center text-sm font-bold text-text dark:text-text-dark">عملیات</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">شماره سفارش</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">مبلغ</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">وضعیت</th>
+                            <th className="px-6 py-4 text-right text-sm font-bold text-foreground">تاریخ</th>
+                            <th className="px-6 py-4 text-center text-sm font-bold text-foreground">عملیات</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border dark:divide-border-dark">
+                        <tbody className="divide-y divide-border/70">
                           {dailyData.result.results.map((order, index) => {
                             // Use payment_status if status is not available
                             const status = order.status || order.payment_status
                             return (
-                              <tr key={order.id || `order-${index}-${order.order_number}`} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                                <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{order.order_number}</td>
-                                <td className="px-6 py-4 text-sm text-text dark:text-text-dark">{formatCurrency(order.total_amount)}</td>
+                              <tr key={order.id || `order-${index}-${order.order_number}`} className="hover:bg-muted/40">
+                                <td className="px-6 py-4 text-sm text-foreground">{order.order_number}</td>
+                                <td className="px-6 py-4 text-sm text-foreground">{formatCurrency(order.total_amount)}</td>
                                 <td className="px-6 py-4 text-sm">
                                   <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                                     status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
@@ -648,7 +630,7 @@ export function ReportsManager() {
                                     {translatePaymentStatus(status)}
                                   </span>
                                 </td>
-                                <td className="px-6 py-4 text-sm text-text dark:text-text-dark">
+                                <td className="px-6 py-4 text-sm text-foreground">
                                   {formatJalaliDateTime(order.created_at)}
                                 </td>
                                 <td className="px-6 py-4 text-sm">
@@ -663,7 +645,7 @@ export function ReportsManager() {
                                         چاپ مجدد
                                       </Button>
                                     ) : (
-                                      <span className="text-lg text-text-secondary dark:text-gray-400">-</span>
+                                      <span className="text-lg text-muted-foreground">-</span>
                                     )}
                                   </div>
                                 </td>

@@ -4,6 +4,55 @@ from apps.core.models import TimeStampedModel
 from .managers import OrderManager, InvoiceManager
 
 
+class Coupon(TimeStampedModel):
+    TYPE_PERCENT = 'percent'
+    TYPE_FIXED = 'fixed'
+    TYPE_CHOICES = [
+        (TYPE_PERCENT, _('درصدی')),
+        (TYPE_FIXED, _('مبلغ ثابت')),
+    ]
+
+    code = models.CharField(max_length=40, unique=True, verbose_name=_('کد تخفیف'))
+    discount_type = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default=TYPE_PERCENT,
+        verbose_name=_('نوع تخفیف'),
+    )
+    value = models.PositiveIntegerField(
+        verbose_name=_('مقدار'),
+        help_text=_('درصد (۰–۱۰۰) یا مبلغ ثابت به ریال'),
+    )
+    min_order_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('حداقل مبلغ سفارش'),
+    )
+    max_discount_amount = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_('سقف تخفیف (ریال)'),
+        help_text=_('فقط برای تخفیف درصدی؛ خالی = بدون سقف'),
+    )
+    max_uses = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name=_('حداکثر استفاده'),
+        help_text=_('خالی = نامحدود'),
+    )
+    used_count = models.PositiveIntegerField(default=0, verbose_name=_('تعداد استفاده‌شده'))
+    valid_from = models.DateTimeField(null=True, blank=True, verbose_name=_('شروع اعتبار'))
+    valid_until = models.DateTimeField(null=True, blank=True, verbose_name=_('پایان اعتبار'))
+    is_active = models.BooleanField(default=True, verbose_name=_('فعال'))
+
+    class Meta:
+        verbose_name = _('کوپن تخفیف')
+        verbose_name_plural = _('کوپن‌های تخفیف')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.code
+
+
 class Order(TimeStampedModel):
     STATUS_CHOICES = [
         ('pending', _('در انتظار')),
@@ -21,6 +70,31 @@ class Order(TimeStampedModel):
         default=0,
         verbose_name=_('مبلغ سرویس'),
         help_text=_('مبلغ سرویس اضافه‌شده به این سفارش (ریال)')
+    )
+    discount_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('مبلغ تخفیف'),
+    )
+    coupon = models.ForeignKey(
+        Coupon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='orders',
+        verbose_name=_('کوپن'),
+    )
+    coupon_code = models.CharField(
+        max_length=40,
+        blank=True,
+        default='',
+        verbose_name=_('کد کوپن (بکاپ)'),
+    )
+    landing_theme = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        verbose_name=_('تم لندینگ'),
+        help_text=_('تم A/B که منجر به این سفارش شده'),
     )
     payment_status = models.CharField(max_length=20, default='pending', verbose_name=_('وضعیت پرداخت'))
     transaction_id = models.CharField(max_length=100, null=True, blank=True, unique=True, verbose_name=_('شناسه تراکنش'))
@@ -61,6 +135,7 @@ class Order(TimeStampedModel):
             models.Index(fields=['payment_status']),
             models.Index(fields=['transaction_id']),
             models.Index(fields=['gateway_name']),
+            models.Index(fields=['created_at', 'payment_status']),
         ]
     
     def __str__(self):
@@ -91,6 +166,12 @@ class OrderItem(TimeStampedModel):
     )
     quantity = models.IntegerField(verbose_name=_('تعداد'))
     unit_price = models.IntegerField(verbose_name=_('قیمت واحد'))
+    selected_options = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_('آپشن‌های انتخاب‌شده'),
+        help_text=_('لیست {id, name, group_name, price_delta}'),
+    )
     
     class Meta:
         verbose_name = _('آیتم سفارش')

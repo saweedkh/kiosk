@@ -75,6 +75,8 @@ class OrderCreateAPIView(generics.GenericAPIView):
                 request_data['items'],
                 process_payment=True,
                 fulfillment_type=request_data.get('fulfillment_type') or 'dine_in',
+                coupon_code=request_data.get('coupon_code') or None,
+                landing_theme=request_data.get('landing_theme') or '',
             )
             
             response_data = OrderSerializer(order).data

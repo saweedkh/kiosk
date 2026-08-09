@@ -12,6 +12,17 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         ('اطلاعات اصلی', {
             'fields': ('site_name', 'logo', 'copyright_text', 'description')
         }),
+        ('لندینگ کیوسک', {
+            'fields': (
+                'landing_theme',
+                'landing_cta_text',
+                'landing_accent_color',
+                'landing_bg_color',
+                'landing_text_color',
+                'landing_muted_color',
+                'landing_background',
+            )
+        }),
         ('متن فیش چاپی', {
             'fields': (
                 'receipt_header',

@@ -42,7 +42,9 @@ class SiteSettingsPublicAPIView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
         # Browser can reuse branding payload briefly (name + logo URL)
-        response['Cache-Control'] = 'public, max-age=60, stale-while-revalidate=300'
+        # Landing/theme changes must show on kiosk without waiting on browser cache
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
         return response
 
 

@@ -83,9 +83,15 @@ class Command(BaseCommand):
                     was_active = active
 
                 if not active:
+                    # Keep heartbeat while idle so "بررسی وضعیت" knows the
+                    # worker process is up (waiting for panel/token).
+                    BaleConfigService.mark_worker_heartbeat()
                     time.sleep(idle_seconds)
                     continue
 
+                # Heartbeat before long-poll so admin health is not "degraded"
+                # for the whole BALE_POLL_TIMEOUT window (often 25–30s).
+                BaleConfigService.mark_worker_heartbeat()
                 updates = client.get_updates(offset=offset, timeout=timeout)
                 consecutive_network_errors = 0
                 BaleConfigService.mark_poll_success()

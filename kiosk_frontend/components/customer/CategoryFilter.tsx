@@ -18,7 +18,7 @@ export function CategoryFilter({
   const categoriesArray = Array.isArray(categories) ? categories : []
 
   return (
-    <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+    <div className="kiosk-scroll-x -mx-1 flex items-center gap-3 overflow-x-auto px-1 pb-3">
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}

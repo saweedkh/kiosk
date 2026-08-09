@@ -1,10 +1,10 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cart-store'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
+import { ProductThumb } from '@/components/customer/ProductThumb'
 
 interface CartSidebarProps {
   isOpen: boolean
@@ -85,7 +85,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="kiosk-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-6">
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <svg
@@ -109,27 +109,18 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
                 <div className="space-y-4">
                   {items.map((item) => (
                     <motion.div
-                      key={item.product.id}
+                      key={item.key || item.product.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 flex gap-4"
                     >
-                      <div className="relative w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-                        {item.product.image ? (
-                          <Image
-                            src={item.product.image}
-                            alt={item.product.name}
-                            fill
-                            className="object-cover"
-                            sizes="80px"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-                            بدون تصویر
-                          </div>
-                        )}
-                      </div>
+                      <ProductThumb
+                        src={item.product.image}
+                        alt={item.product.name}
+                        sizes="80px"
+                        className="h-20 w-20 flex-shrink-0 rounded-lg"
+                      />
 
                       <div className="flex-1">
                         <h4 className="font-bold text-text dark:text-text-dark mb-1">
@@ -145,7 +136,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() =>
-                              updateQuantity(item.product.id, item.quantity - 1)
+                              updateQuantity(item.key, item.quantity - 1)
                             }
                             className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                           >
@@ -168,7 +159,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
                           </span>
                           <button
                             onClick={() =>
-                              updateQuantity(item.product.id, item.quantity + 1)
+                              updateQuantity(item.key, item.quantity + 1)
                             }
                             className="w-8 h-8 flex items-center justify-center bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                           >
@@ -187,7 +178,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
                             </svg>
                           </button>
                           <button
-                            onClick={() => removeItem(item.product.id)}
+                            onClick={() => removeItem(item.key)}
                             className="mr-auto p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           >
                             <svg

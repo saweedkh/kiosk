@@ -144,24 +144,55 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Vertical scroll panes inside flex layouts */
+  .kiosk-scroll {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Horizontal chip / tab rows */
+  .kiosk-scroll-x {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+  }
 }
 
-/* Scrollbar */
+/* Touch-friendly scrollbars (kiosk finger targets ~28px) */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: hsl(var(--primary) / 0.55) hsl(var(--muted));
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 28px;
+  height: 28px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-800;
+  background: hsl(var(--muted));
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  background: hsl(var(--primary) / 0.55);
+  border-radius: 9999px;
+  border: 6px solid hsl(var(--muted));
+  background-clip: padding-box;
+  min-height: 48px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-500;
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--primary) / 0.85);
+  border: 6px solid hsl(var(--muted));
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Jalali DatePicker */

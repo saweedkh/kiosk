@@ -10,5 +10,6 @@ urlpatterns = [
     path('settings/', include('apps.core.api.settings.urls')),
     path('accounts/', include('apps.accounts.api.urls')),
     path('bale/', include('apps.bale_bot.api.urls')),
+    path('analytics/', include('apps.core.api.analytics.urls')),
 ]
 

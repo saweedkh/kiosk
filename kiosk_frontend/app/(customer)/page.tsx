@@ -22,7 +22,33 @@ import {
 } from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { analyticsApi } from "@/lib/api/dashboard";
 import { formatNumber } from "@/lib/utils";
+import type { LandingTheme } from "@/types";
+
+const LANDING_THEMES: LandingTheme[] = ["cinema", "neon", "fresh", "editorial"];
+const AB_THEME_STORAGE_KEY = "kiosk-landing-ab-theme";
+
+function pickLandingTheme(settingsLike: {
+  landing_theme?: string;
+  landing_theme_b?: string;
+  landing_ab_enabled?: boolean;
+  landing_ab_split?: number;
+} | null | undefined): string {
+  const themeA = (settingsLike?.landing_theme || "cinema").toLowerCase();
+  if (!settingsLike?.landing_ab_enabled) return themeA;
+  if (typeof window !== "undefined") {
+    const sticky = sessionStorage.getItem(AB_THEME_STORAGE_KEY);
+    if (sticky && LANDING_THEMES.includes(sticky as LandingTheme)) return sticky;
+  }
+  const themeB = (settingsLike?.landing_theme_b || "neon").toLowerCase();
+  const split = Math.min(Math.max(Number(settingsLike?.landing_ab_split ?? 50), 0), 100);
+  const picked = Math.random() * 100 < split ? themeA : themeB;
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem(AB_THEME_STORAGE_KEY, picked);
+  }
+  return picked;
+}
 import {
   readCachedSettings,
   writeCachedSettings,
@@ -30,12 +56,21 @@ import {
   writeCachedCategories,
   readCachedProducts,
   writeCachedProducts,
+  clearCachedMenu,
   preloadImage,
   preloadImages,
 } from "@/lib/kiosk-persist";
+import {
+  CustomerMenuSkeleton,
+  CategoryFilterSkeleton,
+  ProductGridSkeleton,
+} from "@/components/customer/CustomerMenuSkeleton";
 
 /** Return to attract screen after this much idle time on the menu */
 const KIOSK_IDLE_MS = 90_000;
+/** Menu stays cached until catalog_revision bumps (admin product/category change). */
+const MENU_STALE_MS = Infinity;
+const MENU_GC_MS = 24 * 60 * 60 * 1000;
 
 export default function CustomerPage() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -60,9 +95,11 @@ export default function CustomerPage() {
   const cartClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentModalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastCatalogRevisionRef = useRef<number | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { getTotalItems, items, getTotalPrice, clearCart } = useCartStore();
+  const { getTotalItems, items, getTotalPrice, clearCart, couponCode } = useCartStore();
+  const [activeLandingTheme, setActiveLandingTheme] = useState<string>("cinema");
 
   useEffect(() => {
     setIsMounted(true);
@@ -165,6 +202,10 @@ export default function CustomerPage() {
     setSelectedCategory(null);
     setPendingFulfillment(null);
     setShowAttract(false);
+    void analyticsApi.trackLanding({
+      event_type: "start",
+      theme: activeLandingTheme,
+    });
   };
 
   // تایمر برای بستن خودکار مودال در صورت موفق یا ناموفق بودن پرداخت → بازگشت به لندینگ
@@ -271,7 +312,7 @@ export default function CustomerPage() {
   const cachedCategories = useMemo(() => readCachedCategories(), []);
   const cachedProducts = useMemo(() => readCachedProducts(), []);
 
-  const { data: categoriesData } = useQuery({
+  const { data: categoriesData, isPending: categoriesPending } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
       const data = await productsApi.getCategories({ page_size: 1000 });
@@ -279,8 +320,10 @@ export default function CustomerPage() {
       return data;
     },
     placeholderData: cachedCategories ?? undefined,
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
+    staleTime: MENU_STALE_MS,
+    gcTime: MENU_GC_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
 
   // Extract categories array from response (handle both array and paginated response)
@@ -306,24 +349,34 @@ export default function CustomerPage() {
     return [];
   })();
   
-  const { data: productsData, isLoading } = useQuery({
-    queryKey: ["products", selectedCategory],
+  // Fetch all active products once; filter by category client-side for instant switches
+  const {
+    data: productsData,
+    isPending: productsPending,
+    isFetching: productsFetching,
+  } = useQuery({
+    queryKey: ["products"],
     queryFn: async () => {
       const data = await productsApi.getProducts({
-        category: selectedCategory || undefined,
         is_active: true,
+        page_size: 1000,
       });
-      // Persist full menu (uncategorized list) for cold-start speed
-      if (selectedCategory == null) {
-        writeCachedProducts(data);
-      }
+      writeCachedProducts(data);
       return data;
     },
-    placeholderData:
-      selectedCategory == null ? cachedProducts ?? undefined : undefined,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
+    placeholderData: cachedProducts ?? undefined,
+    staleTime: MENU_STALE_MS,
+    gcTime: MENU_GC_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
+
+  const allProducts = productsData?.result?.results ?? [];
+  const visibleProducts = useMemo(() => {
+    if (!Array.isArray(allProducts)) return [];
+    if (selectedCategory == null) return allProducts;
+    return allProducts.filter((p) => p.category === selectedCategory);
+  }, [allProducts, selectedCategory]);
 
   const { data: settingsData, isLoading: settingsLoading, isFetched: settingsFetched } = useQuery({
     queryKey: ["settings"],
@@ -333,6 +386,9 @@ export default function CustomerPage() {
         writeCachedSettings(data.result);
         if (data.result.logo_url) {
           void preloadImage(data.result.logo_url);
+        }
+        if (data.result.landing_background_url) {
+          void preloadImage(data.result.landing_background_url);
         }
       }
       return data;
@@ -345,10 +401,47 @@ export default function CustomerPage() {
           messages: {},
         }
       : undefined,
-    staleTime: 10 * 60 * 1000,
+    // Lightweight poll so kiosk picks up admin branding + catalog_revision
+    staleTime: 0,
     gcTime: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 12_000,
     retry: 2,
   });
+
+  // When admin changes products/categories, catalog_revision bumps → refresh menu
+  useEffect(() => {
+    const revision = Number(settingsData?.result?.catalog_revision);
+    if (!Number.isFinite(revision)) return;
+
+    if (lastCatalogRevisionRef.current === null) {
+      const cachedRev = Number(cachedSettings?.catalog_revision);
+      lastCatalogRevisionRef.current = revision;
+      if (Number.isFinite(cachedRev) && cachedRev !== revision) {
+        clearCachedMenu();
+        void queryClient.invalidateQueries({ queryKey: ["products"] });
+        void queryClient.invalidateQueries({ queryKey: ["categories"] });
+      }
+      return;
+    }
+
+    if (lastCatalogRevisionRef.current !== revision) {
+      lastCatalogRevisionRef.current = revision;
+      clearCachedMenu();
+      void queryClient.invalidateQueries({ queryKey: ["products"] });
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+    }
+  }, [settingsData?.result?.catalog_revision, cachedSettings?.catalog_revision, queryClient]);
+
+  // Admin tab writes localStorage — sync instantly without waiting for poll
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "kiosk-settings-cache-v1" || !e.newValue) return;
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [queryClient]);
 
   // Warm menu cache while customer is still on attract screen
   useEffect(() => {
@@ -360,30 +453,51 @@ export default function CustomerPage() {
         writeCachedCategories(data);
         return data;
       },
-      staleTime: 10 * 60 * 1000,
+      staleTime: MENU_STALE_MS,
     });
     void queryClient.prefetchQuery({
-      queryKey: ["products", null],
+      queryKey: ["products"],
       queryFn: async () => {
-        const data = await productsApi.getProducts({ is_active: true });
+        const data = await productsApi.getProducts({
+          is_active: true,
+          page_size: 1000,
+        });
         writeCachedProducts(data);
         return data;
       },
-      staleTime: 5 * 60 * 1000,
+      staleTime: MENU_STALE_MS,
     });
   }, [showAttract, queryClient]);
 
   // Prefetch product images once list is available
   useEffect(() => {
-    const results = productsData?.result?.results;
-    if (!Array.isArray(results)) return;
-    preloadImages(results.map((p: { image?: string }) => p.image).filter(Boolean));
-  }, [productsData]);
+    if (!Array.isArray(allProducts) || allProducts.length === 0) return;
+    preloadImages(allProducts.map((p) => p.image).filter(Boolean));
+  }, [allProducts]);
 
   const settings = (settingsData?.result || cachedSettings || {}) as Settings;
   const siteName = resolveSiteName(settings);
   const siteDescription = resolveSiteDescription(settings);
   const copyrightText = resolveCopyright(settings);
+
+  useEffect(() => {
+    const theme = pickLandingTheme(settings);
+    setActiveLandingTheme(theme);
+  }, [
+    settings.landing_theme,
+    settings.landing_theme_b,
+    settings.landing_ab_enabled,
+    settings.landing_ab_split,
+  ]);
+
+  useEffect(() => {
+    if (!showAttract || !activeLandingTheme) return;
+    void analyticsApi.trackLanding({
+      event_type: "impression",
+      theme: activeLandingTheme,
+    });
+  }, [showAttract, activeLandingTheme]);
+
   const configuredServiceFee =
     settings.service_enabled
       ? Math.max(0, Math.round(Number(settings.service_fee) || 0))
@@ -421,10 +535,12 @@ export default function CustomerPage() {
         items: items.map((item) => ({
           product_id: item.product.id,
           quantity: item.quantity,
+          option_ids: (item.selectedOptions || []).map((o) => o.id),
         })),
         fulfillment_type: selectedFulfillment,
+        coupon_code: couponCode || undefined,
+        landing_theme: activeLandingTheme || undefined,
       };
-      // این API به صورت blocking کار می‌کند و منتظر می‌ماند تا کاربر کارت بکشد
       return await ordersApi.createOrder(orderData);
     },
     onSuccess: (response) => {
@@ -592,10 +708,32 @@ export default function CustomerPage() {
     // کاربر باید با دکمه "بستن" یا کلیک روی backdrop ببندد
   };
 
+  const hasMenuData = Array.isArray(allProducts) && allProducts.length > 0;
+  const showFullMenuSkeleton =
+    (!isMounted && !showAttract) ||
+    (!showAttract &&
+      !hasMenuData &&
+      !productsData &&
+      (productsPending || categoriesPending));
+
+  if (showFullMenuSkeleton) {
+    return <CustomerMenuSkeleton productCount={6} />;
+  }
+
   return (
-    <div className="h-screen flex overflow-hidden bg-background dark:bg-background-dark">
+    <div className="flex h-dvh overflow-hidden bg-background dark:bg-background-dark">
       {showAttract && (
         <KioskAttractScreen
+          key={[
+            activeLandingTheme,
+            settings.landing_cta_text || "",
+            settings.landing_accent_color || "",
+            settings.landing_bg_color || "",
+            settings.landing_text_color || "",
+            settings.landing_muted_color || "",
+            settings.landing_background_url || "",
+            siteName,
+          ].join("|")}
           siteName={siteName || cachedSettings?.site_name || "کیوسک"}
           logoUrl={
             (settings.logo_url && settings.logo_url.trim() !== ""
@@ -604,6 +742,37 @@ export default function CustomerPage() {
             (logoError ? null : "/logo.png")
           }
           tagline={siteDescription || cachedSettings?.description}
+          theme={activeLandingTheme || "cinema"}
+          ctaText={
+            settings.landing_cta_text ||
+            cachedSettings?.landing_cta_text ||
+            undefined
+          }
+          accentColor={
+            settings.landing_accent_color ||
+            cachedSettings?.landing_accent_color ||
+            undefined
+          }
+          bgColor={
+            settings.landing_bg_color ||
+            cachedSettings?.landing_bg_color ||
+            undefined
+          }
+          textColor={
+            settings.landing_text_color ||
+            cachedSettings?.landing_text_color ||
+            undefined
+          }
+          mutedColor={
+            settings.landing_muted_color ||
+            cachedSettings?.landing_muted_color ||
+            undefined
+          }
+          backgroundUrl={
+            settings.landing_background_url ||
+            cachedSettings?.landing_background_url ||
+            undefined
+          }
           onStart={startOrdering}
           onSecretAdmin={() => {
             if (typeof window !== "undefined") {
@@ -614,14 +783,14 @@ export default function CustomerPage() {
         />
       )}
       {/* Left Section - Header + Products (2/3) */}
-      <div className="w-2/3 flex flex-col border-l border-border dark:border-border-dark overflow-hidden">
+      <div className="flex min-h-0 w-2/3 flex-col overflow-hidden border-l border-border dark:border-border-dark">
         {/* Header */}
-        <header className="bg-card dark:bg-card-dark border-b border-border dark:border-border-dark flex-shrink-0 z-30">
+        <header className="z-30 flex-shrink-0 border-b border-border bg-card dark:border-border-dark dark:bg-card-dark">
           <div className="px-6 py-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div 
-                  className="relative w-14 h-14 bg-primary rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                  className="relative flex h-14 w-14 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-primary transition-opacity hover:opacity-80"
                   onClick={handleLogoClick}
                   title="کلیک کنید"
                 >
@@ -658,10 +827,12 @@ export default function CustomerPage() {
                   )}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-text dark:text-text-dark min-h-[2rem]">
-                    {settingsLoading && !settingsFetched
-                      ? ''
-                      : siteName}
+                  <h1 className="min-h-[2rem] text-2xl font-bold text-text dark:text-text-dark">
+                    {settingsLoading && !settingsFetched && !siteName ? (
+                      <span className="inline-block h-7 w-40 animate-pulse rounded-lg bg-muted/70 dark:bg-white/10" />
+                    ) : (
+                      siteName
+                    )}
                   </h1>
                 </div>
               </div>
@@ -673,67 +844,66 @@ export default function CustomerPage() {
           </div>
         </header>
 
-        {/* Products Section - Scrollable */}
-        <main className="flex-1 overflow-y-auto px-6 py-8">
-          {/* Category Filter */}
+        {/* Products Section - Scrollable (min-h-0 required for flex touch scroll) */}
+        <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-8">
           <div className="mb-8">
-            <CategoryFilter
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-            />
+            {categoriesPending && categories.length === 0 ? (
+              <CategoryFilterSkeleton />
+            ) : (
+              <CategoryFilter
+                categories={categories}
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+              />
+            )}
           </div>
 
-          {/* Products Grid */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(8)].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-card dark:bg-card-dark rounded-2xl h-96 animate-pulse"
-                />
-              ))}
-            </div>
-          ) : productsData?.result?.results ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {productsData.result.results.map((product, index) => (
+          {productsPending && !hasMenuData ? (
+            <ProductGridSkeleton count={6} />
+          ) : visibleProducts.length > 0 ? (
+            <div
+              className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 ${
+                productsFetching ? "opacity-90" : ""
+              }`}
+            >
+              {visibleProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: Math.min(index * 0.04, 0.35) }}
                 >
                   <ProductCard product={product} />
                 </motion.div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-16">
+            <div className="py-16 text-center">
               <p className="text-text-secondary dark:text-gray-400">
                 محصولی یافت نشد
               </p>
             </div>
           )}
+
+          <footer className="mt-12 border-t border-border py-6 dark:border-border-dark">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <p className="text-center text-sm text-text-secondary dark:text-gray-400">
+                © {new Date().getFullYear()}
+                {copyrightText ? ` ${copyrightText}` : ''}
+              </p>
+              {settings.contact_phone && (
+                <div className="text-xs text-text-secondary dark:text-gray-400">
+                  {settings.contact_phone}
+                </div>
+              )}
+            </div>
+          </footer>
         </main>
-        {/* Footer */}
-        <footer className="mt-12 py-6 border-t border-border dark:border-border-dark ">
-          <div className="flex flex-col items-center justify-center gap-2">
-            <p className="text-sm text-text-secondary dark:text-gray-400 text-center">
-              © {new Date().getFullYear()}
-              {copyrightText ? ` ${copyrightText}` : ''}
-            </p>
-            {settings.contact_phone && (
-              <div className="text-xs text-text-secondary dark:text-gray-400">
-                {settings.contact_phone}
-              </div>
-            )}
-          </div>
-        </footer>
       </div>
 
       {/* Right Section - Cart View (1/3) */}
-      <div className="w-1/3 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
+      <div className="flex min-h-0 w-1/3 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1">
           <CartView
             onCheckout={handleCheckout}
             serviceFee={baseServiceFee}

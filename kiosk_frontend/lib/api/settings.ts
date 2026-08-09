@@ -11,6 +11,19 @@ export interface Settings {
   address?: string
   description?: string
   logo_url?: string
+  landing_theme?: 'cinema' | 'neon' | 'fresh' | 'editorial' | string
+  landing_cta_text?: string
+  landing_accent_color?: string
+  landing_bg_color?: string
+  landing_text_color?: string
+  landing_muted_color?: string
+  landing_background_url?: string
+  service_enabled?: boolean
+  service_fee?: number
+  service_fee_dine_in?: boolean
+  service_fee_takeaway?: boolean
+  /** Bumps when products/categories change — kiosk refreshes menu cache. */
+  catalog_revision?: number
   [key: string]: any
 }
 
@@ -23,7 +36,13 @@ export const settingsApi = {
   /** Client-side / browser fetch via axios (relative `/api` works behind nginx). */
   getSettings: async (): Promise<ApiResponse<Settings>> => {
     try {
-      const response = await apiClient.get('/kiosk/settings/public/')
+      const response = await apiClient.get('/kiosk/settings/public/', {
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
+        params: { _t: Date.now() },
+      })
       const data = response.data as ApiResponse<Settings>
       if (data?.result) {
         writeCachedSettings(data.result)

@@ -83,6 +83,58 @@ class Product(TimeStampedModel):
         return self.stock_quantity > 0
 
 
+class ProductOptionGroup(TimeStampedModel):
+    """Group of selectable options for a product (e.g. size, extras)."""
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name='option_groups',
+        verbose_name=_('محصول'),
+    )
+    name = models.CharField(max_length=120, verbose_name=_('نام گروه'))
+    min_select = models.PositiveSmallIntegerField(default=0, verbose_name=_('حداقل انتخاب'))
+    max_select = models.PositiveSmallIntegerField(default=1, verbose_name=_('حداکثر انتخاب'))
+    is_required = models.BooleanField(default=False, verbose_name=_('اجباری'))
+    display_order = models.IntegerField(default=0, verbose_name=_('ترتیب نمایش'))
+    is_active = models.BooleanField(default=True, verbose_name=_('فعال'))
+
+    class Meta:
+        verbose_name = _('گروه آپشن محصول')
+        verbose_name_plural = _('گروه‌های آپشن محصول')
+        ordering = ['display_order', 'id']
+
+    def __str__(self):
+        return f'{self.product.name} / {self.name}'
+
+
+class ProductOption(TimeStampedModel):
+    """A single selectable option inside a group."""
+
+    group = models.ForeignKey(
+        ProductOptionGroup,
+        on_delete=models.CASCADE,
+        related_name='options',
+        verbose_name=_('گروه'),
+    )
+    name = models.CharField(max_length=120, verbose_name=_('نام'))
+    price_delta = models.IntegerField(
+        default=0,
+        verbose_name=_('تغییر قیمت (ریال)'),
+        help_text=_('مبلغ اضافه‌شونده به قیمت پایه محصول'),
+    )
+    display_order = models.IntegerField(default=0, verbose_name=_('ترتیب نمایش'))
+    is_active = models.BooleanField(default=True, verbose_name=_('فعال'))
+
+    class Meta:
+        verbose_name = _('آپشن محصول')
+        verbose_name_plural = _('آپشن‌های محصول')
+        ordering = ['display_order', 'id']
+
+    def __str__(self):
+        return self.name
+
+
 class StockHistory(TimeStampedModel):
     CHANGE_TYPE_CHOICES = [
         ('increase', _('افزایش')),

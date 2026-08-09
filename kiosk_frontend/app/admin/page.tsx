@@ -1,20 +1,26 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth-store'
-import { ThemeToggle } from '@/components/shared/ThemeToggle'
-import { FullscreenToggle } from '@/components/shared/FullscreenToggle'
-import { Button } from '@/components/shared/Button'
 import { ReportsManager } from '@/components/admin/ReportsManager'
 import { CategoriesManager } from '@/components/admin/CategoriesManager'
 import { ProductsManager } from '@/components/admin/ProductsManager'
 import { SettingsManager } from '@/components/admin/SettingsManager'
 import { UsersManager } from '@/components/admin/UsersManager'
+import { BaleBotManager } from '@/components/admin/BaleBotManager'
+import { DashboardManager } from '@/components/admin/DashboardManager'
+import { CouponsManager } from '@/components/admin/CouponsManager'
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
+import {
+  AdminShell,
+  type AdminNavId,
+} from '@/components/admin/ui/AdminShell'
+import { AdminSurface } from '@/components/admin/ui/primitives'
 
-type AdminTab = 'categories' | 'products' | 'reports' | 'settings' | 'users'
-
-function hasPerm(user: ReturnType<typeof useAuthStore.getState>['user'], code: string) {
+function hasPerm(
+  user: ReturnType<typeof useAuthStore.getState>['user'],
+  code: string
+) {
   if (!user) return false
   if (user.is_superuser) return true
   return (user.permissions || []).includes(code)
@@ -22,14 +28,21 @@ function hasPerm(user: ReturnType<typeof useAuthStore.getState>['user'], code: s
 
 export default function AdminPage() {
   const { logout, user } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<AdminTab>('products')
+  const [activeTab, setActiveTab] = useState<AdminNavId>('dashboard')
 
   const tabs = useMemo(() => {
-    const items: { id: AdminTab; label: string; visible: boolean }[] = [
-      { id: 'categories', label: 'دسته بندی', visible: hasPerm(user, 'view_categories') },
+    const items: { id: AdminNavId; label: string; visible: boolean }[] = [
+      { id: 'dashboard', label: 'داشبورد', visible: hasPerm(user, 'view_reports') },
+      { id: 'categories', label: 'دسته‌بندی', visible: hasPerm(user, 'view_categories') },
       { id: 'products', label: 'محصولات', visible: hasPerm(user, 'view_products') },
+      {
+        id: 'coupons',
+        label: 'تخفیف',
+        visible: hasPerm(user, 'manage_coupons') || hasPerm(user, 'view_reports'),
+      },
       { id: 'reports', label: 'گزارشات', visible: hasPerm(user, 'view_reports') },
       { id: 'settings', label: 'تنظیمات', visible: hasPerm(user, 'change_settings') },
+      { id: 'bale', label: 'ربات بله', visible: !!user?.is_superuser },
       { id: 'users', label: 'کاربران', visible: !!user?.is_superuser },
     ]
     return items.filter((t) => t.visible)
@@ -64,60 +77,42 @@ export default function AdminPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-background dark:bg-background-dark">
-        <header className="bg-card dark:bg-card-dark border-b border-border dark:border-border-dark sticky top-0 z-30">
-          <div className="container mx-auto px-4 py-6">
-            <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold text-text dark:text-text-dark">
-                پنل مدیریت
-              </h1>
-              <div className="flex items-center gap-3 flex-wrap justify-end">
-                <FullscreenToggle />
-                <ThemeToggle />
-                <div className="text-sm text-text-secondary dark:text-gray-400">
-                  {user?.username}
-                  {user?.is_superuser ? ' (سوپریوزر)' : ''}
-                </div>
-                <Button variant="outline" size="sm" onClick={handleLogout} className="min-h-11 touch-manipulation">
-                  خروج
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center gap-8 border-b border-border dark:border-border-dark overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`pb-4 border-b-2 transition-colors whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'text-primary dark:text-primary-light border-primary font-bold'
-                      : 'text-text-secondary dark:text-gray-400 border-transparent hover:text-text dark:hover:text-text-dark hover:border-primary'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </header>
-
-        <main className="container mx-auto px-4 py-8">
-          {tabs.length === 0 && (
-            <div className="rounded-2xl border border-border dark:border-border-dark p-8 text-center">
-              هیچ دسترسی برای نمایش منو ندارید. از سوپریوزر بخواهید گروه مناسب را به حساب شما اختصاص دهد.
-            </div>
+      <AdminShell
+        navItems={tabs.map(({ id, label }) => ({ id, label }))}
+        activeId={activeTab}
+        onNavigate={setActiveTab}
+        username={user?.username}
+        isSuperuser={!!user?.is_superuser}
+        onLogout={handleLogout}
+      >
+        {tabs.length === 0 && (
+          <AdminSurface className="py-16 text-center">
+            <p className="font-bold text-foreground">دسترسی‌ای برای نمایش منو ندارید</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              از سوپریوزر بخواهید گروه مناسب را به حساب شما اختصاص دهد.
+            </p>
+          </AdminSurface>
+        )}
+        {activeTab === 'dashboard' && hasPerm(user, 'view_reports') && (
+          <DashboardManager />
+        )}
+        {activeTab === 'categories' && hasPerm(user, 'view_categories') && (
+          <CategoriesManager />
+        )}
+        {activeTab === 'products' && hasPerm(user, 'view_products') && (
+          <ProductsManager />
+        )}
+        {activeTab === 'coupons' &&
+          (hasPerm(user, 'manage_coupons') || hasPerm(user, 'view_reports')) && (
+            <CouponsManager />
           )}
-          {activeTab === 'categories' && hasPerm(user, 'view_categories') && <CategoriesManager />}
-          {activeTab === 'products' && hasPerm(user, 'view_products') && <ProductsManager />}
-          {activeTab === 'reports' && hasPerm(user, 'view_reports') && <ReportsManager />}
-          {activeTab === 'settings' && hasPerm(user, 'change_settings') && <SettingsManager />}
-          {activeTab === 'users' && user?.is_superuser && (
-            <UsersManager />
-          )}
-        </main>
-      </div>
+        {activeTab === 'reports' && hasPerm(user, 'view_reports') && <ReportsManager />}
+        {activeTab === 'settings' && hasPerm(user, 'change_settings') && (
+          <SettingsManager />
+        )}
+        {activeTab === 'bale' && user?.is_superuser && <BaleBotManager />}
+        {activeTab === 'users' && user?.is_superuser && <UsersManager />}
+      </AdminShell>
     </ProtectedRoute>
   )
 }

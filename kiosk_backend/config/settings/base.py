@@ -31,7 +31,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
-    'apps.products',
+    'apps.products.apps.ProductsConfig',
     'apps.orders',
     'apps.payment',
     'apps.logs',

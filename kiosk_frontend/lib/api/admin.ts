@@ -230,10 +230,15 @@ export const adminApi = {
     if (data.logo instanceof File) {
       formData.append('logo', data.logo)
     }
+
+    if (data.landing_background instanceof File) {
+      formData.append('landing_background', data.landing_background)
+    }
     
     // سایر فیلدها
     const knownKeys = new Set([
       'logo',
+      'landing_background',
       'site_name',
       'copyright_text',
       'contact_phone',
@@ -245,7 +250,11 @@ export const adminApi = {
     Object.keys(data).forEach((key) => {
       if (!knownKeys.has(key)) {
         if (data[key] !== undefined && data[key] !== null) {
-          formData.append(key, String(data[key]))
+          if (data[key] instanceof File) {
+            formData.append(key, data[key])
+          } else if (typeof data[key] !== 'object') {
+            formData.append(key, String(data[key]))
+          }
         }
       }
     })
@@ -276,11 +285,19 @@ export const adminApi = {
     const formData = new FormData()
     
     Object.keys(data).forEach((key) => {
-      if (key === 'logo' && data.logo instanceof File) {
-        // اگر لوگو یک File است، آن را اضافه کن
-        formData.append('logo', data.logo)
-      } else if (key !== 'logo' && data[key] !== undefined && data[key] !== null) {
-        // سایر فیلدها را به صورت string اضافه کن
+      if (
+        (key === 'logo' || key === 'landing_background') &&
+        data[key] instanceof File
+      ) {
+        formData.append(key, data[key])
+      } else if (
+        key !== 'logo' &&
+        key !== 'landing_background' &&
+        data[key] !== undefined &&
+        data[key] !== null &&
+        !(data[key] instanceof File) &&
+        typeof data[key] !== 'object'
+      ) {
         formData.append(key, String(data[key]))
       }
     })

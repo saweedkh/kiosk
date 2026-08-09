@@ -63,6 +63,87 @@ class SiteSettings(models.Model):
         help_text='توضیحات کوتاه درباره فروشگاه'
     )
 
+    # صفحه لندینگ (attract) کیوسک
+    LANDING_THEME_CINEMA = 'cinema'
+    LANDING_THEME_NEON = 'neon'
+    LANDING_THEME_FRESH = 'fresh'
+    LANDING_THEME_EDITORIAL = 'editorial'
+    LANDING_THEME_CHOICES = [
+        (LANDING_THEME_CINEMA, 'سینمایی'),
+        (LANDING_THEME_NEON, 'نئون'),
+        (LANDING_THEME_FRESH, 'روشن'),
+        (LANDING_THEME_EDITORIAL, 'تحریریه'),
+    ]
+    landing_theme = models.CharField(
+        max_length=20,
+        choices=LANDING_THEME_CHOICES,
+        default=LANDING_THEME_CINEMA,
+        verbose_name='تم لندینگ',
+        help_text='طرح صفحه خوش‌آمدگویی کیوسک (عمودی)'
+    )
+    landing_cta_text = models.CharField(
+        max_length=200,
+        blank=True,
+        default='برای سفارش، صفحه را لمس کنید',
+        verbose_name='متن دکمه لندینگ',
+        help_text='متن دعوت به لمس روی صفحه لندینگ'
+    )
+    landing_accent_color = models.CharField(
+        max_length=7,
+        blank=True,
+        default='',
+        verbose_name='رنگ اکسنت لندینگ',
+        help_text='رنگ هگز اختیاری (مثلاً #E17100). خالی = رنگ پیش‌فرض برند'
+    )
+    landing_bg_color = models.CharField(
+        max_length=7,
+        blank=True,
+        default='',
+        verbose_name='رنگ پس‌زمینه لندینگ',
+        help_text='رنگ هگز پس‌زمینه (مثلاً #FFF3E8). خالی = پیش‌فرض تم'
+    )
+    landing_text_color = models.CharField(
+        max_length=7,
+        blank=True,
+        default='',
+        verbose_name='رنگ متن لندینگ',
+        help_text='رنگ هگز متن اصلی. خالی = پیش‌فرض تم'
+    )
+    landing_muted_color = models.CharField(
+        max_length=7,
+        blank=True,
+        default='',
+        verbose_name='رنگ متن ثانویه لندینگ',
+        help_text='رنگ هگز تگ‌لاین و متن کم‌رنگ. خالی = پیش‌فرض تم'
+    )
+    landing_background = models.ImageField(
+        upload_to='settings/',
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'webp'])],
+        verbose_name='پس‌زمینه لندینگ',
+        help_text='تصویر پس‌زمینه اختیاری صفحه لندینگ (JPG, PNG, WebP)'
+    )
+
+    # A/B تست تم لندینگ
+    landing_ab_enabled = models.BooleanField(
+        default=False,
+        verbose_name='فعال‌سازی A/B لندینگ',
+        help_text='اگر روشن باشد، بین تم اصلی و تم B به‌صورت تصادفی انتخاب می‌شود',
+    )
+    landing_theme_b = models.CharField(
+        max_length=20,
+        choices=LANDING_THEME_CHOICES,
+        default=LANDING_THEME_NEON,
+        verbose_name='تم لندینگ B',
+        help_text='تم جایگزین برای تست A/B',
+    )
+    landing_ab_split = models.PositiveSmallIntegerField(
+        default=50,
+        verbose_name='درصد نمایش تم A',
+        help_text='درصد بازدیدکنندگانی که تم اصلی (A) را می‌بینند (۰ تا ۱۰۰)',
+    )
+
     # متن‌های فیش چاپی
     receipt_header = models.CharField(
         max_length=200,
@@ -155,6 +236,13 @@ class SiteSettings(models.Model):
         help_text='اگر روشن باشد، هزینه سرویس برای سفارش‌های بیرون‌بر اعمال می‌شود'
     )
 
+    # Bumped when products/categories change so kiosks can refresh menu cache
+    catalog_revision = models.PositiveIntegerField(
+        default=0,
+        verbose_name='نسخه کاتالوگ',
+        help_text='با هر تغییر محصول/دسته افزایش می‌یابد؛ کiosk با این عدد کش منو را تازه می‌کند'
+    )
+
     # شمارنده پایدار شماره فیش (با ری‌استارت سیستم ریست نمی‌شود)
     last_receipt_number = models.PositiveIntegerField(
         default=0,
@@ -226,6 +314,7 @@ class SiteSettings(models.Model):
                 'service_fee': 0,
                 'service_fee_dine_in': True,
                 'service_fee_takeaway': True,
+                'catalog_revision': 0,
                 'last_receipt_number': 0,
                 'receipt_number_mode': cls.RECEIPT_NUMBER_MODE_MANUAL,
                 'receipt_number_date': None,
@@ -278,6 +367,20 @@ class SiteSettings(models.Model):
             if getattr(product, 'service_fee_applicable', False):
                 return fee
         return 0
+
+    @classmethod
+    def bump_catalog_revision(cls) -> int:
+        """
+        Atomically increment catalog_revision so kiosk clients know to refresh menu cache.
+        """
+        with transaction.atomic():
+            settings = cls.objects.select_for_update().filter(pk=1).first()
+            if settings is None:
+                settings = cls.get_settings()
+                settings = cls.objects.select_for_update().get(pk=1)
+            settings.catalog_revision = int(settings.catalog_revision or 0) + 1
+            settings.save(update_fields=['catalog_revision', 'updated_at'])
+            return settings.catalog_revision
 
     @classmethod
     def _local_today(cls):

@@ -81,6 +81,11 @@ class BaleConfigService:
             raise ValueError(f'توکن معتبر نیست یا به API بله دسترسی نیست: {exc}') from exc
 
     @staticmethod
+    def mark_worker_heartbeat() -> None:
+        """Touch last_poll_at so health knows the worker process is alive mid long-poll."""
+        BaleBotSettings.objects.filter(pk=1).update(last_poll_at=timezone.now())
+
+    @staticmethod
     def mark_poll_success() -> None:
         BaleBotSettings.objects.filter(pk=1).update(
             last_poll_at=timezone.now(),
@@ -169,11 +174,16 @@ class BaleConfigService:
             )
             return result
 
-        if result['worker_ok']:
+        if result['worker_ok'] and not obj.last_poll_error:
             result['status'] = 'ok'
             result['message'] = (
                 f'اتصال سالم — @{result["bot_username"] or "bot"} '
                 f'({result["latency_ms"]}ms) · worker فعال'
+            )
+        elif result['worker_ok'] and obj.last_poll_error:
+            result['status'] = 'degraded'
+            result['message'] = (
+                f'Worker زنده است ولی آخرین poll خطا داشته: {obj.last_poll_error}'
             )
         else:
             result['status'] = 'degraded'
@@ -183,12 +193,15 @@ class BaleConfigService:
                 )
             elif not obj.last_poll_at:
                 result['message'] = (
-                    'API وصل است ولی هنوز polling موفقی ثبت نشده. سرویس bale_bot را چک کنید.'
+                    'API وصل است ولی هنوز polling ثبت نشده. '
+                    'سرویس Docker با نام bale_bot را بالا بیاورید '
+                    '(docker compose up -d bale_bot) و چند ثانیه صبر کنید.'
                 )
             else:
                 age = result['last_poll_age_seconds']
                 result['message'] = (
-                    f'API وصل است ولی آخرین poll حدود {age} ثانیه پیش بوده. '
-                    'احتمالاً سرویس polling متوقف شده.'
+                    f'API وصل است ولی آخرین heartbeat حدود {age} ثانیه پیش بوده. '
+                    'احتمالاً سرویس polling متوقف شده — '
+                    'docker compose restart bale_bot را امتحان کنید.'
                 )
         return result

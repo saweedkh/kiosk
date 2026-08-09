@@ -61,32 +61,47 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-background-dark flex items-center justify-center p-4">
-      <div className="absolute top-4 left-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[hsl(30_40%_97%)] p-4 dark:bg-[hsl(0_0%_7%)]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `
+            radial-gradient(55% 45% at 80% 10%, rgba(225,113,0,0.16), transparent 60%),
+            radial-gradient(40% 35% at 10% 90%, rgba(225,113,0,0.08), transparent 55%)
+          `,
+        }}
+      />
+
+      <div className="absolute start-4 top-4 z-10">
         <ThemeToggle />
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="w-full max-w-md 2k:max-w-2xl 4k:max-w-4xl"
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-[420px]"
       >
-        <div className="bg-card dark:bg-card-dark rounded-2xl shadow-xl p-8 2k:p-12 4k:p-16 border border-border dark:border-border-dark">
-          <div className="text-center mb-8 2k:mb-12 4k:mb-16">
-            <h1 className="text-3xl 2k:text-5xl 4k:text-7xl font-bold text-text dark:text-text-dark mb-2 2k:mb-4 4k:mb-6">
-              پنل مدیریت
+        <div className="overflow-hidden rounded-3xl border border-border/80 bg-card/90 shadow-2xl shadow-black/5 backdrop-blur-xl dark:bg-card/80">
+          <div className="border-b border-border/60 px-8 pb-6 pt-8 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-lg font-black text-white shadow-lg shadow-primary/30">
+              K
+            </div>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">
+              ورود به پنل
             </h1>
-            <p className="text-text-secondary dark:text-gray-400 2k:text-xl 4k:text-2xl">
-              لطفا وارد حساب کاربری خود شوید
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              مدیریت کیوسک فروشگاه
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 2k:space-y-8 4k:space-y-10">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 px-8 py-7">
             <Input
               label="نام کاربری"
               type="text"
-              placeholder="نام کاربری خود را وارد کنید"
+              autoComplete="username"
+              placeholder="نام کاربری"
               error={errors.username?.message}
               {...register('username')}
             />
@@ -94,7 +109,8 @@ export default function AdminLoginPage() {
             <Input
               label="رمز عبور"
               type="password"
-              placeholder="رمز عبور خود را وارد کنید"
+              autoComplete="current-password"
+              placeholder="رمز عبور"
               error={errors.password?.message}
               {...register('password')}
             />
@@ -103,7 +119,7 @@ export default function AdminLoginPage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="p-3 2k:p-4 4k:p-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm 2k:text-base 4k:text-lg"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-200"
               >
                 {error}
               </motion.div>
@@ -114,21 +130,20 @@ export default function AdminLoginPage() {
               variant="primary"
               size="lg"
               isLoading={isLoading}
-              className="w-full"
+              className="w-full rounded-xl"
             >
-              ورود به پنل
+              ورود
             </Button>
           </form>
 
-          <div className="mt-6 2k:mt-8 4k:mt-10 pt-6 2k:pt-8 4k:pt-10 border-t border-border dark:border-border-dark">
+          <div className="border-t border-border/60 px-8 py-5">
             <Button
               type="button"
-              variant="outline"
-              size="lg"
+              variant="ghost"
+              className="w-full text-muted-foreground"
               onClick={() => router.push('/')}
-              className="w-full"
             >
-              بازگشت
+              بازگشت به کیوسک
             </Button>
           </div>
         </div>
@@ -136,4 +151,3 @@ export default function AdminLoginPage() {
     </div>
   )
 }
-

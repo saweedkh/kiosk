@@ -258,8 +258,55 @@ class OrderService:
             GatewayException: If payment gateway is not active or payment fails
         """
         try:
-            gateway = PaymentGatewayAdapter.get_gateway()
+            from apps.core.services.hardware_config import HardwareConfig
+
+            payment_mode = HardwareConfig.payment_mode()
             order_details = {'order_number': order_number, 'order_id': order.id}
+
+            # Direct register: skip POS / mock wait and mark paid immediately
+            if payment_mode == 'direct':
+                transaction_id = PaymentService.generate_transaction_id()
+                order.transaction_id = transaction_id
+                order.gateway_name = 'direct'
+                order.payment_method = 'direct'
+                order.gateway_request_data = {
+                    'amount': total_amount,
+                    'order_details': order_details,
+                    'mode': 'direct',
+                }
+                order.gateway_response_data = {
+                    'success': True,
+                    'status': 'direct',
+                    'response_message': 'ثبت مستقیم بدون پوز',
+                }
+                order.order_details = order_details
+                order.save(
+                    update_fields=[
+                        'transaction_id',
+                        'gateway_name',
+                        'payment_method',
+                        'gateway_request_data',
+                        'gateway_response_data',
+                        'order_details',
+                        'updated_at',
+                    ]
+                )
+                LogService.log_info(
+                    'payment',
+                    'direct_register_without_pos',
+                    details={
+                        'order_id': order.id,
+                        'order_number': order_number,
+                        'total_amount': total_amount,
+                        'transaction_id': transaction_id,
+                    },
+                )
+                OrderService._handle_successful_payment(
+                    order, order_number, total_amount, transaction_id
+                )
+                return
+
+            gateway = PaymentGatewayAdapter.get_gateway()
             gateway_response = gateway.initiate_payment(amount=total_amount, order_details=order_details)
             
             LogService.log_info(

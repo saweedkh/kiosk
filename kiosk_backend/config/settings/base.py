@@ -212,6 +212,8 @@ LOGGING = {
 }
 
 # Payment Gateway Configuration
+# NOTE: Runtime POS/printer connection is controlled from Admin → Settings → Hardware
+# (SiteSettings). These env values are legacy defaults only for old CLI helpers / bootstrap.
 PAYMENT_GATEWAY_CONFIG = {
     'gateway_name': os.getenv('PAYMENT_GATEWAY_NAME', 'mock'),
     'merchant_id': os.getenv('PAYMENT_GATEWAY_MERCHANT_ID', ''),
@@ -233,7 +235,7 @@ PAYMENT_GATEWAY_CONFIG = {
     'pos_banner': os.getenv('POS_BANNER', 'R2023tejaratEParsian'),
 }
 
-# Printer Configuration
+# Printer Configuration (legacy — use Admin → Settings → Hardware at runtime)
 PRINTER_ENABLED = os.getenv('PRINTER_ENABLED', 'False') == 'True'
 PRINTER_IP = os.getenv('PRINTER_IP', '192.168.1.100')
 PRINTER_PORT = int(os.getenv('PRINTER_PORT', '9100'))

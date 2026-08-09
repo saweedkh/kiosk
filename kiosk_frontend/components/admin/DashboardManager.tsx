@@ -31,6 +31,7 @@ const STATUS_FA: Record<string, string> = {
   cancelled: 'لغو',
   dine_in: 'سالن',
   takeaway: 'بیرون‌بر',
+  direct: 'ثبت مستقیم',
 }
 
 function fa(status?: string | null) {

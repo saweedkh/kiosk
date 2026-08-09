@@ -42,14 +42,20 @@ class HealthMonitorService:
 
     @staticmethod
     def check_pos() -> Dict[str, Any]:
-        cfg = getattr(settings, 'PAYMENT_GATEWAY_CONFIG', {}) or {}
-        gateway = (
-            cfg.get('GATEWAY_TYPE')
-            or cfg.get('gateway_name')
-            or cfg.get('gateway')
-            or 'mock'
-        ).lower()
-        if gateway == 'mock':
+        from apps.core.services.hardware_config import HardwareConfig
+
+        mode = HardwareConfig.payment_mode()
+        if mode == 'direct':
+            return {
+                'ok': True,
+                'status': 'disabled',
+                'latency_ms': 0,
+                'host': None,
+                'port': None,
+                'error': None,
+                'message': 'پرداخت مستقیم فعال است — پوز استفاده نمی‌شود',
+            }
+        if mode == 'mock':
             return {
                 'ok': True,
                 'status': 'mock',
@@ -57,28 +63,24 @@ class HealthMonitorService:
                 'host': None,
                 'port': None,
                 'error': None,
-                'message': 'درگاه پرداخت در حالت mock است',
+                'message': 'درگاه پرداخت در حالت شبیه‌سازی است',
             }
 
-        host = (
-            cfg.get('POS_TCP_HOST')
-            or cfg.get('tcp_host')
-            or '127.0.0.1'
-        )
-        port = int(
-            cfg.get('POS_TCP_PORT')
-            or cfg.get('tcp_port')
-            or 1362
-        )
+        cfg = HardwareConfig.payment_gateway_config()
+        host = cfg.get('tcp_host') or '127.0.0.1'
+        port = int(cfg.get('tcp_port') or 1362)
         result = HealthMonitorService._tcp_probe(host, port, timeout=2.0)
         result['message'] = 'کارتخوان در دسترس است' if result['ok'] else 'اتصال به کارتخوان برقرار نشد'
         return result
 
     @staticmethod
     def check_printer() -> Dict[str, Any]:
-        enabled = bool(getattr(settings, 'PRINTER_ENABLED', False))
-        host = getattr(settings, 'PRINTER_IP', '192.168.1.100')
-        port = int(getattr(settings, 'PRINTER_PORT', 9100))
+        from apps.core.services.hardware_config import HardwareConfig
+
+        cfg = HardwareConfig.printer_config()
+        enabled = bool(cfg.get('enabled'))
+        host = cfg.get('ip') or '192.168.1.100'
+        port = int(cfg.get('port') or 9100)
         if not enabled:
             return {
                 'ok': False,
@@ -121,7 +123,7 @@ class HealthMonitorService:
         if not pos.get('ok') or not printer.get('ok') or not bale.get('ok'):
             # disabled printer/bale mock shouldn't force critical if intentional
             critical = []
-            if not pos.get('ok') and pos.get('status') not in ('mock',):
+            if not pos.get('ok') and pos.get('status') not in ('mock', 'disabled'):
                 critical.append('pos')
             if not printer.get('ok') and printer.get('status') not in ('disabled',):
                 critical.append('printer')
@@ -129,8 +131,10 @@ class HealthMonitorService:
                 critical.append('bale')
             overall = 'down' if critical else 'degraded'
 
+        from django.utils import timezone as dj_timezone
+
         return {
             'overall': overall,
-            'checked_at': __import__('django.utils.timezone', fromlist=['timezone']).timezone.now().isoformat(),
+            'checked_at': dj_timezone.now().isoformat(),
             'components': components,
         }

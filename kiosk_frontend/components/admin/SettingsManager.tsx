@@ -41,7 +41,7 @@ import {
   type LandingThemeId,
 } from '@/components/customer/landing/types'
 
-type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt'
+type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt' | 'hardware'
 
 /** Fields that require an explicit save (theme / copy-mode patch instantly). */
 const DIRTY_FIELDS = [
@@ -66,6 +66,15 @@ const DIRTY_FIELDS = [
   'fulfillment_choice_enabled',
   'dine_in_enabled',
   'takeaway_enabled',
+  'payment_mode',
+  'pos_host',
+  'pos_port',
+  'pos_timeout',
+  'pos_merchant_id',
+  'pos_terminal_id',
+  'printer_enabled',
+  'printer_host',
+  'printer_port',
 ] as const
 
 const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landing_background', string> = {
@@ -90,6 +99,15 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   fulfillment_choice_enabled: 'انتخاب نوع سفارش',
   dine_in_enabled: 'داخل سالن',
   takeaway_enabled: 'بیرون‌بر',
+  payment_mode: 'حالت پرداخت',
+  pos_host: 'آی‌پی پوز',
+  pos_port: 'پورت پوز',
+  pos_timeout: 'تایم‌اوت پوز',
+  pos_merchant_id: 'Merchant پوز',
+  pos_terminal_id: 'ترمینال پوز',
+  printer_enabled: 'چاپ فیش',
+  printer_host: 'آی‌پی پرینتر',
+  printer_port: 'پورت پرینتر',
   logo: 'لوگو',
   landing_background: 'پس‌زمینه',
 }
@@ -106,7 +124,7 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
   for (const key of DIRTY_FIELDS) {
     let a: unknown = current[key]
     let b: unknown = baseline[key]
-    if (key === 'service_fee') {
+    if (key === 'service_fee' || key === 'pos_port' || key === 'pos_timeout' || key === 'printer_port') {
       a = Number(a || 0)
       b = Number(b || 0)
     }
@@ -114,11 +132,12 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       a = a !== false
       b = b !== false
     }
-    if (key === 'dine_in_enabled' || key === 'takeaway_enabled') {
-      a = a !== false
-      b = b !== false
-    }
-    if (key === 'fulfillment_choice_enabled') {
+    if (
+      key === 'dine_in_enabled' ||
+      key === 'takeaway_enabled' ||
+      key === 'fulfillment_choice_enabled' ||
+      key === 'printer_enabled'
+    ) {
       a = a !== false
       b = b !== false
     }
@@ -149,6 +168,7 @@ const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'landing', label: 'لندینگ', hint: 'تم صفحه خوش‌آمد' },
   { id: 'cart', label: 'سبد', hint: 'چیدمان و نوع سفارش' },
   { id: 'service', label: 'سرویس', hint: 'هزینه سرویس' },
+  { id: 'hardware', label: 'سخت‌افزار', hint: 'پوز و پرینتر' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
 ]
 
@@ -537,6 +557,15 @@ export function SettingsManager() {
       fulfillment_choice_enabled: settings.fulfillment_choice_enabled !== false,
       dine_in_enabled: settings.dine_in_enabled !== false,
       takeaway_enabled: settings.takeaway_enabled !== false,
+      payment_mode: settings.payment_mode || 'mock',
+      pos_host: settings.pos_host || '',
+      pos_port: Math.max(1, Math.floor(Number(settings.pos_port) || 1362)),
+      pos_timeout: Math.max(1, Math.floor(Number(settings.pos_timeout) || 30)),
+      pos_merchant_id: settings.pos_merchant_id || '',
+      pos_terminal_id: settings.pos_terminal_id || '',
+      printer_enabled: Boolean(settings.printer_enabled),
+      printer_host: settings.printer_host || '',
+      printer_port: Math.max(1, Math.floor(Number(settings.printer_port) || 9100)),
     }
 
     if (settings.logo_file instanceof File) data.logo = settings.logo_file
@@ -1764,6 +1793,241 @@ export function SettingsManager() {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {tab === 'hardware' && (
+            <div className="space-y-5">
+              <SectionHeader
+                title="پوز و پرینتر"
+                description="اتصال کارتخوان و چاپگر شبکه را تنظیم کنید. ذخیره برای اعمال روی سفارش‌های بعدی لازم است."
+              />
+
+              <AdminSurface>
+                <div className="mb-4">
+                  <p className="text-sm font-bold text-foreground">حالت پرداخت سفارش</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    تعیین می‌کند سفارش به کارتخوان برود، مستقیم ثبت شود، یا فقط شبیه‌سازی شود
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {(
+                    [
+                      {
+                        id: 'pos',
+                        title: 'ارسال به پوز',
+                        desc: 'منتظر پرداخت کارتخوان می‌ماند',
+                      },
+                      {
+                        id: 'direct',
+                        title: 'ثبت مستقیم',
+                        desc: 'بدون پوز فوری پرداخت‌شده ثبت می‌شود',
+                      },
+                      {
+                        id: 'mock',
+                        title: 'شبیه‌سازی',
+                        desc: 'برای تست بدون دستگاه واقعی',
+                      },
+                    ] as const
+                  ).map((mode) => (
+                    <ChoiceCard
+                      key={mode.id}
+                      selected={(settings.payment_mode || 'mock') === mode.id}
+                      title={mode.title}
+                      desc={mode.desc}
+                      onClick={() => handleChange('payment_mode', mode.id)}
+                    />
+                  ))}
+                </div>
+                {apiErrors.payment_mode?.[0] ? (
+                  <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.payment_mode[0]}
+                  </p>
+                ) : null}
+              </AdminSurface>
+
+              <div
+                className={cn(
+                  'grid gap-4 transition-opacity lg:grid-cols-2',
+                  (settings.payment_mode || 'mock') !== 'pos' && 'opacity-70'
+                )}
+              >
+                <AdminSurface className="!shadow-none">
+                  <div className="mb-4 flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">تنظیمات کارتخوان (پوز)</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        آی‌پی، پورت و شناسه‌های ترمینال
+                      </p>
+                    </div>
+                    {(settings.payment_mode || 'mock') === 'pos' ? (
+                      <AdminStatusBadge tone="primary">فعال</AdminStatusBadge>
+                    ) : (
+                      <AdminStatusBadge tone="neutral">برای حالت پوز</AdminStatusBadge>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        آی‌پی / میزبان
+                      </span>
+                      <Input
+                        value={settings.pos_host || ''}
+                        onChange={(e) => handleChange('pos_host', e.target.value)}
+                        placeholder="192.168.1.100"
+                        dir="ltr"
+                        className="font-mono"
+                      />
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          پورت
+                        </span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={65535}
+                          value={String(settings.pos_port ?? 1362)}
+                          onChange={(e) =>
+                            handleChange(
+                              'pos_port',
+                              Math.max(1, Math.floor(Number(e.target.value) || 1362))
+                            )
+                          }
+                          dir="ltr"
+                          className="font-mono"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                          تایم‌اوت (ثانیه)
+                        </span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={300}
+                          value={String(settings.pos_timeout ?? 30)}
+                          onChange={(e) =>
+                            handleChange(
+                              'pos_timeout',
+                              Math.max(1, Math.floor(Number(e.target.value) || 30))
+                            )
+                          }
+                          dir="ltr"
+                          className="font-mono"
+                        />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        شناسه پذیرنده (Merchant)
+                      </span>
+                      <Input
+                        value={settings.pos_merchant_id || ''}
+                        onChange={(e) => handleChange('pos_merchant_id', e.target.value)}
+                        placeholder="اختیاری"
+                        dir="ltr"
+                        className="font-mono"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        شناسه ترمینال
+                      </span>
+                      <Input
+                        value={settings.pos_terminal_id || ''}
+                        onChange={(e) => handleChange('pos_terminal_id', e.target.value)}
+                        placeholder="اختیاری"
+                        dir="ltr"
+                        className="font-mono"
+                      />
+                    </label>
+                  </div>
+                </AdminSurface>
+
+                <AdminSurface className="!shadow-none">
+                  <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-foreground">پرینتر شبکه</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        بعد از پرداخت موفق، فیش به این پرینتر ارسال شود یا نه
+                      </p>
+                    </div>
+                    <Switch
+                      checked={Boolean(settings.printer_enabled)}
+                      onChange={(v) => handleChange('printer_enabled', v)}
+                      label={settings.printer_enabled ? 'ارسال فعال' : 'ارسال خاموش'}
+                    />
+                  </div>
+                  <div
+                    className={cn(
+                      'space-y-3',
+                      !settings.printer_enabled && 'pointer-events-none opacity-45'
+                    )}
+                  >
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        آی‌پی / میزبان
+                      </span>
+                      <Input
+                        value={settings.printer_host || ''}
+                        onChange={(e) => handleChange('printer_host', e.target.value)}
+                        placeholder="192.168.1.100"
+                        dir="ltr"
+                        className="font-mono"
+                        disabled={!settings.printer_enabled}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        پورت
+                      </span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={String(settings.printer_port ?? 9100)}
+                        onChange={(e) =>
+                          handleChange(
+                            'printer_port',
+                            Math.max(1, Math.floor(Number(e.target.value) || 9100))
+                          )
+                        }
+                        dir="ltr"
+                        className="font-mono"
+                        disabled={!settings.printer_enabled}
+                      />
+                    </label>
+                    <p className="rounded-xl bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                      معمولاً پرینترهای حرارتی شبکه روی پورت ۹۱۰۰ کار می‌کنند. تعداد نسخه فیش را از
+                      تب «فیش» تنظیم کنید.
+                    </p>
+                  </div>
+                  {(apiErrors.printer_enabled?.[0] ||
+                    apiErrors.printer_host?.[0] ||
+                    apiErrors.printer_port?.[0]) && (
+                    <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                      {apiErrors.printer_enabled?.[0] ||
+                        apiErrors.printer_host?.[0] ||
+                        apiErrors.printer_port?.[0]}
+                    </p>
+                  )}
+                </AdminSurface>
+              </div>
+
+              <AdminSurface className="!shadow-none bg-muted/20">
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {(settings.payment_mode || 'mock') === 'direct'
+                    ? 'ثبت مستقیم: سفارش بلافاصله پرداخت‌شده می‌شود و در صورت فعال بودن پرینتر، فیش چاپ می‌شود.'
+                    : (settings.payment_mode || 'mock') === 'pos'
+                      ? 'حالت پوز: کیوسک تا پاسخ کارتخوان منتظر می‌ماند؛ آی‌پی و پورت باید درست باشد.'
+                      : 'شبیه‌سازی: بدون دستگاه واقعی برای تست مسیر پرداخت استفاده می‌شود.'}
+                  {settings.printer_enabled
+                    ? ' چاپ فیش روشن است.'
+                    : ' چاپ فیش خاموش است و چیزی به پرینتر ارسال نمی‌شود.'}
+                </p>
+              </AdminSurface>
             </div>
           )}
         </motion.div>

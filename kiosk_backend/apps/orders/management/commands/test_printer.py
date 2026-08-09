@@ -28,7 +28,7 @@ class Command(BaseCommand):
         # Check if printing is enabled
         if not config.get('enabled'):
             self.stdout.write(self.style.WARNING('⚠️  چاپ غیرفعال است!'))
-            self.stdout.write('برای فعال کردن، PRINTER_ENABLED=True را در .env تنظیم کنید.')
+            self.stdout.write('از پنل ادمین → تنظیمات → سخت‌افزار، ارسال فیش به پرینتر را روشن کنید.')
             return
         
         # Test connection

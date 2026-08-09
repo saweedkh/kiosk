@@ -71,8 +71,10 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f'\n=== ارسال مبلغ {amount:,} ریال به دستگاه POS ===\n'))
         
-        # Get gateway configuration
-        config = settings.PAYMENT_GATEWAY_CONFIG.copy()
+        # Get gateway configuration from admin SiteSettings
+        from apps.core.services.hardware_config import HardwareConfig
+
+        config = HardwareConfig.payment_gateway_config().copy()
         
         # Override with command line arguments if provided
         if options.get('connection_type'):

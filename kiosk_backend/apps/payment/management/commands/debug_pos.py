@@ -19,12 +19,13 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('\n=== عیب‌یابی اتصال POS ===\n'))
         
         # 1. Check configuration
-        self.stdout.write('1. بررسی تنظیمات:')
-        config = settings.PAYMENT_GATEWAY_CONFIG
+        self.stdout.write('1. بررسی تنظیمات (پنل ادمین):')
+        from apps.core.services.hardware_config import HardwareConfig
+
+        config = HardwareConfig.payment_gateway_config()
+        self.stdout.write(f'   Payment mode: {HardwareConfig.payment_mode()}')
         self.stdout.write(f'   Gateway Name: {config.get("gateway_name")}')
         self.stdout.write(f'   Terminal ID: {config.get("terminal_id")}')
-        self.stdout.write(f'   Serial Number: {config.get("device_serial_number")}')
-        self.stdout.write(f'   Connection Type: {config.get("connection_type")}')
         self.stdout.write(f'   TCP Host: {config.get("tcp_host")}')
         self.stdout.write(f'   TCP Port: {config.get("tcp_port")}')
         self.stdout.write('')

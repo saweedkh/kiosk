@@ -259,6 +259,66 @@ class SiteSettings(models.Model):
         help_text='اگر خاموش باشد، مشتری نمی‌تواند نوع سفارش بیرون‌بر را انتخاب کند',
     )
 
+    # سخت‌افزار: پوز و پرینتر
+    PAYMENT_MODE_POS = 'pos'
+    PAYMENT_MODE_DIRECT = 'direct'
+    PAYMENT_MODE_MOCK = 'mock'
+    PAYMENT_MODE_CHOICES = [
+        (PAYMENT_MODE_POS, 'ارسال به کارتخوان (پوز)'),
+        (PAYMENT_MODE_DIRECT, 'ثبت مستقیم بدون پوز'),
+        (PAYMENT_MODE_MOCK, 'شبیه‌سازی پرداخت'),
+    ]
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=PAYMENT_MODE_CHOICES,
+        default=PAYMENT_MODE_MOCK,
+        verbose_name='حالت پرداخت',
+        help_text='پوز: انتظار کارتخوان — مستقیم: ثبت فوری بدون پوز — شبیه‌سازی: تست بدون دستگاه',
+    )
+    pos_host = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='آی‌پی / میزبان پوز',
+        help_text='مثلاً 192.168.1.100 — خالی = مقدار پیش‌فرض محیطی',
+    )
+    pos_port = models.PositiveIntegerField(
+        default=1362,
+        verbose_name='پورت پوز',
+    )
+    pos_timeout = models.PositiveIntegerField(
+        default=30,
+        verbose_name='تایم‌اوت پوز (ثانیه)',
+    )
+    pos_merchant_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        verbose_name='شناسه پذیرنده (Merchant)',
+    )
+    pos_terminal_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        verbose_name='شناسه ترمینال',
+    )
+    printer_enabled = models.BooleanField(
+        default=False,
+        verbose_name='ارسال فیش به پرینتر',
+        help_text='اگر خاموش باشد، بعد از پرداخت فیش به پرینتر شبکه ارسال نمی‌شود',
+    )
+    printer_host = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name='آی‌پی / میزبان پرینتر',
+        help_text='مثلاً 192.168.1.100 — خالی = مقدار پیش‌فرض محیطی',
+    )
+    printer_port = models.PositiveIntegerField(
+        default=9100,
+        verbose_name='پورت پرینتر',
+    )
+
     # چیدمان سبد خرید کیوسک
     CART_LAYOUT_SIDE = 'side'
     CART_LAYOUT_BOTTOM = 'bottom'
@@ -356,6 +416,15 @@ class SiteSettings(models.Model):
                 'dine_in_enabled': True,
                 'takeaway_enabled': True,
                 'fulfillment_choice_enabled': True,
+                'payment_mode': cls.PAYMENT_MODE_MOCK,
+                'pos_host': '',
+                'pos_port': 1362,
+                'pos_timeout': 30,
+                'pos_merchant_id': '',
+                'pos_terminal_id': '',
+                'printer_enabled': False,
+                'printer_host': '',
+                'printer_port': 9100,
                 'catalog_revision': 0,
                 'last_receipt_number': 0,
                 'receipt_number_mode': cls.RECEIPT_NUMBER_MODE_MANUAL,

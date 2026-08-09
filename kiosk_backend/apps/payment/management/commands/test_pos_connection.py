@@ -42,8 +42,10 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('\n=== تست اتصال دستگاه POS ===\n'))
         
-        # Get gateway configuration
-        config = settings.PAYMENT_GATEWAY_CONFIG.copy()
+        # Get gateway configuration from admin SiteSettings
+        from apps.core.services.hardware_config import HardwareConfig
+
+        config = HardwareConfig.payment_gateway_config().copy()
         
         # Override with command line arguments if provided
         if options.get('connection_type'):

@@ -301,6 +301,15 @@ export interface Settings {
   fulfillment_choice_enabled?: boolean
   dine_in_enabled?: boolean
   takeaway_enabled?: boolean
+  payment_mode?: 'pos' | 'direct' | 'mock' | string
+  pos_host?: string
+  pos_port?: number
+  pos_timeout?: number
+  pos_merchant_id?: string
+  pos_terminal_id?: string
+  printer_enabled?: boolean
+  printer_host?: string
+  printer_port?: number
   cart_layout?: 'side' | 'bottom' | string
   catalog_revision?: number
   receipt_number_mode?: 'manual' | 'automatic' | string

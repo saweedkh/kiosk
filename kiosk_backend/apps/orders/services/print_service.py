@@ -29,11 +29,9 @@ class PrintService:
 
     @staticmethod
     def get_printer_config() -> Dict[str, Any]:
-        return {
-            'enabled': getattr(settings, 'PRINTER_ENABLED', False),
-            'ip': getattr(settings, 'PRINTER_IP', '192.168.1.100'),
-            'port': getattr(settings, 'PRINTER_PORT', 9100),
-        }
+        from apps.core.services.hardware_config import HardwareConfig
+
+        return HardwareConfig.printer_config()
 
     @staticmethod
     def _load_fonts() -> Dict[str, ImageFont.ImageFont]:

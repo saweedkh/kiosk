@@ -7,6 +7,17 @@ import { adminApi } from '@/lib/api/admin'
 import { CategoryForm } from './CategoryForm'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { buttonVariants } from '@/components/ui/button'
 import { translateError } from '@/lib/utils'
 import type { Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
@@ -25,6 +36,7 @@ export function CategoriesManager() {
   const canDelete = !!user?.is_superuser || (user?.permissions || []).includes('delete_categories')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<string>('-id') // Default: newest first
   const [currentPage, setCurrentPage] = useState(1)
@@ -129,14 +141,14 @@ export function CategoriesManager() {
     }
   }, [isFormOpen, editingCategory])
 
-  const handleDelete = async (id: number) => {
-    if (confirm('آیا مطمئن هستید که می‌خواهید این دسته‌بندی را حذف کنید؟')) {
-      setDeleteError(null)
-      try {
-        await deleteMutation.mutateAsync(id)
-      } catch (error) {
-        // Error is handled in onError callback
-      }
+  const handleDelete = async () => {
+    if (!categoryToDelete) return
+    setDeleteError(null)
+    try {
+      await deleteMutation.mutateAsync(categoryToDelete.id)
+      setCategoryToDelete(null)
+    } catch {
+      // Error is handled in onError callback
     }
   }
 
@@ -314,7 +326,7 @@ export function CategoriesManager() {
                           <Button
                             variant="danger"
                             size="sm"
-                            onClick={() => handleDelete(category.id)}
+                            onClick={() => setCategoryToDelete(category)}
                           >
                             حذف
                           </Button>
@@ -378,6 +390,39 @@ export function CategoriesManager() {
           </Button>
         </div>
       )}
+
+      <AlertDialog
+        open={!!categoryToDelete}
+        onOpenChange={(open) => {
+          if (!open) setCategoryToDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>حذف دسته‌بندی</AlertDialogTitle>
+            <AlertDialogDescription>
+              آیا مطمئن هستید که می‌خواهید دسته‌بندی
+              {categoryToDelete ? ` «${categoryToDelete.name}» ` : ' '}
+              را حذف کنید؟ این عمل قابل بازگشت نیست.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              انصراف
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive' })}
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDelete()
+              }}
+            >
+              {deleteMutation.isPending ? 'در حال حذف...' : 'حذف'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

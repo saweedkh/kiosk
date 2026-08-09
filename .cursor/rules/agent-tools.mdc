@@ -1,0 +1,28 @@
+---
+description: How the Cursor agent should use MCP tools on this project
+alwaysApply: true
+---
+
+# Agent tools for this repo
+
+## Prefer these MCPs
+
+| Need | Tool |
+|------|------|
+| Up-to-date library docs (Next, Django, Tailwind, DRF, shadcn) | **Context7** |
+| Automated browser / E2E checks | **Playwright** |
+| Quick UI inspect / click-through in Cursor | **Browser** (built-in) |
+| Design → code from Figma frames | **Figma** MCP (user/global) |
+| Hit real HTTP APIs / collections | **Postman** MCP (after auth) |
+| Git / PR / issues | **GitLens / GitHub** MCP |
+
+## UI guidance
+
+- New UI: `@/components/ui` (shadcn). Theme = kiosk orange/cream CSS variables
+- After UI changes, verify with Browser or Playwright when a server is running
+
+## Guidance
+
+- Do not enable every MCP for every task — pick 1–2 relevant tools
+- Never print or commit API keys, tokens, or `.env` values
+- Prefer reading existing `lib/api` and Django urls/serializers before calling external APIs

@@ -1,0 +1,36 @@
+---
+description: Next.js + shadcn UI patterns for the kiosk frontend
+globs: kiosk_frontend/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Frontend (Next.js + shadcn)
+
+## Patterns
+
+- App Router under `kiosk_frontend/app`
+- Data fetching: React Query for client lists; server helpers when already used
+- Forms: react-hook-form + zod where the file already uses them
+- Styling: Tailwind + `cn()` from `lib/utils`
+- State: Zustand stores in `lib/store`
+
+## UI system
+
+- Use shadcn components from `@/components/ui/*` for new UI (Button, Input, Card, Dialog, Sheet, Table, Select, Tabs, AlertDialog, …)
+- Add missing primitives with: `npx shadcn@latest add <name>` (style: `new-york`, `cssVariables: true`, RTL on)
+- Theme tokens live in `app/globals.css` (`--primary`, `--background`, …). Keep brand orange/cream; do not reset to neutral/black defaults
+- Icons: `lucide-react`
+- Prefer logical CSS (`ms`/`me`/`ps`/`pe`, `start`/`end`) for RTL
+- Touch-friendly targets on customer kiosk; large screens use `2k` / `4k` breakpoints
+- Existing `components/shared` and admin managers: keep working; prefer shadcn when touching UI heavily
+
+## API
+
+- Call backend only through `lib/api/*`
+- Browser base URL: `NEXT_PUBLIC_API_BASE_URL` (often `/api` behind nginx)
+- Server-side: `getServerApiBaseUrl()` from `lib/api/base-url.ts`
+
+## Agent tooling
+
+- Live UI checks: Browser MCP or Playwright against the running Next app
+- Library docs (Next, Tailwind, shadcn, React Query): Context7

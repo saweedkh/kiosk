@@ -50,24 +50,103 @@
   font-display: swap;
 }
 
-:root {
-  --font-vazir: 'Vazir', sans-serif;
+@layer base {
+  :root {
+    --font-vazir: 'Vazir', sans-serif;
+    --radius: 0.75rem;
+
+    /* Kiosk brand (#E17100 / #FFF3E8) as HSL channels for Tailwind opacity */
+    --background: 29 100% 95%;
+    --foreground: 0 0% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 30 100% 44%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 0 0% 15%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 218 12% 38%;
+    --accent: 31 100% 94%;
+    --accent-foreground: 30 100% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 30 100% 44%;
+    --chart-1: 30 100% 44%;
+    --chart-2: 25 100% 50%;
+    --chart-3: 29 100% 39%;
+    --chart-4: 35 70% 55%;
+    --chart-5: 20 80% 45%;
+    --sidebar-background: 29 80% 97%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-primary: 30 100% 44%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 31 100% 94%;
+    --sidebar-accent-foreground: 30 100% 30%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 30 100% 44%;
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 16%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 16%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 25 100% 50%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 23%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 23%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 0 0% 23%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 100% / 0.12;
+    --input: 0 0% 100% / 0.15;
+    --ring: 25 100% 50%;
+    --chart-1: 25 100% 50%;
+    --chart-2: 30 100% 44%;
+    --chart-3: 35 70% 55%;
+    --chart-4: 20 80% 45%;
+    --chart-5: 29 100% 39%;
+    --sidebar-background: 0 0% 16%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 25 100% 50%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 0 0% 23%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 100% / 0.12;
+    --sidebar-ring: 25 100% 50%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-vazir);
+    direction: rtl;
+  }
+
+  html {
+    @apply font-sans;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
-body {
-  font-family: var(--font-vazir);
-  direction: rtl;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Scrollbar Styles */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -85,14 +164,7 @@ body {
   @apply bg-gray-400 dark:bg-gray-500;
 }
 
-/* Custom Utilities */
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-/* Jalali DatePicker Custom Styles - ساده و تمیز */
+/* Jalali DatePicker */
 .jdp-container {
   font-family: var(--font-vazir) !important;
   direction: rtl !important;
@@ -110,20 +182,20 @@ body {
 }
 
 .jdp-day.selected {
-  background: #3b82f6 !important;
+  background: #e17100 !important;
   color: white !important;
   font-weight: 600 !important;
 }
 
 .jdp-day.today {
-  background: #eff6ff !important;
-  color: #1e40af !important;
+  background: #fff3e8 !important;
+  color: #c55f00 !important;
   font-weight: 600 !important;
 }
 
 .dark .jdp-day.today {
-  background: #1e3a8a !important;
-  color: #93c5fd !important;
+  background: #3a2a1a !important;
+  color: #ffb366 !important;
 }
 
 .jdp-day:hover:not(.disabled-day):not(.not-in-month) {
@@ -154,7 +226,7 @@ body {
 }
 
 .jdp-btn-today {
-  background: #3b82f6 !important;
+  background: #e17100 !important;
   color: white !important;
   padding: 0.5rem 1rem !important;
   border-radius: 0.375rem !important;
@@ -164,7 +236,7 @@ body {
 }
 
 .jdp-btn-today:hover {
-  background: #2563eb !important;
+  background: #c55f00 !important;
 }
 
 .jdp-btn-empty,
@@ -193,4 +265,3 @@ body {
 .dark .jdp-btn-close:hover {
   background: #4b5563 !important;
 }
-

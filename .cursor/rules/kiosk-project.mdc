@@ -1,0 +1,29 @@
+---
+description: Core architecture and conventions for the kiosk monorepo
+alwaysApply: true
+---
+
+# Kiosk Project
+
+Monorepo: Django REST backend + Next.js frontend for a Persian (RTL) self-service kiosk.
+
+## Layout
+
+- `kiosk_backend/` — Django 4.2 + DRF + SimpleJWT (`apps/`: accounts, products, orders, payment, admin_panel, core, bale_bot, logs)
+- `kiosk_frontend/` — Next.js 14 App Router + TypeScript + Tailwind + React Query + Zustand + shadcn/ui
+- Docker Compose for local/prod; nginx proxies `/api` to backend
+
+## Stack facts agents must respect
+
+- UI language: Persian; root layout is `lang="fa" dir="rtl"` with Vazir font (`--font-vazir`)
+- Brand tokens: primary `#E17100`, background `#FFF3E8` — wired as shadcn CSS variables in `app/globals.css`
+- Prefer new UI from `kiosk_frontend/components/ui/*` (shadcn). Existing screens may still use `components/shared` — migrate gradually; do not mix conflicting patterns in one new feature
+- API clients: `kiosk_frontend/lib/api/*` via axios (`lib/api/client.ts`); JWT from Zustand auth store
+- Prefer extending existing API modules and types in `kiosk_frontend/types` instead of inventing new patterns
+- Do not commit `.env`, secrets, SQLite DBs, `node_modules`, `venv`, or delivery zips
+
+## When changing behavior
+
+- Keep customer kiosk flows and admin panel separated (`app/(customer)` vs `app/admin`)
+- Payment/order create can be long-running (card wait); do not shorten existing timeouts without reason
+- Prefer `select_related` / `prefetch_related` on Django list/detail endpoints

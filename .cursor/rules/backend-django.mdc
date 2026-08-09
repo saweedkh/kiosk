@@ -1,0 +1,36 @@
+---
+description: Django / DRF backend patterns for the kiosk API
+globs: kiosk_backend/**/*.py
+alwaysApply: false
+---
+
+# Backend (Django + DRF)
+
+## Apps
+
+Work inside `kiosk_backend/apps/` — accounts, products, orders, payment, admin_panel, core, bale_bot, logs.
+
+## API conventions
+
+- DRF viewsets/APIViews with existing URL prefixes (`/api/kiosk/...`)
+- Auth: SimpleJWT Bearer tokens for admin; public endpoints stay public
+- Prefer serializers + permissions already used in the same app
+- OpenAPI via drf-spectacular — keep schema-friendly serializers when practical
+- Pagination/filtering: django-filter patterns already in project
+
+## ORM & performance
+
+- Avoid N+1: use `select_related` / `prefetch_related` on list and nested responses
+- Add DB indexes when filtering/ordering new fields heavily
+- Do not put secrets or hardcoded credentials in settings; use env via dotenv/compose
+
+## Domain notes
+
+- Orders + payment integrate with POS/card flows — preserve transaction/status semantics
+- Receipt printing and Persian text shaping (arabic-reshaper / bidi) may be involved; do not break encoding
+- Admin panel APIs under `/kiosk/admin/...` power the Next admin UI
+
+## Agent tooling
+
+- Use Context7 for Django/DRF version-accurate docs when unsure
+- Use Postman MCP (if authenticated) against the OpenAPI/collection rather than inventing endpoints

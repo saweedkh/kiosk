@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { KioskAttractScreen } from '@/components/customer/KioskAttractScreen'
+import { CinemaLanding } from '@/components/customer/landing/CinemaLanding'
+import { NeonLanding } from '@/components/customer/landing/NeonLanding'
+import { FreshLanding } from '@/components/customer/landing/FreshLanding'
+import { EditorialLanding } from '@/components/customer/landing/EditorialLanding'
 import {
   LANDING_DESIGN_HEIGHT,
   LANDING_DESIGN_WIDTH,
@@ -27,6 +30,33 @@ export interface LandingLivePreviewProps {
   caption?: string
   /** Run attract animations (main preview). Off for picker tiles. */
   motionEnabled?: boolean
+}
+
+function ThemePreview({
+  theme,
+  motionEnabled,
+  ...props
+}: Omit<LandingLivePreviewProps, 'className' | 'framed' | 'caption'> & {
+  onStart: () => void
+}) {
+  const shared = {
+    ...props,
+    preview: true,
+    motionEnabled,
+    onStart: () => {},
+  }
+
+  switch (theme) {
+    case 'neon':
+      return <NeonLanding {...shared} />
+    case 'fresh':
+      return <FreshLanding {...shared} />
+    case 'editorial':
+      return <EditorialLanding {...shared} />
+    case 'cinema':
+    default:
+      return <CinemaLanding {...shared} />
+  }
 }
 
 /**
@@ -80,9 +110,7 @@ export function LandingLivePreview({
           transform: `scale(${scale})`,
         }}
       >
-        <KioskAttractScreen
-          preview
-          motionEnabled={motionEnabled}
+        <ThemePreview
           theme={theme}
           siteName={siteName}
           logoUrl={logoUrl}
@@ -93,6 +121,7 @@ export function LandingLivePreview({
           textColor={textColor}
           mutedColor={mutedColor}
           backgroundUrl={backgroundUrl}
+          motionEnabled={motionEnabled}
           onStart={() => {}}
         />
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { hasPermission } from '@/lib/auth/permissions'
 import { ReportsManager } from '@/components/admin/ReportsManager'
 import { CategoriesManager } from '@/components/admin/CategoriesManager'
 import { ProductsManager } from '@/components/admin/ProductsManager'
@@ -17,33 +18,25 @@ import {
 } from '@/components/admin/ui/AdminShell'
 import { AdminSurface } from '@/components/admin/ui/primitives'
 
-function hasPerm(
-  user: ReturnType<typeof useAuthStore.getState>['user'],
-  code: string
-) {
-  if (!user) return false
-  if (user.is_superuser) return true
-  return (user.permissions || []).includes(code)
-}
-
 export default function AdminPage() {
   const { logout, user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<AdminNavId>('dashboard')
 
   const tabs = useMemo(() => {
     const items: { id: AdminNavId; label: string; visible: boolean }[] = [
-      { id: 'dashboard', label: 'داشبورد', visible: hasPerm(user, 'view_reports') },
-      { id: 'categories', label: 'دسته‌بندی', visible: hasPerm(user, 'view_categories') },
-      { id: 'products', label: 'محصولات', visible: hasPerm(user, 'view_products') },
+      { id: 'dashboard', label: 'داشبورد', visible: hasPermission(user, 'view_reports') },
+      { id: 'categories', label: 'دسته‌بندی', visible: hasPermission(user, 'view_categories') },
+      { id: 'products', label: 'محصولات', visible: hasPermission(user, 'view_products') },
       {
         id: 'coupons',
         label: 'تخفیف',
-        visible: hasPerm(user, 'manage_coupons') || hasPerm(user, 'view_reports'),
+        visible:
+          hasPermission(user, 'manage_coupons') || hasPermission(user, 'view_reports'),
       },
-      { id: 'reports', label: 'گزارشات', visible: hasPerm(user, 'view_reports') },
-      { id: 'settings', label: 'تنظیمات', visible: hasPerm(user, 'change_settings') },
-      { id: 'bale', label: 'ربات بله', visible: !!user?.is_superuser },
-      { id: 'users', label: 'کاربران', visible: !!user?.is_superuser },
+      { id: 'reports', label: 'گزارشات', visible: hasPermission(user, 'view_reports') },
+      { id: 'settings', label: 'تنظیمات', visible: hasPermission(user, 'change_settings') },
+      { id: 'bale', label: 'ربات بله', visible: hasPermission(user, 'manage_bale') },
+      { id: 'users', label: 'کاربران', visible: hasPermission(user, 'manage_users') },
     ]
     return items.filter((t) => t.visible)
   }, [user])
@@ -93,25 +86,25 @@ export default function AdminPage() {
             </p>
           </AdminSurface>
         )}
-        {activeTab === 'dashboard' && hasPerm(user, 'view_reports') && (
+        {activeTab === 'dashboard' && hasPermission(user, 'view_reports') && (
           <DashboardManager />
         )}
-        {activeTab === 'categories' && hasPerm(user, 'view_categories') && (
+        {activeTab === 'categories' && hasPermission(user, 'view_categories') && (
           <CategoriesManager />
         )}
-        {activeTab === 'products' && hasPerm(user, 'view_products') && (
+        {activeTab === 'products' && hasPermission(user, 'view_products') && (
           <ProductsManager />
         )}
         {activeTab === 'coupons' &&
-          (hasPerm(user, 'manage_coupons') || hasPerm(user, 'view_reports')) && (
+          (hasPermission(user, 'manage_coupons') || hasPermission(user, 'view_reports')) && (
             <CouponsManager />
           )}
-        {activeTab === 'reports' && hasPerm(user, 'view_reports') && <ReportsManager />}
-        {activeTab === 'settings' && hasPerm(user, 'change_settings') && (
+        {activeTab === 'reports' && hasPermission(user, 'view_reports') && <ReportsManager />}
+        {activeTab === 'settings' && hasPermission(user, 'change_settings') && (
           <SettingsManager />
         )}
-        {activeTab === 'bale' && user?.is_superuser && <BaleBotManager />}
-        {activeTab === 'users' && user?.is_superuser && <UsersManager />}
+        {activeTab === 'bale' && hasPermission(user, 'manage_bale') && <BaleBotManager />}
+        {activeTab === 'users' && hasPermission(user, 'manage_users') && <UsersManager />}
       </AdminShell>
     </ProtectedRoute>
   )

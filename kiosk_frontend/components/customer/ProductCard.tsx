@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/shared/Button'
 import {
+  buildCartItemKey,
   useCartStore,
   type CartSelectedOption,
 } from '@/lib/store/cart-store'
@@ -16,7 +17,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { addItem, items } = useCartStore()
+  const { addItem, items, updateQuantity, removeItem } = useCartStore()
   const [showOptions, setShowOptions] = useState(false)
   const [selectedByGroup, setSelectedByGroup] = useState<Record<number, number[]>>({})
   const [optionError, setOptionError] = useState('')
@@ -39,9 +40,12 @@ export function ProductCard({ product }: ProductCardProps) {
   }
 
   const isOutOfStock = !checkIsInStock()
+  const plainKey = buildCartItemKey(product.id, [])
+  const plainItem = items.find((item) => item.key === plainKey)
   const quantityInCart = items
     .filter((item) => item.product.id === product.id)
     .reduce((s, i) => s + i.quantity, 0)
+  const quantity = hasOptions ? quantityInCart : plainItem?.quantity || 0
 
   const buildSelectedOptions = (): CartSelectedOption[] => {
     const selected: CartSelectedOption[] = []
@@ -104,7 +108,7 @@ export function ProductCard({ product }: ProductCardProps) {
       setOptionError('')
       return
     }
-    addItem(product, 1, [])
+    addItem(product, 1)
   }
 
   const confirmOptions = () => {
@@ -119,108 +123,98 @@ export function ProductCard({ product }: ProductCardProps) {
     setOptionError('')
   }
 
-  const optionsExtra = buildSelectedOptions().reduce(
-    (s, o) => s + Number(o.price_delta || 0),
-    0
-  )
+  const handleIncrease = () => {
+    if (isOutOfStock || hasOptions) return
+    if (!plainItem) {
+      addItem(product, 1)
+      return
+    }
+    if (plainItem.quantity < product.stock_quantity) {
+      updateQuantity(plainKey, plainItem.quantity + 1)
+    }
+  }
+
+  const canIncrease = !hasOptions && quantity < product.stock_quantity
+
+  const handleDecrease = () => {
+    if (hasOptions || !plainItem) return
+    if (plainItem.quantity > 1) {
+      updateQuantity(plainKey, plainItem.quantity - 1)
+    } else {
+      removeItem(plainKey)
+    }
+  }
 
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -4 }}
-        className="bg-card dark:bg-card-dark rounded-2xl overflow-hidden border border-border dark:border-border-dark shadow-sm hover:shadow-lg transition-shadow"
-      >
-        <div className="relative w-full h-56 bg-gray-100 dark:bg-gray-800">
-          {product.image ? (
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              unoptimized={
-                product.image?.startsWith('http://localhost') ||
-                product.image?.startsWith('http://')
-              }
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              بدون تصویر
-            </div>
-          )}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -4 }}
+      className="bg-card dark:bg-card-dark rounded-2xl overflow-hidden border border-border dark:border-border-dark shadow-sm hover:shadow-lg transition-shadow"
+    >
+      <div className="relative w-full h-56 bg-gray-100 dark:bg-gray-800">
+        {product.image ? (
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            unoptimized={product.image?.startsWith('http://localhost') || product.image?.startsWith('http://')}
+            onError={(e) => {
+              console.error('Image load error:', product.image)
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400">
+            بدون تصویر
+          </div>
+        )}
+      </div>
+
+      <div className="p-4">
+        <h3 className="text-lg font-bold text-text dark:text-text-dark mb-2">
+          {product.name}
+        </h3>
+
+        <div className="h-[2.5rem] mb-3">
+          <p className="text-sm text-text-secondary dark:text-gray-400 line-clamp-2">
+            {product.description || ''}
+          </p>
         </div>
 
-        <div className="p-4">
-          <h3 className="text-lg font-bold text-text dark:text-text-dark mb-2">
-            {product.name}
-          </h3>
-          <div className="h-[2.5rem] mb-3">
-            <p className="text-sm text-text-secondary dark:text-gray-400 line-clamp-2">
-              {product.description || ''}
-            </p>
-          </div>
-          <div className="flex flex-col gap-1 mb-3">
-            <span className="text-xl font-bold text-primary dark:text-primary-light">
-              {formatCurrency(product.price)}
-              {hasOptions ? (
-                <span className="ms-2 text-xs font-medium text-muted-foreground">
-                  + آپشن
-                </span>
-              ) : null}
-            </span>
-            <span className="text-sm text-text-secondary dark:text-gray-400">
-              موجودی: {formatNumber(product.stock_quantity)} عدد
-              {quantityInCart > 0
-                ? ` · در سبد: ${formatNumber(quantityInCart)}`
-                : ''}
-            </span>
-          </div>
-
-          <Button
-            variant={isOutOfStock ? 'secondary' : 'primary'}
-            size="md"
-            className="w-full"
-            onClick={handleAddToCart}
-            disabled={isOutOfStock}
-          >
-            {isOutOfStock
-              ? 'اتمام موجودی'
-              : hasOptions
-                ? 'انتخاب و افزودن'
-                : 'افزودن به سبد'}
-          </Button>
+        <div className="flex flex-col gap-1 mb-3">
+          <span className="text-xl font-bold text-primary dark:text-primary-light">
+            {formatCurrency(product.price)}
+          </span>
+          <span className="text-sm text-text-secondary dark:text-gray-400">
+            موجودی: {formatNumber(product.stock_quantity)} عدد
+          </span>
         </div>
-      </motion.div>
 
-      {showOptions ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-card p-5 shadow-xl">
-            <h3 className="text-xl font-black">{product.name}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">آپشن‌های محصول را انتخاب کنید</p>
-
-            <div className="mt-4 space-y-4">
-              {groups.map((group) => (
-                <div key={group.id}>
-                  <p className="mb-2 font-bold">
-                    {group.name}
-                    {group.is_required ? (
-                      <span className="ms-1 text-destructive">*</span>
-                    ) : null}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {group.options.map((opt) => {
-                      const active = (selectedByGroup[group.id] || []).includes(opt.id)
+        {showOptions ? (
+          <div className="space-y-3 rounded-xl border border-border dark:border-border-dark p-3 mb-3">
+            {groups.map((group) => (
+              <div key={group.id}>
+                <p className="mb-2 text-sm font-semibold text-text dark:text-text-dark">
+                  {group.name}
+                  {group.is_required ? ' *' : ''}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {group.options
+                    .filter((o) => o.is_active !== false)
+                    .map((opt) => {
+                      const selected = (selectedByGroup[group.id] || []).includes(opt.id)
                       return (
                         <button
                           key={opt.id}
                           type="button"
                           onClick={() => toggleOption(group, opt.id)}
-                          className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                            active
+                          className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                            selected
                               ? 'border-primary bg-primary text-white'
-                              : 'border-border hover:border-primary'
+                              : 'border-border dark:border-border-dark'
                           }`}
                         >
                           {opt.name}
@@ -230,39 +224,85 @@ export function ProductCard({ product }: ProductCardProps) {
                         </button>
                       )
                     })}
-                  </div>
                 </div>
-              ))}
-            </div>
-
-            {optionError ? (
-              <p className="mt-3 text-sm text-destructive">{optionError}</p>
-            ) : null}
-
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <p className="font-bold text-primary">
-                {formatCurrency(product.price + optionsExtra)}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setShowOptions(false)
-                    setSelectedByGroup({})
-                    setOptionError('')
-                  }}
-                >
-                  انصراف
-                </Button>
-                <Button type="button" onClick={confirmOptions}>
-                  افزودن
-                </Button>
               </div>
+            ))}
+            {optionError ? (
+              <p className="text-xs text-red-600">{optionError}</p>
+            ) : null}
+            <div className="flex gap-2">
+              <Button variant="primary" size="md" className="flex-1" onClick={confirmOptions}>
+                تأیید
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                className="flex-1"
+                onClick={() => {
+                  setShowOptions(false)
+                  setOptionError('')
+                }}
+              >
+                انصراف
+              </Button>
             </div>
           </div>
-        </div>
-      ) : null}
-    </>
+        ) : null}
+
+        {!showOptions && quantity > 0 && !hasOptions ? (
+          <div className="flex items-center gap-8">
+            <button
+              onClick={handleDecrease}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+              </svg>
+            </button>
+            <span className="text-base font-bold text-text dark:text-text-dark min-w-[2rem] text-center">
+              {formatNumber(quantity)}
+            </span>
+            <button
+              onClick={handleIncrease}
+              disabled={isOutOfStock || !canIncrease}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        ) : !showOptions ? (
+          <Button
+            variant={isOutOfStock ? 'secondary' : 'primary'}
+            size="md"
+            className="w-full"
+            onClick={handleAddToCart}
+            disabled={isOutOfStock}
+          >
+            {isOutOfStock ? (
+              'اتمام موجودی'
+            ) : (
+              <>
+                <span>{hasOptions && quantity > 0 ? 'افزودن مجدد' : 'افزودن به سبد'}</span>
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+              </>
+            )}
+          </Button>
+        ) : null}
+      </div>
+    </motion.div>
   )
 }

@@ -47,7 +47,9 @@ class UserProfile(TimeStampedModel):
             ('view_orders', 'مشاهده سفارشات'),
             ('change_orders', 'تغییر وضعیت سفارش'),
             ('change_settings', 'تغییر تنظیمات'),
+            ('manage_coupons', 'مدیریت کوپن تخفیف'),
             ('manage_users', 'مدیریت کاربران و گروه‌ها'),
+            ('manage_bale', 'مدیریت ربات بله'),
         ]
 
     def __str__(self):

@@ -22,6 +22,7 @@ import {
 import { formatCurrency, translateError } from '@/lib/utils'
 import type { Product, Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { hasPermission } from '@/lib/auth/permissions'
 import { clearCachedMenu } from '@/lib/kiosk-persist'
 
 function bustCustomerMenuCache(queryClient: ReturnType<typeof useQueryClient>) {
@@ -32,11 +33,10 @@ function bustCustomerMenuCache(queryClient: ReturnType<typeof useQueryClient>) {
 
 export function ProductsManager() {
   const { user } = useAuthStore()
-  const canAdd = !!user?.is_superuser || (user?.permissions || []).includes('add_products')
-  const canChange = !!user?.is_superuser || (user?.permissions || []).includes('change_products')
-  const canDelete = !!user?.is_superuser || (user?.permissions || []).includes('delete_products')
-  const canChangeStock =
-    !!user?.is_superuser || (user?.permissions || []).includes('change_stock')
+  const canAdd = hasPermission(user, 'add_products')
+  const canChange = hasPermission(user, 'change_products')
+  const canDelete = hasPermission(user, 'delete_products')
+  const canChangeStock = hasPermission(user, 'change_stock')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [stockProduct, setStockProduct] = useState<Product | null>(null)

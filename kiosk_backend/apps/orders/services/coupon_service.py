@@ -11,7 +11,16 @@ class CouponService:
         return (code or '').strip().upper()
 
     @staticmethod
+    def assert_feature_enabled() -> None:
+        from apps.core.models.settings import SiteSettings
+
+        settings = SiteSettings.get_settings()
+        if not getattr(settings, 'coupons_enabled', True):
+            raise ValueError('امکان استفاده از کد تخفیف در حال حاضر غیرفعال است')
+
+    @staticmethod
     def get_active_coupon(code: str) -> Coupon:
+        CouponService.assert_feature_enabled()
         normalized = CouponService.normalize_code(code)
         if not normalized:
             raise ValueError('کد تخفیف وارد نشده است')

@@ -23,32 +23,7 @@ import {
 import { useCartStore } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { analyticsApi } from "@/lib/api/dashboard";
-import { formatNumber } from "@/lib/utils";
-import type { LandingTheme } from "@/types";
-
-const LANDING_THEMES: LandingTheme[] = ["cinema", "neon", "fresh", "editorial"];
-const AB_THEME_STORAGE_KEY = "kiosk-landing-ab-theme";
-
-function pickLandingTheme(settingsLike: {
-  landing_theme?: string;
-  landing_theme_b?: string;
-  landing_ab_enabled?: boolean;
-  landing_ab_split?: number;
-} | null | undefined): string {
-  const themeA = (settingsLike?.landing_theme || "cinema").toLowerCase();
-  if (!settingsLike?.landing_ab_enabled) return themeA;
-  if (typeof window !== "undefined") {
-    const sticky = sessionStorage.getItem(AB_THEME_STORAGE_KEY);
-    if (sticky && LANDING_THEMES.includes(sticky as LandingTheme)) return sticky;
-  }
-  const themeB = (settingsLike?.landing_theme_b || "neon").toLowerCase();
-  const split = Math.min(Math.max(Number(settingsLike?.landing_ab_split ?? 50), 0), 100);
-  const picked = Math.random() * 100 < split ? themeA : themeB;
-  if (typeof window !== "undefined") {
-    sessionStorage.setItem(AB_THEME_STORAGE_KEY, picked);
-  }
-  return picked;
-}
+import { formatNumber, cn } from "@/lib/utils";
 import {
   readCachedSettings,
   writeCachedSettings,
@@ -96,13 +71,19 @@ export default function CustomerPage() {
   const paymentModalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastCatalogRevisionRef = useRef<number | null>(null);
+  const landingThemeRef = useRef("cinema");
   const router = useRouter();
   const queryClient = useQueryClient();
   const { getTotalItems, items, getTotalPrice, clearCart, couponCode } = useCartStore();
-  const [activeLandingTheme, setActiveLandingTheme] = useState<string>("cinema");
 
   useEffect(() => {
     setIsMounted(true);
+    // Drop legacy A/B sticky pick if present
+    try {
+      sessionStorage.removeItem("kiosk-landing-ab-theme");
+    } catch {
+      /* ignore */
+    }
     
     // همیشه token های authentication را پاک کن برای امنیت
     // صفحه مشتری نباید نیاز به authentication داشته باشد
@@ -204,7 +185,7 @@ export default function CustomerPage() {
     setShowAttract(false);
     void analyticsApi.trackLanding({
       event_type: "start",
-      theme: activeLandingTheme,
+      theme: landingThemeRef.current,
     });
   };
 
@@ -308,9 +289,24 @@ export default function CustomerPage() {
     }, 2000);
   };
 
-  const cachedSettings = useMemo(() => readCachedSettings(), []);
+  const [cachedSettings, setCachedSettings] = useState(() => readCachedSettings());
   const cachedCategories = useMemo(() => readCachedCategories(), []);
   const cachedProducts = useMemo(() => readCachedProducts(), []);
+
+  useEffect(() => {
+    const syncCache = () => setCachedSettings(readCachedSettings());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "kiosk-settings-cache-v1") syncCache();
+    };
+    window.addEventListener("focus", syncCache);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("kiosk-settings-cache-updated", syncCache);
+    return () => {
+      window.removeEventListener("focus", syncCache);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("kiosk-settings-cache-updated", syncCache);
+    };
+  }, []);
 
   const { data: categoriesData, isPending: categoriesPending } = useQuery({
     queryKey: ["categories"],
@@ -384,6 +380,7 @@ export default function CustomerPage() {
       const data = await settingsApi.getSettings();
       if (data?.result) {
         writeCachedSettings(data.result);
+        setCachedSettings(readCachedSettings());
         if (data.result.logo_url) {
           void preloadImage(data.result.logo_url);
         }
@@ -404,6 +401,7 @@ export default function CustomerPage() {
     // Lightweight poll so kiosk picks up admin branding + catalog_revision
     staleTime: 0,
     gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchInterval: 12_000,
     retry: 2,
@@ -479,24 +477,36 @@ export default function CustomerPage() {
   const siteName = resolveSiteName(settings);
   const siteDescription = resolveSiteDescription(settings);
   const copyrightText = resolveCopyright(settings);
+  const landingTheme = (
+    settings.landing_theme ||
+    cachedSettings?.landing_theme ||
+    "cinema"
+  ).toLowerCase();
+  landingThemeRef.current = landingTheme;
 
   useEffect(() => {
-    const theme = pickLandingTheme(settings);
-    setActiveLandingTheme(theme);
-  }, [
-    settings.landing_theme,
-    settings.landing_theme_b,
-    settings.landing_ab_enabled,
-    settings.landing_ab_split,
-  ]);
-
-  useEffect(() => {
-    if (!showAttract || !activeLandingTheme) return;
+    if (!showAttract || !landingTheme) return;
     void analyticsApi.trackLanding({
       event_type: "impression",
-      theme: activeLandingTheme,
+      theme: landingTheme,
     });
-  }, [showAttract, activeLandingTheme]);
+  }, [showAttract, landingTheme]);
+
+  // After leaving admin (or any tab focus), pull latest landing/branding settings
+  useEffect(() => {
+    const refreshSettings = () => {
+      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshSettings();
+    };
+    window.addEventListener("focus", refreshSettings);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", refreshSettings);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [queryClient]);
 
   const configuredServiceFee =
     settings.service_enabled
@@ -521,6 +531,11 @@ export default function CustomerPage() {
         : 0;
   const checkoutTotal =
     currentOrder?.totalAmount ?? getTotalPrice() + pendingServiceFee;
+  const cartLayout =
+    (settings.cart_layout || cachedSettings?.cart_layout || 'side') === 'bottom'
+      ? 'bottom'
+      : 'side';
+  const isBottomCart = cartLayout === 'bottom';
   
   // Reset logo error when settings change
   useEffect(() => {
@@ -539,7 +554,7 @@ export default function CustomerPage() {
         })),
         fulfillment_type: selectedFulfillment,
         coupon_code: couponCode || undefined,
-        landing_theme: activeLandingTheme || undefined,
+        landing_theme: landingThemeRef.current || undefined,
       };
       return await ordersApi.createOrder(orderData);
     },
@@ -725,7 +740,7 @@ export default function CustomerPage() {
       {showAttract && (
         <KioskAttractScreen
           key={[
-            activeLandingTheme,
+            landingTheme,
             settings.landing_cta_text || "",
             settings.landing_accent_color || "",
             settings.landing_bg_color || "",
@@ -734,6 +749,7 @@ export default function CustomerPage() {
             settings.landing_background_url || "",
             siteName,
           ].join("|")}
+          theme={landingTheme}
           siteName={siteName || cachedSettings?.site_name || "کیوسک"}
           logoUrl={
             (settings.logo_url && settings.logo_url.trim() !== ""
@@ -742,7 +758,6 @@ export default function CustomerPage() {
             (logoError ? null : "/logo.png")
           }
           tagline={siteDescription || cachedSettings?.description}
-          theme={activeLandingTheme || "cinema"}
           ctaText={
             settings.landing_cta_text ||
             cachedSettings?.landing_cta_text ||
@@ -869,9 +884,9 @@ export default function CustomerPage() {
               {visibleProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index * 0.04, 0.35) }}
+                  transition={{ delay: index * 0.05 }}
                 >
                   <ProductCard product={product} />
                 </motion.div>
@@ -884,21 +899,22 @@ export default function CustomerPage() {
               </p>
             </div>
           )}
-
-          <footer className="mt-12 border-t border-border py-6 dark:border-border-dark">
-            <div className="flex flex-col items-center justify-center gap-2">
-              <p className="text-center text-sm text-text-secondary dark:text-gray-400">
-                © {new Date().getFullYear()}
-                {copyrightText ? ` ${copyrightText}` : ''}
-              </p>
-              {settings.contact_phone && (
-                <div className="text-xs text-text-secondary dark:text-gray-400">
-                  {settings.contact_phone}
-                </div>
-              )}
-            </div>
-          </footer>
         </main>
+
+        {/* Footer stays at bottom of column, not after short product lists */}
+        <footer className="mt-auto flex-shrink-0 border-t border-border py-6 dark:border-border-dark">
+          <div className="flex flex-col items-center justify-center gap-2">
+            <p className="text-center text-sm text-text-secondary dark:text-gray-400">
+              © {new Date().getFullYear()}
+              {copyrightText ? ` ${copyrightText}` : ''}
+            </p>
+            {settings.contact_phone && (
+              <div className="text-xs text-text-secondary dark:text-gray-400">
+                {settings.contact_phone}
+              </div>
+            )}
+          </div>
+        </footer>
       </div>
 
       {/* Right Section - Cart View (1/3) */}

@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 
-from apps.accounts.api.permissions import IsSuperUser
+from apps.accounts.api.permissions import HasAppPermission
 from apps.accounts.api.serializers import (
     AdminUserSerializer,
     GroupSerializer,
@@ -16,14 +16,16 @@ User = get_user_model()
 
 
 class PermissionCatalogAPIView(APIView):
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_users'
 
     def get(self, request):
         return Response({'items': PermissionService.get_permission_catalog()})
 
 
 class GroupListCreateAPIView(APIView):
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_users'
 
     def get(self, request):
         groups = Group.objects.all().order_by('name')
@@ -45,7 +47,8 @@ class GroupListCreateAPIView(APIView):
 
 
 class GroupDetailAPIView(APIView):
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_users'
 
     def get_object(self, pk):
         return Group.objects.get(pk=pk)
@@ -89,7 +92,8 @@ class GroupDetailAPIView(APIView):
 
 
 class UserListCreateAPIView(APIView):
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_users'
 
     def get(self, request):
         users = User.objects.all().order_by('username').prefetch_related('groups', 'profile')
@@ -123,7 +127,8 @@ class UserListCreateAPIView(APIView):
 
 
 class UserDetailAPIView(APIView):
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_users'
 
     def get_object(self, pk):
         return User.objects.prefetch_related('groups', 'profile').get(pk=pk)
@@ -143,20 +148,22 @@ class UserDetailAPIView(APIView):
         serializer = AdminUserSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        # Only apply fields explicitly present so defaults do not wipe flags.
+        raw = request.data if hasattr(request.data, 'get') else {}
         # username is immutable via this endpoint
         try:
             user = UserService.update_user(
                 user,
-                email=data.get('email'),
-                first_name=data.get('first_name'),
-                last_name=data.get('last_name'),
-                is_active=data.get('is_active'),
-                is_staff=data.get('is_staff'),
-                is_superuser=data.get('is_superuser'),
+                email=data.get('email') if 'email' in data else None,
+                first_name=data.get('first_name') if 'first_name' in data else None,
+                last_name=data.get('last_name') if 'last_name' in data else None,
+                is_active=data.get('is_active') if 'is_active' in data else None,
+                is_staff=data.get('is_staff') if 'is_staff' in data else None,
+                is_superuser=data.get('is_superuser') if 'is_superuser' in raw else None,
                 password=data.get('password') or None,
-                group_ids=data.get('group_ids'),
-                bale_chat_id=data.get('bale_chat_id'),
-                bale_enabled=data.get('bale_enabled'),
+                group_ids=data.get('group_ids') if 'group_ids' in data else None,
+                bale_chat_id=data.get('bale_chat_id') if 'bale_chat_id' in data else None,
+                bale_enabled=data.get('bale_enabled') if 'bale_enabled' in data else None,
                 actor=request.user,
             )
         except ValueError as exc:
@@ -176,5 +183,8 @@ class UserDetailAPIView(APIView):
                 {'detail': 'نمی‌توانید حساب خودتان را حذف کنید'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        user.delete()
+        try:
+            UserService.delete_user(user, actor=request.user)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)

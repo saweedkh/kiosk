@@ -165,25 +165,36 @@ export interface LiveDashboardData {
     cancelled_payments: number
     cancel_rate: number
     pending_payments: number
+    sales_yesterday?: number
+    orders_yesterday?: number
+    sales_delta_pct?: number | null
+    orders_delta_pct?: number | null
+    dine_in_orders?: number
+    takeaway_orders?: number
   }
   heatmap: {
     days: number
     max_orders: number
     hours: { hour: number; orders: number; sales: number; intensity: number }[]
   }
-  landing_ab: {
+  trend?: {
     days: number
-    ab_enabled: boolean
-    theme_a: string
-    theme_b: string
-    split_a_percent: number
-    variants: {
-      theme: string
-      impressions: number
-      starts: number
-      start_rate: number
-    }[]
+    points: { date: string; sales: number; orders: number }[]
   }
+  top_products?: {
+    product_id: number | null
+    name: string
+    quantity: number
+    revenue: number
+  }[]
+  recent_orders?: {
+    id: number
+    order_number: string
+    total_amount: number
+    payment_status: string
+    fulfillment_type: string
+    created_at: string
+  }[]
 }
 
 export interface SystemHealthData {
@@ -273,9 +284,6 @@ export interface Settings {
   landing_background?: string
   landing_background_file?: File
   landing_background_preview?: string
-  landing_ab_enabled?: boolean
-  landing_theme_b?: LandingTheme | string
-  landing_ab_split?: number
   logo_file?: File
   logo_preview?: string
   logo?: string
@@ -289,6 +297,7 @@ export interface Settings {
   service_fee?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
+  cart_layout?: 'side' | 'bottom' | string
   catalog_revision?: number
   receipt_number_mode?: 'manual' | 'automatic' | string
   last_receipt_number?: number

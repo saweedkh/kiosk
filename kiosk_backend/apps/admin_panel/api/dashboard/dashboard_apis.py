@@ -1,4 +1,3 @@
-from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -29,7 +28,9 @@ class LiveDashboardAPIView(APIView):
         return Response({
             'live': DashboardService.get_live_metrics(),
             'heatmap': DashboardService.get_hourly_heatmap(days=days_int),
-            'landing_ab': DashboardService.get_landing_ab_stats(days=days_int),
+            'trend': DashboardService.get_sales_trend(days=days_int),
+            'top_products': DashboardService.get_top_products(limit=5),
+            'recent_orders': DashboardService.get_recent_orders(limit=8),
         })
 
 

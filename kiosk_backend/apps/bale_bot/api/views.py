@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import serializers
 
-from apps.accounts.api.permissions import IsSuperUser
+from apps.accounts.api.permissions import HasAppPermission
 from apps.bale_bot.services.config_service import BaleConfigService
 
 
@@ -15,9 +15,10 @@ class BaleBotSettingsSerializer(serializers.Serializer):
 
 
 class BaleBotSettingsAPIView(APIView):
-    """Get/update Bale bot enable flag and token (superuser only)."""
+    """Get/update Bale bot enable flag and token."""
 
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_bale'
 
     def get(self, request):
         return Response(BaleConfigService.serialize())
@@ -48,7 +49,8 @@ class BaleBotSettingsAPIView(APIView):
 class BaleBotHealthAPIView(APIView):
     """Live health check against Bale API + polling worker freshness."""
 
-    permission_classes = [IsSuperUser]
+    permission_classes = [HasAppPermission]
+    required_permission = 'manage_bale'
 
     def get(self, request):
         return Response(BaleConfigService.check_health())

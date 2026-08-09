@@ -11,11 +11,14 @@ import {
   AdminSegmented,
 } from '@/components/admin/ui/primitives'
 import { translateError } from '@/lib/utils'
+import { useAuthStore } from '@/lib/store/auth-store'
 
 type Section = 'users' | 'groups'
 
 export function UsersManager() {
   const queryClient = useQueryClient()
+  const currentUser = useAuthStore((s) => s.user)
+  const canEditSuperuser = !!currentUser?.is_superuser
   const [section, setSection] = useState<Section>('users')
   const [error, setError] = useState<string | null>(null)
 
@@ -83,6 +86,10 @@ export function UsersManager() {
   }
 
   const openEditUser = (user: AdminManagedUser) => {
+    if (user.is_superuser && !canEditSuperuser) {
+      setError('فقط سوپریوزر می‌تواند حساب سوپریوزر را ویرایش کند')
+      return
+    }
     setCreatingUser(false)
     setEditingUser(user)
     setUserForm({
@@ -104,18 +111,21 @@ export function UsersManager() {
   const userMutation = useMutation({
     mutationFn: async () => {
       if (editingUser) {
-        return accountsApi.updateUser(editingUser.id, {
+        const payload: Parameters<typeof accountsApi.updateUser>[1] = {
           password: userForm.password || undefined,
           first_name: userForm.first_name,
           last_name: userForm.last_name,
           email: userForm.email,
           is_active: userForm.is_active,
           is_staff: userForm.is_staff,
-          is_superuser: userForm.is_superuser,
           group_ids: userForm.group_ids,
           bale_chat_id: userForm.bale_chat_id,
           bale_enabled: userForm.bale_enabled,
-        })
+        }
+        if (canEditSuperuser) {
+          payload.is_superuser = userForm.is_superuser
+        }
+        return accountsApi.updateUser(editingUser.id, payload)
       }
       return accountsApi.createUser({
         username: userForm.username,
@@ -125,7 +135,7 @@ export function UsersManager() {
         email: userForm.email,
         is_active: userForm.is_active,
         is_staff: userForm.is_staff,
-        is_superuser: userForm.is_superuser,
+        is_superuser: canEditSuperuser ? userForm.is_superuser : false,
         group_ids: userForm.group_ids,
         bale_chat_id: userForm.bale_chat_id,
         bale_enabled: userForm.bale_enabled,
@@ -290,11 +300,13 @@ export function UsersManager() {
                   onChange={(checked) => setUserForm({ ...userForm, is_staff: checked })}
                   label="دسترسی پنل"
                 />
-                <Switch
-                  checked={userForm.is_superuser}
-                  onChange={(checked) => setUserForm({ ...userForm, is_superuser: checked })}
-                  label="سوپریوزر"
-                />
+                {canEditSuperuser && (
+                  <Switch
+                    checked={userForm.is_superuser}
+                    onChange={(checked) => setUserForm({ ...userForm, is_superuser: checked })}
+                    label="سوپریوزر"
+                  />
+                )}
                 <Switch
                   checked={userForm.bale_enabled}
                   onChange={(checked) => setUserForm({ ...userForm, bale_enabled: checked })}
@@ -376,20 +388,24 @@ export function UsersManager() {
                       <td className="px-4 py-3">{user.is_active ? 'فعال' : 'غیرفعال'}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openEditUser(user)}>
-                            ویرایش
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => {
-                              if (confirm(`حذف کاربر ${user.username}؟`)) {
-                                deleteUserMutation.mutate(user.id)
-                              }
-                            }}
-                          >
-                            حذف
-                          </Button>
+                          {!(user.is_superuser && !canEditSuperuser) && (
+                            <Button size="sm" variant="outline" onClick={() => openEditUser(user)}>
+                              ویرایش
+                            </Button>
+                          )}
+                          {!(user.is_superuser && !canEditSuperuser) && (
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              onClick={() => {
+                                if (confirm(`حذف کاربر ${user.username}؟`)) {
+                                  deleteUserMutation.mutate(user.id)
+                                }
+                              }}
+                            >
+                              حذف
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

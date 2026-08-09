@@ -220,6 +220,12 @@ class SiteSettings(models.Model):
         verbose_name='فعال‌سازی سرویس',
         help_text='اگر روشن باشد و مبلغ بیشتر از صفر باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار اعمال می‌شود'
     )
+
+    coupons_enabled = models.BooleanField(
+        default=True,
+        verbose_name='فعال‌سازی کوپن تخفیف',
+        help_text='اگر خاموش باشد، فیلد کد تخفیف در سبد مشتری نمایش داده نمی‌شود و اعمال کوپن رد می‌شود',
+    )
     service_fee = models.PositiveIntegerField(
         default=0,
         verbose_name='مبلغ سرویس (ریال)',
@@ -234,6 +240,21 @@ class SiteSettings(models.Model):
         default=True,
         verbose_name='اعمال سرویس روی بیرون‌بر',
         help_text='اگر روشن باشد، هزینه سرویس برای سفارش‌های بیرون‌بر اعمال می‌شود'
+    )
+
+    # چیدمان سبد خرید کیوسک
+    CART_LAYOUT_SIDE = 'side'
+    CART_LAYOUT_BOTTOM = 'bottom'
+    CART_LAYOUT_CHOICES = [
+        (CART_LAYOUT_SIDE, 'کناری (عمودی)'),
+        (CART_LAYOUT_BOTTOM, 'پایین صفحه (افقی)'),
+    ]
+    cart_layout = models.CharField(
+        max_length=20,
+        choices=CART_LAYOUT_CHOICES,
+        default=CART_LAYOUT_SIDE,
+        verbose_name='چیدمان سبد خرید',
+        help_text='محل نمایش سبد روی صفحه منوی کیوسک',
     )
 
     # Bumped when products/categories change so kiosks can refresh menu cache
@@ -311,6 +332,7 @@ class SiteSettings(models.Model):
                 'receipt_template_mode': cls.RECEIPT_TEMPLATE_MODE_NORMAL,
                 'receipt_copy_mode': cls.RECEIPT_COPY_MODE_DUAL,
                 'service_enabled': False,
+                'coupons_enabled': True,
                 'service_fee': 0,
                 'service_fee_dine_in': True,
                 'service_fee_takeaway': True,

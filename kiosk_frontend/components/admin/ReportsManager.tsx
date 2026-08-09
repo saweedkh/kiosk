@@ -16,8 +16,12 @@ import { formatCurrency, formatNumber, toEnglishDigits } from '@/lib/utils'
 import { formatJalaliDate, formatJalaliDateTime, getTodayJalali, convertJalaliToMiladi } from '@/lib/utils/date'
 import moment from 'moment-jalaali'
 import type { SalesReport, ProductReport, StockReport, DailyReport } from '@/lib/api/reports'
+import { useAuthStore } from '@/lib/store/auth-store'
+import { hasPermission } from '@/lib/auth/permissions'
 
 export function ReportsManager() {
+  const { user } = useAuthStore()
+  const canReprint = hasPermission(user, 'view_orders')
   const [activeReport, setActiveReport] = useState<'sales' | 'products' | 'stock' | 'daily'>('sales')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -416,7 +420,8 @@ export function ReportsManager() {
                               </td>
                               <td className="px-6 py-4 text-sm">
                                 <div className="flex items-center justify-center">
-                                  {(order.status === 'paid' || order.payment_status === 'paid') ? (
+                                  {canReprint &&
+                                  (order.status === 'paid' || order.payment_status === 'paid') ? (
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -635,7 +640,8 @@ export function ReportsManager() {
                                 </td>
                                 <td className="px-6 py-4 text-sm">
                                   <div className="flex items-center justify-center">
-                                    {status === 'paid' || order.payment_status === 'paid' ? (
+                                    {canReprint &&
+                                    (status === 'paid' || order.payment_status === 'paid') ? (
                                       <Button
                                         variant="outline"
                                         size="sm"

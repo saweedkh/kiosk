@@ -35,6 +35,40 @@ class UserService:
         }
 
     @staticmethod
+    def _actor_is_superuser(actor: Optional[User]) -> bool:
+        return bool(actor and actor.is_superuser)
+
+    @staticmethod
+    def _assert_can_manage_target(actor: Optional[User], target: User) -> None:
+        if target.is_superuser and not UserService._actor_is_superuser(actor):
+            raise ValueError('فقط سوپریوزر می‌تواند حساب سوپریوزر را مدیریت کند')
+
+    @staticmethod
+    def _resolve_superuser_flag(
+        actor: Optional[User],
+        requested: Optional[bool],
+        *,
+        current: bool = False,
+    ) -> bool:
+        if requested is None:
+            return current
+        if requested and not UserService._actor_is_superuser(actor):
+            raise ValueError('فقط سوپریوزر می‌تواند دسترسی سوپریوزر بدهد')
+        if current and not requested and not UserService._actor_is_superuser(actor):
+            raise ValueError('فقط سوپریوزر می‌تواند دسترسی سوپریوزر را بردارد')
+        return bool(requested)
+
+    @staticmethod
+    def _assert_not_last_active_superuser(user: User, *, deactivating: bool = False) -> None:
+        if not user.is_superuser:
+            return
+        others = User.objects.filter(is_superuser=True, is_active=True).exclude(pk=user.pk)
+        if not others.exists():
+            if deactivating:
+                raise ValueError('نمی‌توان آخرین سوپریوزر فعال را غیرفعال کرد')
+            raise ValueError('نمی‌توان آخرین سوپریوزر را حذف کرد')
+
+    @staticmethod
     @transaction.atomic
     def create_user(
         *,
@@ -53,6 +87,10 @@ class UserService:
     ) -> User:
         if User.objects.filter(username=username).exists():
             raise ValueError('نام کاربری قبلاً استفاده شده است')
+
+        is_superuser = UserService._resolve_superuser_flag(
+            actor, is_superuser, current=False
+        )
 
         user = User.objects.create_user(
             username=username,
@@ -95,6 +133,16 @@ class UserService:
         bale_enabled: Optional[bool] = None,
         actor: Optional[User] = None,
     ) -> User:
+        UserService._assert_can_manage_target(actor, user)
+
+        next_superuser = UserService._resolve_superuser_flag(
+            actor, is_superuser, current=user.is_superuser
+        )
+        if is_active is False and user.is_active:
+            UserService._assert_not_last_active_superuser(user, deactivating=True)
+        if user.is_superuser and not next_superuser:
+            UserService._assert_not_last_active_superuser(user, deactivating=True)
+
         if email is not None:
             user.email = email
         if first_name is not None:
@@ -106,7 +154,7 @@ class UserService:
         if is_staff is not None:
             user.is_staff = is_staff
         if is_superuser is not None:
-            user.is_superuser = is_superuser
+            user.is_superuser = next_superuser
         if password:
             user.set_password(password)
         user.save()
@@ -129,6 +177,21 @@ class UserService:
             details={'username': user.username, 'user_id': user.id},
         )
         return user
+
+    @staticmethod
+    @transaction.atomic
+    def delete_user(user: User, *, actor: Optional[User] = None) -> None:
+        UserService._assert_can_manage_target(actor, user)
+        UserService._assert_not_last_active_superuser(user)
+        username = user.username
+        user_id = user.id
+        user.delete()
+        LogService.log_info(
+            'admin',
+            'user_deleted',
+            user=actor,
+            details={'username': username, 'user_id': user_id},
+        )
 
     @staticmethod
     def _apply_bale(profile: UserProfile, bale_chat_id, bale_enabled: bool) -> None:

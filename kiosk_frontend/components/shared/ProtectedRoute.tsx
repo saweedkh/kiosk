@@ -8,11 +8,30 @@ interface ProtectedRouteProps {
   redirectTo?: string
 }
 
+function hasStaffAccess(): boolean {
+  const { accessToken, user } = useAuthStore.getState()
+  if (accessToken && user) {
+    return user.is_staff !== false
+  }
+  try {
+    const stored = localStorage.getItem('auth-storage')
+    if (!stored) return false
+    const parsed = JSON.parse(stored)
+    const state = parsed?.state
+    if (!state?.accessToken) return false
+    const storedUser = state.user
+    if (storedUser && storedUser.is_staff === false) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function ProtectedRoute({
   children,
   redirectTo = '/admin/login',
 }: ProtectedRouteProps) {
-  const { accessToken } = useAuthStore()
+  const { accessToken, user } = useAuthStore()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -22,36 +41,17 @@ export function ProtectedRoute({
   useEffect(() => {
     if (!isMounted) return
 
-    // Check auth after mount
     const checkAndRedirect = () => {
-      // Check Zustand store first
-      if (accessToken) {
-        return // Has token, allow access
+      if (hasStaffAccess()) {
+        return
       }
-
-      // Check localStorage as fallback
-      try {
-        const stored = localStorage.getItem('auth-storage')
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (parsed?.state?.accessToken) {
-            return // Has token in localStorage
-          }
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error)
-      }
-
-      // No token found - redirect immediately
       window.location.replace(redirectTo)
     }
 
-    // Small delay to ensure Zustand has hydrated
     const timer = setTimeout(checkAndRedirect, 100)
     return () => clearTimeout(timer)
-  }, [isMounted, accessToken, redirectTo])
+  }, [isMounted, accessToken, user, redirectTo])
 
-  // Show loading on server-side and before mount
   if (!isMounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
@@ -65,23 +65,7 @@ export function ProtectedRoute({
     )
   }
 
-  // Check token one more time before rendering
-  const hasToken = (() => {
-    if (accessToken) return true
-    try {
-      const stored = localStorage.getItem('auth-storage')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        return !!parsed?.state?.accessToken
-      }
-    } catch {
-      // Ignore
-    }
-    return false
-  })()
-
-  // If no token, show redirect message (redirect will happen in useEffect)
-  if (!hasToken) {
+  if (!hasStaffAccess()) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
         <div className="text-center">

@@ -20,6 +20,7 @@ APP_PERMISSIONS: List[Tuple[str, str]] = [
     ('change_settings', 'تغییر تنظیمات'),
     ('manage_coupons', 'مدیریت کوپن تخفیف'),
     ('manage_users', 'مدیریت کاربران و گروه‌ها'),
+    ('manage_bale', 'مدیریت ربات بله'),
 ]
 
 PERMISSION_LABELS: Dict[str, str] = {code: label for code, label in APP_PERMISSIONS}
@@ -58,6 +59,8 @@ DEFAULT_GROUPS: Dict[str, List[str]] = {
         'change_orders',
         'change_settings',
         'manage_coupons',
+        'manage_users',
+        'manage_bale',
     ],
 }
 

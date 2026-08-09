@@ -21,8 +21,10 @@ import {
   AdminSegmented,
   AdminSurface,
 } from '@/components/admin/ui/primitives'
+import { CartLayoutThumb } from '@/components/admin/CartLayoutThumb'
 import { translateError, cn, formatNumber } from '@/lib/utils'
 import type { Settings } from '@/types'
+import type { CartLayout } from '@/components/customer/CartView'
 import {
   DEFAULT_ACCENT,
   DEFAULT_BG,
@@ -36,7 +38,7 @@ import {
   type LandingThemeId,
 } from '@/components/customer/landing/types'
 
-type SettingsTab = 'brand' | 'landing' | 'service' | 'receipt'
+type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt'
 
 /** Fields that require an explicit save (theme / copy-mode patch instantly). */
 const DIRTY_FIELDS = [
@@ -128,6 +130,7 @@ function stripLocalFiles(s: Settings): Settings {
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'brand', label: 'برند', hint: 'نام، لوگو، تماس' },
   { id: 'landing', label: 'لندینگ', hint: 'تم صفحه خوش‌آمد' },
+  { id: 'cart', label: 'سبد', hint: 'چیدمان سبد خرید' },
   { id: 'service', label: 'سرویس', hint: 'هزینه سرویس' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
 ]
@@ -467,6 +470,25 @@ export function SettingsManager() {
     }
   }
 
+  const handleCartLayoutChange = async (layout: CartLayout) => {
+    const previous = ((settings.cart_layout as CartLayout) || 'side') as CartLayout
+    if (previous === layout) return
+    handleChange('cart_layout', layout)
+    setApiErrors({})
+    try {
+      const response = await patchMutation.mutateAsync({ cart_layout: layout })
+      if (response?.result) setSettings((prev) => ({ ...prev, ...response.result }))
+      setSuccessMessage(
+        layout === 'bottom'
+          ? 'سبد خرید پایین صفحه (افقی) فعال شد.'
+          : 'سبد خرید کناری (عمودی) فعال شد.'
+      )
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch {
+      handleChange('cart_layout', previous)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setApiErrors({})
@@ -727,88 +749,6 @@ export function SettingsManager() {
                     ) : null}
                   </div>
 
-                  <AdminSurface className="!shadow-none">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="font-bold">تست A/B تم لندینگ</p>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          بین تم اصلی و تم B به‌صورت تصادفی تقسیم می‌شود؛ نرخ شروع در داشبورد دیده می‌شود.
-                        </p>
-                      </div>
-                      <label className="flex items-center gap-2 text-sm font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={!!settings.landing_ab_enabled}
-                          onChange={async (e) => {
-                            const enabled = e.target.checked
-                            handleChange('landing_ab_enabled', enabled)
-                            try {
-                              await patchMutation.mutateAsync({
-                                landing_ab_enabled: enabled,
-                              })
-                            } catch {
-                              handleChange('landing_ab_enabled', !enabled)
-                            }
-                          }}
-                        />
-                        فعال
-                      </label>
-                    </div>
-                    {settings.landing_ab_enabled ? (
-                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <p className="mb-2 text-sm font-medium">تم B</p>
-                          <select
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2"
-                            value={(settings.landing_theme_b as string) || 'neon'}
-                            onChange={async (e) => {
-                              const themeB = e.target.value
-                              handleChange('landing_theme_b', themeB)
-                              try {
-                                await patchMutation.mutateAsync({
-                                  landing_theme_b: themeB,
-                                })
-                              } catch {
-                                /* ignore */
-                              }
-                            }}
-                          >
-                            {LANDING_THEMES.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.title}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <p className="mb-2 text-sm font-medium">
-                            درصد نمایش تم A ({settings.landing_ab_split ?? 50}٪)
-                          </p>
-                          <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            value={Number(settings.landing_ab_split ?? 50)}
-                            onChange={(e) =>
-                              handleChange('landing_ab_split', Number(e.target.value))
-                            }
-                            onMouseUp={async (e) => {
-                              const split = Number((e.target as HTMLInputElement).value)
-                              try {
-                                await patchMutation.mutateAsync({
-                                  landing_ab_split: split,
-                                })
-                              } catch {
-                                /* ignore */
-                              }
-                            }}
-                            className="w-full"
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                  </AdminSurface>
-
                   <div className="grid gap-5 sm:grid-cols-2">
                     <Input
                       label="تگ‌لاین"
@@ -968,6 +908,52 @@ export function SettingsManager() {
                   />
                 </div>
               </div>
+            </div>
+          )}
+
+          {tab === 'cart' && (
+            <div>
+              <SectionHeader
+                title="چیدمان سبد خرید"
+                description="محل نمایش سبد روی کیوسک را انتخاب کنید. تغییر بلافاصله روی دستگاه اعمال می‌شود (نیاز به دسترسی تغییر تنظیمات)."
+                action={
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    اعمال آنی
+                  </span>
+                }
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <CartLayoutThumb
+                  layout="side"
+                  title="کناری (عمودی)"
+                  description="سبد در یک‌سوم صفحه، کنار منو — مناسب لمس ایستاده و سبد بلند."
+                  selected={(settings.cart_layout || 'side') === 'side'}
+                  disabled={patchMutation.isPending}
+                  onSelect={() => void handleCartLayoutChange('side')}
+                />
+                <CartLayoutThumb
+                  layout="bottom"
+                  title="پایین صفحه (افقی)"
+                  description="نوار سبد پایین صفحه با اسکرول افقی آیتم‌ها — منوی تمام‌عرض."
+                  selected={settings.cart_layout === 'bottom'}
+                  disabled={patchMutation.isPending}
+                  onSelect={() => void handleCartLayoutChange('bottom')}
+                />
+              </div>
+
+              {apiErrors.cart_layout?.[0] ? (
+                <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                  {apiErrors.cart_layout[0]}
+                </p>
+              ) : null}
+
+              <AdminSurface className="mt-6 !shadow-none">
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  در حالت افقی، دکمه‌های «جزئیات» برای انتخاب داخل‌سالن/بیرون‌بر و کد تخفیف باز می‌شود.
+                  در حالت کناری همه کنترل‌ها همیشه در همان ستون دیده می‌شوند.
+                </p>
+              </AdminSurface>
             </div>
           )}
 

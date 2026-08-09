@@ -31,6 +31,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { translateError } from '@/lib/utils'
 import type { Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { hasPermission } from '@/lib/auth/permissions'
 import { clearCachedMenu } from '@/lib/kiosk-persist'
 
 function bustCustomerMenuCache(queryClient: ReturnType<typeof useQueryClient>) {
@@ -41,9 +42,9 @@ function bustCustomerMenuCache(queryClient: ReturnType<typeof useQueryClient>) {
 
 export function CategoriesManager() {
   const { user } = useAuthStore()
-  const canAdd = !!user?.is_superuser || (user?.permissions || []).includes('add_categories')
-  const canChange = !!user?.is_superuser || (user?.permissions || []).includes('change_categories')
-  const canDelete = !!user?.is_superuser || (user?.permissions || []).includes('delete_categories')
+  const canAdd = hasPermission(user, 'add_categories')
+  const canChange = hasPermission(user, 'change_categories')
+  const canDelete = hasPermission(user, 'delete_categories')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)

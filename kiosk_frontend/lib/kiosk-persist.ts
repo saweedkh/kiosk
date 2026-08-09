@@ -25,6 +25,7 @@ export type KioskSettingsSnapshot = Pick<
   | 'service_fee'
   | 'service_fee_dine_in'
   | 'service_fee_takeaway'
+  | 'cart_layout'
   | 'catalog_revision'
   | 'landing_theme'
   | 'landing_cta_text'
@@ -84,6 +85,7 @@ export function writeCachedSettings(settings?: Settings | null): void {
     service_fee: settings.service_fee,
     service_fee_dine_in: settings.service_fee_dine_in,
     service_fee_takeaway: settings.service_fee_takeaway,
+    cart_layout: settings.cart_layout === 'bottom' ? 'bottom' : 'side',
     catalog_revision: Number(settings.catalog_revision) || 0,
     landing_theme: settings.landing_theme || 'cinema',
     landing_cta_text: settings.landing_cta_text || '',
@@ -95,6 +97,9 @@ export function writeCachedSettings(settings?: Settings | null): void {
     cached_at: Date.now(),
   }
   writeJson(SETTINGS_KEY, snapshot)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('kiosk-settings-cache-updated'))
+  }
   if (snapshot.logo_url) {
     void preloadImage(snapshot.logo_url)
   }

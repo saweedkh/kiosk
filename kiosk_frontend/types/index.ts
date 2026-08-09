@@ -294,6 +294,7 @@ export interface Settings {
   active_receipt_template?: string
   receipt_copy_mode?: 'single' | 'dual' | string
   service_enabled?: boolean
+  coupons_enabled?: boolean
   service_fee?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean

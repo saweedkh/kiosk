@@ -28,7 +28,7 @@ export function ProductThumb({
   return (
     <div
       className={cn(
-        'relative overflow-hidden bg-gradient-to-br from-[#FFF3E8] via-[#FFE8D1] to-[#F0C090]',
+        'relative overflow-hidden bg-gradient-to-br from-background via-accent to-primary/25',
         className
       )}
     >

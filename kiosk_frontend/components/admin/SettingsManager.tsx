@@ -19,12 +19,15 @@ import {
 import {
   AdminPageHeader,
   AdminSegmented,
+  AdminStatusBadge,
   AdminSurface,
 } from '@/components/admin/ui/primitives'
 import { CartLayoutThumb } from '@/components/admin/CartLayoutThumb'
-import { translateError, cn, formatNumber } from '@/lib/utils'
+import { translateError, cn, formatCurrency, formatNumber } from '@/lib/utils'
 import type { Settings } from '@/types'
 import type { CartLayout } from '@/components/customer/CartView'
+import { useThemeStore } from '@/lib/store/theme-store'
+import { applyBrandTheme } from '@/lib/theme/brand-palette'
 import {
   DEFAULT_ACCENT,
   DEFAULT_BG,
@@ -68,10 +71,10 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   contact_phone: 'تماس',
   description: 'توضیحات',
   landing_cta_text: 'متن دکمه',
-  landing_accent_color: 'رنگ اکسنت',
-  landing_bg_color: 'رنگ پس‌زمینه',
-  landing_text_color: 'رنگ متن',
-  landing_muted_color: 'رنگ متن ثانویه',
+  landing_accent_color: 'رنگ اصلی سایت',
+  landing_bg_color: 'پس‌زمینه سایت',
+  landing_text_color: 'متن سایت',
+  landing_muted_color: 'متن ثانویه سایت',
   receipt_header: 'سربرگ فیش',
   receipt_footer: 'پاورقی فیش',
   receipt_template: 'قالب فیش',
@@ -128,7 +131,7 @@ function stripLocalFiles(s: Settings): Settings {
 }
 
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
-  { id: 'brand', label: 'برند', hint: 'نام، لوگو، تماس' },
+  { id: 'brand', label: 'برند', hint: 'نام، لوگو، رنگ‌ها' },
   { id: 'landing', label: 'لندینگ', hint: 'تم صفحه خوش‌آمد' },
   { id: 'cart', label: 'سبد', hint: 'چیدمان سبد خرید' },
   { id: 'service', label: 'سرویس', hint: 'هزینه سرویس' },
@@ -320,6 +323,7 @@ export function SettingsManager() {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-theme-settings'] })
       if (response?.result) applyServerSettings(response.result)
       setApiErrors({})
       setSuccessMessage('تنظیمات با موفقیت ذخیره شد.')
@@ -347,6 +351,7 @@ export function SettingsManager() {
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['brand-theme-settings'] })
       if (response?.result) {
         writeCachedSettings(response.result)
         setBaseline((prev) =>
@@ -530,6 +535,12 @@ export function SettingsManager() {
   const bgPreviewColor = resolveHex(settings.landing_bg_color, DEFAULT_BG)
   const textPreviewColor = resolveHex(settings.landing_text_color, DEFAULT_TEXT)
   const mutedPreviewColor = resolveHex(settings.landing_muted_color, DEFAULT_MUTED)
+  const serviceOn = Boolean(settings.service_enabled)
+  const serviceFeeAmount = Math.max(0, Math.floor(Number(settings.service_fee) || 0))
+  const serviceDineInOn = settings.service_fee_dine_in !== false
+  const serviceTakeawayOn = settings.service_fee_takeaway !== false
+  const serviceAppliesNowhere =
+    serviceOn && serviceFeeAmount > 0 && !serviceDineInOn && !serviceTakeawayOn
 
   const applyPalette = (palette: LandingPalette) => {
     setSettings((prev) => ({
@@ -550,6 +561,27 @@ export function SettingsManager() {
       landing_accent_color: '',
     }))
   }
+
+  const colorMode = useThemeStore((s) => s.theme)
+
+  // Live site-wide preview while editing palette in admin
+  useEffect(() => {
+    applyBrandTheme(
+      {
+        accent: settings.landing_accent_color,
+        bg: settings.landing_bg_color,
+        text: settings.landing_text_color,
+        muted: settings.landing_muted_color,
+      },
+      { mode: colorMode === 'dark' ? 'dark' : 'light' }
+    )
+  }, [
+    settings.landing_accent_color,
+    settings.landing_bg_color,
+    settings.landing_text_color,
+    settings.landing_muted_color,
+    colorMode,
+  ])
 
   const logoPreview =
     settings.logo_preview ||
@@ -648,10 +680,10 @@ export function SettingsManager() {
           className="rounded-3xl border border-border bg-card p-5 sm:p-7 dark:border-border-dark dark:bg-card-dark"
         >
           {tab === 'brand' && (
-            <div>
+            <div className="space-y-8">
               <SectionHeader
                 title="هویت برند"
-                description="نام، تماس و لوگویی که روی کیوسک و فیش دیده می‌شود."
+                description="نام، لوگو و پالت رنگی که روی کل کیوسک و پنل ادمین اعمال می‌شود."
               />
               <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
                 <div className="space-y-5">
@@ -697,6 +729,115 @@ export function SettingsManager() {
                   error={apiErrors.logo?.[0]}
                 />
               </div>
+
+              <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/30 p-4 dark:border-border-dark/80">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">پالت رنگی سایت</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      روی منوی مشتری، لندینگ، دکمه‌ها و پنل ادمین اعمال می‌شود. پیش‌نمایش همین‌جا زنده است.
+                    </p>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={resetPalette}>
+                    بازگشت به پیش‌فرض
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {LANDING_PALETTE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyPalette(preset.palette)}
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold transition hover:border-primary/50 dark:border-border-dark dark:bg-card-dark"
+                    >
+                      <span className="flex -space-x-1 space-x-reverse">
+                        {[
+                          preset.palette.bg,
+                          preset.palette.accent,
+                          preset.palette.text,
+                        ].map((c) => (
+                          <span
+                            key={c}
+                            className="inline-block h-3.5 w-3.5 rounded-full ring-1 ring-black/10"
+                            style={{ background: c }}
+                          />
+                        ))}
+                      </span>
+                      {preset.title}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        key: 'landing_bg_color' as const,
+                        label: 'پس‌زمینه',
+                        value: bgPreviewColor,
+                        raw: settings.landing_bg_color || '',
+                        fallback: DEFAULT_BG,
+                      },
+                      {
+                        key: 'landing_text_color' as const,
+                        label: 'متن اصلی',
+                        value: textPreviewColor,
+                        raw: settings.landing_text_color || '',
+                        fallback: DEFAULT_TEXT,
+                      },
+                      {
+                        key: 'landing_muted_color' as const,
+                        label: 'متن ثانویه',
+                        value: mutedPreviewColor,
+                        raw: settings.landing_muted_color || '',
+                        fallback: DEFAULT_MUTED,
+                      },
+                      {
+                        key: 'landing_accent_color' as const,
+                        label: 'رنگ اصلی (دکمه‌ها)',
+                        value: accentPreview,
+                        raw: settings.landing_accent_color || '',
+                        fallback: DEFAULT_ACCENT,
+                      },
+                    ] as const
+                  ).map((row) => (
+                    <div key={row.key}>
+                      <p className="mb-2 text-sm font-medium text-foreground">
+                        {row.label}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={row.value}
+                          onChange={(e) => handleChange(row.key, e.target.value)}
+                          className="h-12 w-14 cursor-pointer rounded-xl border border-border bg-transparent p-1 dark:border-border-dark"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <Input
+                            value={row.raw}
+                            onChange={(e) => handleChange(row.key, e.target.value)}
+                            error={apiErrors[row.key]?.[0]}
+                            placeholder={row.fallback}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <span className="rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+                    دکمه نمونه
+                  </span>
+                  <span className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground">
+                    پس‌زمینه
+                  </span>
+                  <span className="rounded-xl bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+                    متن ثانویه
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -704,7 +845,7 @@ export function SettingsManager() {
             <div>
               <SectionHeader
                 title="صفحه لندینگ کیوسک"
-                description="پیش‌نمایش دقیقاً همان صفحه واقعی کیوسک عمودی است. با انتخاب تم، بلافاصله روی دستگاه اعمال می‌شود."
+                description="چیدمان صفحه خوش‌آمد. رنگ‌بندی کل سایت از تب «برند» تنظیم می‌شود."
                 action={
                   <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     اعمال آنی تم
@@ -766,103 +907,6 @@ export function SettingsManager() {
                       error={apiErrors.landing_cta_text?.[0]}
                       placeholder={DEFAULT_LANDING_CTA}
                     />
-                  </div>
-
-                  <div className="space-y-4 rounded-2xl border border-border/80 bg-muted/30 p-4 dark:border-border-dark/80">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-foreground">پالت رنگی تم</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          رنگ‌ها روی همه تم‌ها اعمال می‌شوند و در پیش‌نمایش زنده دیده می‌شوند.
-                        </p>
-                      </div>
-                      <Button type="button" variant="ghost" size="sm" onClick={resetPalette}>
-                        بازگشت به پیش‌فرض
-                      </Button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {LANDING_PALETTE_PRESETS.map((preset) => (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => applyPalette(preset.palette)}
-                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold transition hover:border-primary/50 dark:border-border-dark dark:bg-card-dark"
-                        >
-                          <span className="flex -space-x-1 space-x-reverse">
-                            {[
-                              preset.palette.bg,
-                              preset.palette.accent,
-                              preset.palette.text,
-                            ].map((c) => (
-                              <span
-                                key={c}
-                                className="inline-block h-3.5 w-3.5 rounded-full ring-1 ring-black/10"
-                                style={{ background: c }}
-                              />
-                            ))}
-                          </span>
-                          {preset.title}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {(
-                        [
-                          {
-                            key: 'landing_bg_color' as const,
-                            label: 'پس‌زمینه',
-                            value: bgPreviewColor,
-                            raw: settings.landing_bg_color || '',
-                            fallback: DEFAULT_BG,
-                          },
-                          {
-                            key: 'landing_text_color' as const,
-                            label: 'متن اصلی',
-                            value: textPreviewColor,
-                            raw: settings.landing_text_color || '',
-                            fallback: DEFAULT_TEXT,
-                          },
-                          {
-                            key: 'landing_muted_color' as const,
-                            label: 'متن ثانویه',
-                            value: mutedPreviewColor,
-                            raw: settings.landing_muted_color || '',
-                            fallback: DEFAULT_MUTED,
-                          },
-                          {
-                            key: 'landing_accent_color' as const,
-                            label: 'اکسنت',
-                            value: accentPreview,
-                            raw: settings.landing_accent_color || '',
-                            fallback: DEFAULT_ACCENT,
-                          },
-                        ] as const
-                      ).map((row) => (
-                        <div key={row.key}>
-                          <p className="mb-2 text-sm font-medium text-foreground">
-                            {row.label}
-                          </p>
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="color"
-                              value={row.value}
-                              onChange={(e) => handleChange(row.key, e.target.value)}
-                              className="h-12 w-14 cursor-pointer rounded-xl border border-border bg-transparent p-1 dark:border-border-dark"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <Input
-                                value={row.raw}
-                                onChange={(e) => handleChange(row.key, e.target.value)}
-                                error={apiErrors[row.key]?.[0]}
-                                placeholder={row.fallback}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   <UploadTile
@@ -961,100 +1005,302 @@ export function SettingsManager() {
             <div>
               <SectionHeader
                 title="هزینه سرویس"
-                description="فقط وقتی روی فاکتور می‌آید که حداقل یک محصول سفارش تیک سرویس داشته باشد؛ مبلغ یک‌بار به کل فاکتور اضافه می‌شود."
+                description="مبلغ ثابت روی فاکتور — فقط اگر حداقل یک محصول سفارش تیک سرویس داشته باشد، یک‌بار اضافه می‌شود."
               />
 
-              <div className="space-y-6">
-                <div className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-background/50 px-4 py-4 dark:border-border-dark dark:bg-background-dark/40">
-                  <div>
-                    <p className="font-bold text-foreground">
-                      فعال‌سازی سرویس
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      روشن بودن یعنی مبلغ زیر برای سفارش‌های مشمول اعمال شود.
-                    </p>
+              <div className="space-y-5">
+                <AdminSurface
+                  className={cn(
+                    'overflow-hidden',
+                    serviceOn
+                      ? 'border-primary/25 bg-gradient-to-l from-primary/[0.07] via-card to-card'
+                      : 'bg-muted/20'
+                  )}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className={cn(
+                          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl',
+                          serviceOn
+                            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                            : 'bg-muted text-muted-foreground'
+                        )}
+                      >
+                        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
+                          <path
+                            d="M4 11h16v2H4v-2zm2-6h2v5H6V5zm4 0h2v5h-2V5zm4 0h2v5h-2V5zM7 15h10v1a3 3 0 01-3 3h-4a3 3 0 01-3-3v-1z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-black text-foreground">
+                            فعال‌سازی سرویس
+                          </p>
+                          <AdminStatusBadge tone={serviceOn ? 'success' : 'neutral'}>
+                            {serviceOn ? 'فعال' : 'غیرفعال'}
+                          </AdminStatusBadge>
+                        </div>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          {serviceOn
+                            ? 'مبلغ زیر برای سفارش‌های مشمول روی فاکتور اعمال می‌شود.'
+                            : 'هیچ هزینه سرویسی به فاکتور اضافه نمی‌شود.'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={serviceOn}
+                      onChange={(v) => handleChange('service_enabled', v)}
+                      label={serviceOn ? 'روشن' : 'خاموش'}
+                    />
                   </div>
-                  <Switch
-                    checked={Boolean(settings.service_enabled)}
-                    onChange={(v) => handleChange('service_enabled', v)}
-                    label="فعال‌سازی هزینه سرویس"
-                  />
-                </div>
-                {apiErrors.service_enabled?.[0] ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {apiErrors.service_enabled[0]}
-                  </p>
-                ) : null}
-
-                <Input
-                  label="مبلغ سرویس (ریال)"
-                  type="number"
-                  min={0}
-                  step={1}
-                  disabled={!settings.service_enabled}
-                  value={
-                    settings.service_fee === undefined || settings.service_fee === null
-                      ? ''
-                      : String(settings.service_fee)
-                  }
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    if (raw === '') {
-                      handleChange('service_fee', 0)
-                      return
-                    }
-                    handleChange('service_fee', Math.max(0, Math.floor(Number(raw) || 0)))
-                  }}
-                  error={apiErrors.service_fee?.[0]}
-                  placeholder="مثلاً ۵۰۰۰۰"
-                />
-                {settings.service_enabled && Number(settings.service_fee) > 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    مبلغ نمایشی:{' '}
-                    <span className="font-bold text-primary">
-                      {formatNumber(Number(settings.service_fee))} ریال
-                    </span>
-                  </p>
-                ) : null}
+                  {apiErrors.service_enabled?.[0] ? (
+                    <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                      {apiErrors.service_enabled[0]}
+                    </p>
+                  ) : null}
+                </AdminSurface>
 
                 <div
                   className={cn(
-                    'grid gap-3 sm:grid-cols-2',
-                    !settings.service_enabled && 'pointer-events-none opacity-45'
+                    'grid gap-4 transition-opacity lg:grid-cols-[1.15fr_0.85fr]',
+                    !serviceOn && 'pointer-events-none opacity-45'
                   )}
                 >
-                  <ChoiceCard
-                    selected={settings.service_fee_dine_in !== false}
-                    title="داخل سالن"
-                    desc="اعمال روی سفارش داخل سالن"
-                    onClick={() =>
-                      handleChange(
-                        'service_fee_dine_in',
-                        !(settings.service_fee_dine_in !== false)
-                      )
-                    }
-                    disabled={!settings.service_enabled}
-                  />
-                  <ChoiceCard
-                    selected={settings.service_fee_takeaway !== false}
-                    title="بیرون‌بر"
-                    desc="اعمال روی سفارش بیرون‌بر"
-                    onClick={() =>
-                      handleChange(
-                        'service_fee_takeaway',
-                        !(settings.service_fee_takeaway !== false)
-                      )
-                    }
-                    disabled={!settings.service_enabled}
-                  />
+                  <AdminSurface className="!shadow-none">
+                    <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">مبلغ سرویس</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          مبلغ ثابت به ریال — یک‌بار روی کل فاکتور
+                        </p>
+                      </div>
+                      {serviceOn && serviceFeeAmount > 0 ? (
+                        <AdminStatusBadge tone="primary">
+                          {formatCurrency(serviceFeeAmount)}
+                        </AdminStatusBadge>
+                      ) : null}
+                    </div>
+
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        مبلغ (ریال)
+                      </span>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min={0}
+                          step={1}
+                          disabled={!serviceOn}
+                          value={
+                            settings.service_fee === undefined ||
+                            settings.service_fee === null
+                              ? ''
+                              : String(settings.service_fee)
+                          }
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            if (raw === '') {
+                              handleChange('service_fee', 0)
+                              return
+                            }
+                            handleChange(
+                              'service_fee',
+                              Math.max(0, Math.floor(Number(raw) || 0))
+                            )
+                          }}
+                          placeholder="مثلاً ۵۰۰۰۰"
+                          className="h-12 w-full rounded-xl border border-border bg-background pe-14 ps-4 text-base font-bold outline-none transition-shadow focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed"
+                          dir="ltr"
+                        />
+                        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                          ریال
+                        </span>
+                      </div>
+                    </label>
+                    {apiErrors.service_fee?.[0] ? (
+                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                        {apiErrors.service_fee[0]}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-4 rounded-2xl border border-dashed border-border/80 bg-muted/30 px-4 py-3">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        پیش‌نمایش روی فاکتور
+                      </p>
+                      <p className="mt-1 text-2xl font-black tracking-tight text-primary">
+                        {serviceOn && serviceFeeAmount > 0
+                          ? formatCurrency(serviceFeeAmount)
+                          : '—'}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {serviceOn && serviceFeeAmount > 0
+                          ? `${formatNumber(serviceFeeAmount)} ریال`
+                          : 'مبلغی تنظیم نشده'}
+                      </p>
+                    </div>
+                  </AdminSurface>
+
+                  <AdminSurface className="!shadow-none">
+                    <div className="mb-4">
+                      <p className="text-sm font-bold text-foreground">محدوده اعمال</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        روی کدام نوع سفارش سرویس محاسبه شود
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div
+                        className={cn(
+                          'flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-colors',
+                          serviceDineInOn
+                            ? 'border-primary/30 bg-primary/[0.06]'
+                            : 'border-border/80 bg-muted/25'
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={cn(
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                              serviceDineInOn
+                                ? 'bg-primary/15 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                              <path
+                                d="M4 10h16v9a2 2 0 01-2 2H6a2 2 0 01-2-2v-9z"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                              />
+                              <path
+                                d="M8 10V7a4 4 0 018 0v3"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-foreground">داخل سالن</p>
+                            <p className="text-xs text-muted-foreground">سفارش حضوری در سالن</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={serviceDineInOn}
+                          onChange={(v) => handleChange('service_fee_dine_in', v)}
+                          disabled={!serviceOn}
+                          label={serviceDineInOn ? 'فعال' : 'غیرفعال'}
+                        />
+                      </div>
+
+                      <div
+                        className={cn(
+                          'flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-colors',
+                          serviceTakeawayOn
+                            ? 'border-primary/30 bg-primary/[0.06]'
+                            : 'border-border/80 bg-muted/25'
+                        )}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className={cn(
+                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                              serviceTakeawayOn
+                                ? 'bg-primary/15 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                              <path
+                                d="M5 8h14l-1.2 10.2A2 2 0 0115.81 20H8.19a2 2 0 01-1.99-1.8L5 8z"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M9 8V6.5A3 3 0 0112 3.5 3 3 0 0115 6.5V8"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-foreground">بیرون‌بر</p>
+                            <p className="text-xs text-muted-foreground">سفارش برای بیرون بردن</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={serviceTakeawayOn}
+                          onChange={(v) => handleChange('service_fee_takeaway', v)}
+                          disabled={!serviceOn}
+                          label={serviceTakeawayOn ? 'فعال' : 'غیرفعال'}
+                        />
+                      </div>
+                    </div>
+
+                    {(apiErrors.service_fee_dine_in?.[0] ||
+                      apiErrors.service_fee_takeaway?.[0]) && (
+                      <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                        {apiErrors.service_fee_dine_in?.[0] ||
+                          apiErrors.service_fee_takeaway?.[0]}
+                      </p>
+                    )}
+                  </AdminSurface>
                 </div>
-                {(apiErrors.service_fee_dine_in?.[0] ||
-                  apiErrors.service_fee_takeaway?.[0]) && (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {apiErrors.service_fee_dine_in?.[0] ||
-                      apiErrors.service_fee_takeaway?.[0]}
-                  </p>
-                )}
+
+                <AdminSurface
+                  className={cn(
+                    '!shadow-none',
+                    serviceAppliesNowhere
+                      ? 'border-amber-500/30 bg-amber-500/[0.06]'
+                      : 'bg-muted/20'
+                  )}
+                >
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div
+                      className={cn(
+                        'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                        serviceAppliesNowhere
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                          : 'bg-background text-muted-foreground'
+                      )}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
+                        <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+                        <path
+                          d="M12 8v4.5M12 16.2h.01"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">خلاصه اعمال</p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {!serviceOn
+                          ? 'سرویس خاموش است؛ روی هیچ سفارشی اعمال نمی‌شود.'
+                          : serviceFeeAmount <= 0
+                            ? 'مبلغ را وارد کنید تا روی فاکتور دیده شود.'
+                            : serviceAppliesNowhere
+                              ? 'هشدار: هیچ نوع سفارشی انتخاب نشده — سرویس عملاً اعمال نمی‌شود.'
+                              : `برای سفارش‌های ${[
+                                  serviceDineInOn ? 'داخل سالن' : null,
+                                  serviceTakeawayOn ? 'بیرون‌بر' : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' و ')}، در صورت داشتن محصول مشمول، ${formatCurrency(serviceFeeAmount)} اضافه می‌شود.`}
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        برای هر محصول در بخش محصولات می‌توانید تیک «مشمول سرویس» را جداگانه بزنید.
+                      </p>
+                    </div>
+                  </div>
+                </AdminSurface>
               </div>
             </div>
           )}

@@ -82,7 +82,7 @@ export function CouponsManager() {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
     },
     onError: () => {
-      setFeatureEnabled(Boolean(settingsQuery.data?.coupons_enabled))
+      setFeatureEnabled(settingsQuery.data?.coupons_enabled !== false)
       setError('خطا در تغییر وضعیت کوپن‌ها')
     },
   })
@@ -353,7 +353,7 @@ export function CouponsManager() {
               disabled={saveMutation.isPending || !form.code.trim()}
               className="gap-2"
             >
-              <Plus className="h-4 w-4" />
+              {!editingId ? <Plus className="h-4 w-4" /> : null}
               {editingId ? 'بروزرسانی کوپن' : 'ایجاد کوپن'}
             </Button>
             {editingId ? (

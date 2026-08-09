@@ -12,7 +12,7 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         ('اطلاعات اصلی', {
             'fields': ('site_name', 'logo', 'copyright_text', 'description')
         }),
-        ('لندینگ کیوسک', {
+        ('برند و رنگ‌بندی سایت', {
             'fields': (
                 'landing_theme',
                 'landing_cta_text',

@@ -22,6 +22,7 @@ export type KioskSettingsSnapshot = Pick<
   | 'description'
   | 'contact_phone'
   | 'service_enabled'
+  | 'coupons_enabled'
   | 'service_fee'
   | 'service_fee_dine_in'
   | 'service_fee_takeaway'
@@ -82,6 +83,7 @@ export function writeCachedSettings(settings?: Settings | null): void {
     description: settings.description || '',
     contact_phone: settings.contact_phone || '',
     service_enabled: settings.service_enabled,
+    coupons_enabled: settings.coupons_enabled,
     service_fee: settings.service_fee,
     service_fee_dine_in: settings.service_fee_dine_in,
     service_fee_takeaway: settings.service_fee_takeaway,

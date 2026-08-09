@@ -74,13 +74,13 @@ export function AttractShell({
             }
       }
       className={cn(
-        'overflow-hidden border-0 p-0 text-right outline-none [container-type:size]',
+        'isolate overflow-hidden border-0 p-0 text-right outline-none [container-type:size]',
         preview
           ? 'pointer-events-none absolute inset-0 h-full w-full'
           : 'fixed inset-0 z-[200] cursor-pointer touch-manipulation',
         className
       )}
-      style={style}
+      style={{ backgroundColor: 'hsl(var(--background))', ...style }}
       aria-label={preview ? undefined : ariaLabel}
       aria-hidden={preview || undefined}
     >

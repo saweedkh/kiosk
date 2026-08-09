@@ -51,8 +51,10 @@ export function NeonLanding({
     >
       <BgImage
         url={backgroundUrl}
-        opacity={0.35}
-        overlay={`linear-gradient(180deg, ${palette.bg}eb 0%, ${palette.bg}e0 100%)`}
+        overlay={`linear-gradient(180deg,
+          ${palette.bg}cc 0%,
+          ${palette.bg}99 42%,
+          ${palette.bg}e6 100%)`}
       />
 
       <motion.div

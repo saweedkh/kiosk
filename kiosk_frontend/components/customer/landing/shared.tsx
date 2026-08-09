@@ -128,17 +128,15 @@ export function TouchHint({
 
 /**
  * Full-bleed atmosphere. When no URL, themes paint their own base.
- * With URL: edge-to-edge photo + theme overlay (not an inset card).
+ * With URL: opaque edge-to-edge photo + theme overlay (nothing shows through).
  */
 export function BgImage({
   url,
   overlay,
-  opacity = 1,
 }: {
   url?: string | null
   /** Single overlay for both themes (preview stage has no dark-mode toggle). */
   overlay: string
-  opacity?: number
 }) {
   if (!url) return null
   return (
@@ -149,7 +147,6 @@ export function BgImage({
         alt=""
         aria-hidden
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-        style={{ opacity }}
       />
       <div
         aria-hidden

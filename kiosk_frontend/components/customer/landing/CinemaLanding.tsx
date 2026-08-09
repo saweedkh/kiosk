@@ -55,11 +55,10 @@ export function CinemaLanding({
     >
       <BgImage
         url={backgroundUrl}
-        opacity={0.92}
         overlay={`linear-gradient(180deg,
-          rgba(20,12,4,0.55) 0%,
-          rgba(20,12,4,0.28) 38%,
-          rgba(20,12,4,0.72) 100%)`}
+          rgba(20,12,4,0.58) 0%,
+          rgba(20,12,4,0.32) 38%,
+          rgba(20,12,4,0.78) 100%)`}
       />
 
       {!hasBg && m ? (

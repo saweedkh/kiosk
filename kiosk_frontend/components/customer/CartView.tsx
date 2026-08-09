@@ -57,7 +57,6 @@ export function CartView({
         : false
   const fee = feeApplies ? baseFee : 0
   const itemsTotal = getTotalPrice()
-  const grandTotal = Math.max(itemsTotal + fee - (discountAmount || 0), 0)
   const itemCount = getTotalItems()
 
   useEffect(() => setIsMounted(true), [])
@@ -122,9 +121,10 @@ export function CartView({
       <BottomCart
         items={items}
         itemCount={itemCount}
-        grandTotal={grandTotal}
+        grandTotal={effectiveGrandTotal}
         fee={fee}
-        discountAmount={discountAmount}
+        discountAmount={effectiveDiscount}
+        couponsEnabled={couponsEnabled}
         couponCode={couponCode}
         couponInput={couponInput}
         couponMsg={couponMsg}
@@ -153,9 +153,10 @@ export function CartView({
     <SideCart
       items={items}
       itemCount={itemCount}
-      grandTotal={grandTotal}
+      grandTotal={effectiveGrandTotal}
       fee={fee}
-      discountAmount={discountAmount}
+      discountAmount={effectiveDiscount}
+      couponsEnabled={couponsEnabled}
       couponCode={couponCode}
       couponInput={couponInput}
       couponMsg={couponMsg}
@@ -183,6 +184,7 @@ type CartSharedProps = {
   grandTotal: number
   fee: number
   discountAmount: number
+  couponsEnabled: boolean
   couponCode: string
   couponInput: string
   couponMsg: string
@@ -363,28 +365,32 @@ function SideCart(props: CartSharedProps) {
         <div className="relative z-[1] space-y-3 border-t border-border/70 bg-card/95 px-4 py-4 backdrop-blur">
           <FulfillmentToggle value={props.fulfillmentType} onChange={props.onFulfillment} />
 
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
-              <TicketPercent className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={props.couponInput}
-                onChange={(e) => props.onCouponInput(e.target.value)}
-                placeholder="کد تخفیف"
-                className="w-full rounded-xl border border-border bg-background py-2.5 pe-3 ps-9 text-sm"
-              />
+          {props.couponsEnabled ? (
+            <div className="space-y-1.5">
+              <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <TicketPercent className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={props.couponInput}
+                    onChange={(e) => props.onCouponInput(e.target.value)}
+                    placeholder="کد تخفیف"
+                    className="w-full rounded-xl border border-border bg-background py-2.5 pe-3 ps-9 text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={props.couponLoading}
+                  onClick={props.onApplyCoupon}
+                >
+                  اعمال
+                </Button>
+              </div>
+              {props.couponMsg ? (
+                <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
+              ) : null}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={props.couponLoading}
-              onClick={props.onApplyCoupon}
-            >
-              اعمال
-            </Button>
-          </div>
-          {props.couponMsg ? (
-            <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
           ) : null}
 
           <div className="space-y-1 rounded-2xl bg-muted/50 px-3 py-2.5 text-sm">
@@ -464,30 +470,34 @@ function BottomCart(
                 onChange={props.onFulfillment}
                 compact
               />
-              <div className="flex gap-2">
-                <input
-                  value={props.couponInput}
-                  onChange={(e) => props.onCouponInput(e.target.value)}
-                  placeholder="کد تخفیف"
-                  className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={props.couponLoading}
-                  onClick={props.onApplyCoupon}
-                >
-                  اعمال
-                </Button>
-                {props.couponCode ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={props.onClearCoupon}>
-                    حذف کد
-                  </Button>
-                ) : null}
-              </div>
-              {props.couponMsg ? (
-                <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
+              {props.couponsEnabled ? (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      value={props.couponInput}
+                      onChange={(e) => props.onCouponInput(e.target.value)}
+                      placeholder="کد تخفیف"
+                      className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={props.couponLoading}
+                      onClick={props.onApplyCoupon}
+                    >
+                      اعمال
+                    </Button>
+                    {props.couponCode ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={props.onClearCoupon}>
+                        حذف کد
+                      </Button>
+                    ) : null}
+                  </div>
+                  {props.couponMsg ? (
+                    <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
+                  ) : null}
+                </div>
               ) : null}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                 {props.fee > 0 ? (

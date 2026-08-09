@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useThemeStore } from '@/lib/store/theme-store'
+import { BrandThemeProvider } from '@/components/shared/BrandThemeProvider'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,7 +25,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const { theme } = useThemeStore()
 
   useEffect(() => {
-    // Apply theme on mount
     if (theme === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
@@ -33,7 +33,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, [theme])
 
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <BrandThemeProvider>{children}</BrandThemeProvider>
+    </QueryClientProvider>
   )
 }
-

@@ -48,8 +48,10 @@ export function EditorialLanding({
     >
       <BgImage
         url={backgroundUrl}
-        opacity={0.18}
-        overlay={`linear-gradient(180deg, ${palette.bg}f2 0%, ${palette.bg}eb 100%)`}
+        overlay={`linear-gradient(180deg,
+          ${palette.bg}d0 0%,
+          ${palette.bg}90 45%,
+          ${palette.bg}e8 100%)`}
       />
 
       <motion.div

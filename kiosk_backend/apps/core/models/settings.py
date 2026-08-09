@@ -92,29 +92,29 @@ class SiteSettings(models.Model):
         max_length=7,
         blank=True,
         default='',
-        verbose_name='رنگ اکسنت لندینگ',
-        help_text='رنگ هگز اختیاری (مثلاً #E17100). خالی = رنگ پیش‌فرض برند'
+        verbose_name='رنگ اصلی سایت',
+        help_text='رنگ هگز برند برای دکمه‌ها و اکسنت کل سایت (مثلاً #E17100). خالی = پیش‌فرض'
     )
     landing_bg_color = models.CharField(
         max_length=7,
         blank=True,
         default='',
-        verbose_name='رنگ پس‌زمینه لندینگ',
-        help_text='رنگ هگز پس‌زمینه (مثلاً #FFF3E8). خالی = پیش‌فرض تم'
+        verbose_name='رنگ پس‌زمینه سایت',
+        help_text='رنگ هگز پس‌زمینه کل رابط (مثلاً #FFF3E8). خالی = پیش‌فرض'
     )
     landing_text_color = models.CharField(
         max_length=7,
         blank=True,
         default='',
-        verbose_name='رنگ متن لندینگ',
-        help_text='رنگ هگز متن اصلی. خالی = پیش‌فرض تم'
+        verbose_name='رنگ متن سایت',
+        help_text='رنگ هگز متن اصلی کل رابط. خالی = پیش‌فرض'
     )
     landing_muted_color = models.CharField(
         max_length=7,
         blank=True,
         default='',
-        verbose_name='رنگ متن ثانویه لندینگ',
-        help_text='رنگ هگز تگ‌لاین و متن کم‌رنگ. خالی = پیش‌فرض تم'
+        verbose_name='رنگ متن ثانویه سایت',
+        help_text='رنگ هگز متن کم‌رنگ کل رابط. خالی = پیش‌فرض'
     )
     landing_background = models.ImageField(
         upload_to='settings/',

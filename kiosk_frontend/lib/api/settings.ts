@@ -19,6 +19,7 @@ export interface Settings {
   landing_muted_color?: string
   landing_background_url?: string
   service_enabled?: boolean
+  coupons_enabled?: boolean
   service_fee?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean

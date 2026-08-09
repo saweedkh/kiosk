@@ -52,8 +52,10 @@ export function FreshLanding({
     >
       <BgImage
         url={backgroundUrl}
-        opacity={0.22}
-        overlay={`linear-gradient(180deg, ${palette.bg}f0 0%, ${palette.bg}e6 100%)`}
+        overlay={`linear-gradient(180deg,
+          ${palette.bg}c8 0%,
+          ${palette.bg}8a 40%,
+          ${palette.bg}e8 100%)`}
       />
 
       <AmbientWash

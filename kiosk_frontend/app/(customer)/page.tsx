@@ -553,7 +553,10 @@ export default function CustomerPage() {
           option_ids: (item.selectedOptions || []).map((o) => o.id),
         })),
         fulfillment_type: selectedFulfillment,
-        coupon_code: couponCode || undefined,
+        coupon_code:
+          settings.coupons_enabled !== false && couponCode
+            ? couponCode
+            : undefined,
         landing_theme: landingThemeRef.current || undefined,
       };
       return await ordersApi.createOrder(orderData);
@@ -925,6 +928,7 @@ export default function CustomerPage() {
             serviceFee={baseServiceFee}
             serviceFeeOnDineIn={serviceFeeOnDineIn}
             serviceFeeOnTakeaway={serviceFeeOnTakeaway}
+            couponsEnabled={settings.coupons_enabled !== false}
           />
         </div>
       </div>

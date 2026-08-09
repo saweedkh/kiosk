@@ -99,7 +99,7 @@ export function LandingLivePreview({
   const stage = (
     <div
       ref={hostRef}
-      className="relative w-full overflow-hidden bg-[#FFF3E8]"
+      className="relative w-full overflow-hidden bg-background"
       style={{ aspectRatio: `${LANDING_DESIGN_WIDTH} / ${LANDING_DESIGN_HEIGHT}` }}
     >
       <div

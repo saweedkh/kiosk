@@ -298,6 +298,9 @@ export interface Settings {
   service_fee?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
+  fulfillment_choice_enabled?: boolean
+  dine_in_enabled?: boolean
+  takeaway_enabled?: boolean
   cart_layout?: 'side' | 'bottom' | string
   catalog_revision?: number
   receipt_number_mode?: 'manual' | 'automatic' | string

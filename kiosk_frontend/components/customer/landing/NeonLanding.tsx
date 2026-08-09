@@ -44,9 +44,12 @@ export function NeonLanding({
       preview={preview}
       style={{
         color: palette.text,
-        background: hasBg
-          ? palette.bg
-          : `linear-gradient(165deg, ${palette.bg} 0%, ${palette.bg} 55%, ${palette.accent}14 100%)`,
+        backgroundColor: palette.bg,
+        ...(hasBg
+          ? {}
+          : {
+              backgroundImage: `linear-gradient(165deg, ${palette.bg} 0%, ${palette.bg} 55%, ${palette.accent}14 100%)`,
+            }),
       }}
     >
       <BgImage

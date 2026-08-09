@@ -63,6 +63,9 @@ const DIRTY_FIELDS = [
   'service_fee',
   'service_fee_dine_in',
   'service_fee_takeaway',
+  'fulfillment_choice_enabled',
+  'dine_in_enabled',
+  'takeaway_enabled',
 ] as const
 
 const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landing_background', string> = {
@@ -82,8 +85,11 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   receipt_number_mode: 'شماره‌گذاری',
   service_enabled: 'سرویس',
   service_fee: 'هزینه سرویس',
-  service_fee_dine_in: 'سرویس حضوری',
-  service_fee_takeaway: 'سرویس بیرون‌بر',
+  service_fee_dine_in: 'هزینه سرویس حضوری',
+  service_fee_takeaway: 'هزینه سرویس بیرون‌بر',
+  fulfillment_choice_enabled: 'انتخاب نوع سفارش',
+  dine_in_enabled: 'داخل سالن',
+  takeaway_enabled: 'بیرون‌بر',
   logo: 'لوگو',
   landing_background: 'پس‌زمینه',
 }
@@ -105,6 +111,14 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       b = Number(b || 0)
     }
     if (key === 'service_fee_dine_in' || key === 'service_fee_takeaway') {
+      a = a !== false
+      b = b !== false
+    }
+    if (key === 'dine_in_enabled' || key === 'takeaway_enabled') {
+      a = a !== false
+      b = b !== false
+    }
+    if (key === 'fulfillment_choice_enabled') {
       a = a !== false
       b = b !== false
     }
@@ -133,7 +147,7 @@ function stripLocalFiles(s: Settings): Settings {
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'brand', label: 'برند', hint: 'نام، لوگو، رنگ‌ها' },
   { id: 'landing', label: 'لندینگ', hint: 'تم صفحه خوش‌آمد' },
-  { id: 'cart', label: 'سبد', hint: 'چیدمان سبد خرید' },
+  { id: 'cart', label: 'سبد', hint: 'چیدمان و نوع سفارش' },
   { id: 'service', label: 'سرویس', hint: 'هزینه سرویس' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
 ]
@@ -520,6 +534,9 @@ export function SettingsManager() {
       service_fee: Number(settings.service_fee || 0),
       service_fee_dine_in: settings.service_fee_dine_in !== false,
       service_fee_takeaway: settings.service_fee_takeaway !== false,
+      fulfillment_choice_enabled: settings.fulfillment_choice_enabled !== false,
+      dine_in_enabled: settings.dine_in_enabled !== false,
+      takeaway_enabled: settings.takeaway_enabled !== false,
     }
 
     if (settings.logo_file instanceof File) data.logo = settings.logo_file
@@ -993,8 +1010,103 @@ export function SettingsManager() {
               ) : null}
 
               <AdminSurface className="mt-6 !shadow-none">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">انتخاب نوع سفارش</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      اگر خاموش باشد، داخل‌سالن/بیرون‌بر در سبد کیوسک اصلاً نمایش داده نمی‌شود
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.fulfillment_choice_enabled !== false}
+                    onChange={(v) => {
+                      setApiErrors({})
+                      handleChange('fulfillment_choice_enabled', v)
+                    }}
+                    label={
+                      settings.fulfillment_choice_enabled !== false ? 'نمایش در کیوسک' : 'مخفی'
+                    }
+                  />
+                </div>
+
+                <div
+                  className={cn(
+                    'grid gap-3 sm:grid-cols-2',
+                    settings.fulfillment_choice_enabled === false &&
+                      'pointer-events-none opacity-45'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5',
+                      settings.dine_in_enabled !== false
+                        ? 'border-primary/30 bg-primary/[0.06]'
+                        : 'border-border/80 bg-muted/25'
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-bold">داخل سالن</p>
+                      <p className="text-xs text-muted-foreground">گزینه حضوری برای مشتری</p>
+                    </div>
+                    <Switch
+                      checked={settings.dine_in_enabled !== false}
+                      disabled={settings.fulfillment_choice_enabled === false}
+                      onChange={(v) => {
+                        if (!v && settings.takeaway_enabled === false) {
+                          setApiErrors({
+                            dine_in_enabled: ['حداقل یکی از انواع سفارش باید فعال باشد'],
+                          })
+                          return
+                        }
+                        setApiErrors({})
+                        handleChange('dine_in_enabled', v)
+                      }}
+                      label={settings.dine_in_enabled !== false ? 'فعال' : 'غیرفعال'}
+                    />
+                  </div>
+                  <div
+                    className={cn(
+                      'flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5',
+                      settings.takeaway_enabled !== false
+                        ? 'border-primary/30 bg-primary/[0.06]'
+                        : 'border-border/80 bg-muted/25'
+                    )}
+                  >
+                    <div>
+                      <p className="text-sm font-bold">بیرون‌بر</p>
+                      <p className="text-xs text-muted-foreground">گزینه بیرون بردن برای مشتری</p>
+                    </div>
+                    <Switch
+                      checked={settings.takeaway_enabled !== false}
+                      disabled={settings.fulfillment_choice_enabled === false}
+                      onChange={(v) => {
+                        if (!v && settings.dine_in_enabled === false) {
+                          setApiErrors({
+                            takeaway_enabled: ['حداقل یکی از انواع سفارش باید فعال باشد'],
+                          })
+                          return
+                        }
+                        setApiErrors({})
+                        handleChange('takeaway_enabled', v)
+                      }}
+                      label={settings.takeaway_enabled !== false ? 'فعال' : 'غیرفعال'}
+                    />
+                  </div>
+                </div>
+                {(apiErrors.fulfillment_choice_enabled?.[0] ||
+                  apiErrors.dine_in_enabled?.[0] ||
+                  apiErrors.takeaway_enabled?.[0]) && (
+                  <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.fulfillment_choice_enabled?.[0] ||
+                      apiErrors.dine_in_enabled?.[0] ||
+                      apiErrors.takeaway_enabled?.[0]}
+                  </p>
+                )}
+              </AdminSurface>
+
+              <AdminSurface className="mt-6 !shadow-none">
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  در حالت افقی، دکمه‌های «جزئیات» برای انتخاب داخل‌سالن/بیرون‌بر و کد تخفیف باز می‌شود.
+                  در حالت افقی، دکمه‌های «جزئیات» برای انتخاب نوع سفارش فعال و کد تخفیف باز می‌شود.
                   در حالت کناری همه کنترل‌ها همیشه در همان ستون دیده می‌شوند.
                 </p>
               </AdminSurface>
@@ -1079,16 +1191,24 @@ export function SettingsManager() {
                       </div>
                       {serviceOn && serviceFeeAmount > 0 ? (
                         <AdminStatusBadge tone="primary">
-                          {formatCurrency(serviceFeeAmount)}
+                          <span className="inline-flex items-baseline gap-1" dir="ltr">
+                            <span className="tabular-nums">{formatNumber(serviceFeeAmount)}</span>
+                            <span>ریال</span>
+                          </span>
                         </AdminStatusBadge>
                       ) : null}
                     </div>
 
                     <label className="block">
                       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                        مبلغ (ریال)
+                        مبلغ
                       </span>
-                      <div className="relative">
+                      <div
+                        className={cn(
+                          'flex h-12 items-stretch overflow-hidden rounded-xl border border-border bg-background transition-shadow focus-within:ring-2 focus-within:ring-primary/30',
+                          !serviceOn && 'cursor-not-allowed opacity-70'
+                        )}
+                      >
                         <input
                           type="number"
                           min={0}
@@ -1111,11 +1231,11 @@ export function SettingsManager() {
                               Math.max(0, Math.floor(Number(raw) || 0))
                             )
                           }}
-                          placeholder="مثلاً ۵۰۰۰۰"
-                          className="h-12 w-full rounded-xl border border-border bg-background pe-14 ps-4 text-base font-bold outline-none transition-shadow focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed"
+                          placeholder="50000"
+                          className="min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-bold tabular-nums outline-none disabled:cursor-not-allowed"
                           dir="ltr"
                         />
-                        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                        <span className="flex shrink-0 items-center border-s border-border bg-muted/40 px-3 text-sm font-medium text-muted-foreground">
                           ریال
                         </span>
                       </div>
@@ -1130,14 +1250,24 @@ export function SettingsManager() {
                       <p className="text-[11px] font-medium text-muted-foreground">
                         پیش‌نمایش روی فاکتور
                       </p>
-                      <p className="mt-1 text-2xl font-black tracking-tight text-primary">
-                        {serviceOn && serviceFeeAmount > 0
-                          ? formatCurrency(serviceFeeAmount)
-                          : '—'}
-                      </p>
+                      {serviceOn && serviceFeeAmount > 0 ? (
+                        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span
+                            className="text-2xl font-black tabular-nums tracking-tight text-primary"
+                            dir="ltr"
+                          >
+                            {formatNumber(serviceFeeAmount)}
+                          </span>
+                          <span className="text-sm font-semibold text-muted-foreground">
+                            ریال
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-2xl font-black text-muted-foreground">—</p>
+                      )}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {serviceOn && serviceFeeAmount > 0
-                          ? `${formatNumber(serviceFeeAmount)} ریال`
+                          ? 'یک‌بار به مبلغ فاکتور اضافه می‌شود'
                           : 'مبلغی تنظیم نشده'}
                       </p>
                     </div>
@@ -1145,9 +1275,9 @@ export function SettingsManager() {
 
                   <AdminSurface className="!shadow-none">
                     <div className="mb-4">
-                      <p className="text-sm font-bold text-foreground">محدوده اعمال</p>
+                      <p className="text-sm font-bold text-foreground">محدوده هزینه سرویس</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        روی کدام نوع سفارش سرویس محاسبه شود
+                        فقط مشخص می‌کند هزینه سرویس روی کدام نوع سفارش حساب شود — جدا از فعال بودن نوع سفارش در سبد
                       </p>
                     </div>
 
@@ -1185,14 +1315,14 @@ export function SettingsManager() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-foreground">داخل سالن</p>
-                            <p className="text-xs text-muted-foreground">سفارش حضوری در سالن</p>
+                            <p className="text-xs text-muted-foreground">اعمال هزینه سرویس روی حضوری</p>
                           </div>
                         </div>
                         <Switch
                           checked={serviceDineInOn}
                           onChange={(v) => handleChange('service_fee_dine_in', v)}
                           disabled={!serviceOn}
-                          label={serviceDineInOn ? 'فعال' : 'غیرفعال'}
+                          label={serviceDineInOn ? 'با هزینه' : 'بدون هزینه'}
                         />
                       </div>
 
@@ -1230,14 +1360,14 @@ export function SettingsManager() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-foreground">بیرون‌بر</p>
-                            <p className="text-xs text-muted-foreground">سفارش برای بیرون بردن</p>
+                            <p className="text-xs text-muted-foreground">اعمال هزینه سرویس روی بیرون‌بر</p>
                           </div>
                         </div>
                         <Switch
                           checked={serviceTakeawayOn}
                           onChange={(v) => handleChange('service_fee_takeaway', v)}
                           disabled={!serviceOn}
-                          label={serviceTakeawayOn ? 'فعال' : 'غیرفعال'}
+                          label={serviceTakeawayOn ? 'با هزینه' : 'بدون هزینه'}
                         />
                       </div>
                     </div>

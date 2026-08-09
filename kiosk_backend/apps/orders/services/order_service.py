@@ -43,11 +43,26 @@ class OrderService:
 
         if fulfillment_type not in ('dine_in', 'takeaway'):
             fulfillment_type = 'dine_in'
+
+        settings = SiteSettings.get_settings()
+        if not settings.fulfillment_choice_enabled:
+            fulfillment_type = 'dine_in'
+        elif not settings.is_fulfillment_enabled(fulfillment_type):
+            enabled = []
+            if settings.dine_in_enabled:
+                enabled.append('داخل سالن')
+            if settings.takeaway_enabled:
+                enabled.append('بیرون‌بر')
+            if not enabled:
+                raise ValueError('هیچ نوع سفارشی در تنظیمات فعال نیست')
+            raise ValueError(
+                f'نوع سفارش انتخاب‌شده غیرفعال است. گزینه‌های فعال: {"، ".join(enabled)}'
+            )
         
         order_number = OrderService.generate_order_number()
         order_items_data, items_total = OrderService._validate_and_prepare_items(items)
         products = [row['product'] for row in order_items_data]
-        service_fee = SiteSettings.get_settings().resolve_order_service_fee(
+        service_fee = settings.resolve_order_service_fee(
             products,
             fulfillment_type=fulfillment_type,
         )

@@ -43,7 +43,8 @@ export function FreshLanding({
       preview={preview}
       style={{
         color: palette.text,
-        background: `
+        backgroundColor: palette.bg,
+        backgroundImage: `
           radial-gradient(70% 45% at 80% 8%, ${palette.accent}18, transparent 60%),
           radial-gradient(55% 40% at 10% 92%, ${palette.accent}12, transparent 55%),
           linear-gradient(180deg, ${palette.bg} 0%, ${palette.bg} 55%, ${palette.accent}14 100%)

@@ -43,7 +43,8 @@ export function EditorialLanding({
       preview={preview}
       style={{
         color: palette.text,
-        background: `linear-gradient(180deg, ${palette.bg} 0%, ${palette.bg} 50%, ${palette.accent}16 100%)`,
+        backgroundColor: palette.bg,
+        backgroundImage: `linear-gradient(180deg, ${palette.bg} 0%, ${palette.bg} 50%, ${palette.accent}16 100%)`,
       }}
     >
       <BgImage

@@ -31,6 +31,12 @@ python manage.py migrate --noinput
 echo "Setting up permission groups..."
 python manage.py setup_permission_groups || true
 
+# Idempotent: only fills an empty catalog (skip with SEED_DEMO_DATA=0)
+if [ "${SEED_DEMO_DATA:-1}" != "0" ]; then
+  echo "Seeding demo data (if catalog empty)..."
+  python manage.py seed_demo_data || true
+fi
+
 echo "Collecting static files..."
 python manage.py collectstatic --noinput || true
 

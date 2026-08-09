@@ -343,28 +343,34 @@ export function DashboardManager() {
             ) : null}
           </div>
 
-          <div className="flex h-40 items-end gap-1">
+          <div className="flex h-44 items-stretch gap-1">
             {hours.map((cell) => {
-              const heightPct = Math.max(
-                (cell.orders / maxHourOrders) * 100,
-                cell.orders ? 8 : 2
-              )
+              const heightPct =
+                cell.orders > 0
+                  ? Math.max((cell.orders / maxHourOrders) * 100, 10)
+                  : 0
               const isPeak = peak && cell.hour === peak.hour && peak.orders > 0
               return (
                 <div
                   key={cell.hour}
-                  className="group relative flex min-w-0 flex-1 flex-col items-center justify-end"
+                  className="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
                   title={`${String(cell.hour).padStart(2, '0')}:00 — ${formatNumber(cell.orders)} سفارش · ${formatCurrency(cell.sales)}`}
                 >
-                  <div className="pointer-events-none absolute bottom-[calc(100%+4px)] z-10 hidden whitespace-nowrap rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background group-hover:block">
-                    {formatNumber(cell.orders)}
-                  </div>
+                  {cell.orders > 0 ? (
+                    <div className="pointer-events-none absolute bottom-[calc(100%+4px)] z-10 hidden whitespace-nowrap rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background group-hover:block">
+                      {formatNumber(cell.orders)}
+                    </div>
+                  ) : null}
                   <div
                     className={cn(
-                      'w-full rounded-t-sm',
-                      isPeak ? 'bg-primary' : 'bg-primary/30 group-hover:bg-primary/55'
+                      'w-full rounded-t-md transition-colors',
+                      cell.orders
+                        ? isPeak
+                          ? 'bg-primary'
+                          : 'bg-primary/40 group-hover:bg-primary/65'
+                        : 'bg-muted/70'
                     )}
-                    style={{ height: `${heightPct}%` }}
+                    style={{ height: cell.orders ? `${heightPct}%` : '3px' }}
                   />
                 </div>
               )
@@ -392,24 +398,31 @@ export function DashboardManager() {
           </div>
           {(trend?.points || []).length ? (
             <>
-              <div className="flex h-40 items-end gap-1.5">
+              <div className="flex h-44 items-stretch gap-1.5">
                 {(trend?.points || []).map((point) => {
-                  const heightPct = Math.max(
-                    (point.sales / maxTrendSales) * 100,
-                    point.sales ? 8 : 2
-                  )
+                  const heightPct =
+                    point.sales > 0
+                      ? Math.max((point.sales / maxTrendSales) * 100, 10)
+                      : 0
                   return (
                     <div
                       key={point.date}
-                      className="group relative flex min-w-0 flex-1 flex-col items-center justify-end"
+                      className="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
                       title={`${formatDayLabel(point.date)} — ${formatCurrency(point.sales)} · ${formatNumber(point.orders)} سفارش`}
                     >
-                      <div className="pointer-events-none absolute bottom-[calc(100%+4px)] z-10 hidden whitespace-nowrap rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background group-hover:block">
-                        {formatCurrency(point.sales)}
-                      </div>
+                      {point.sales > 0 ? (
+                        <div className="pointer-events-none absolute bottom-[calc(100%+4px)] z-10 hidden whitespace-nowrap rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold text-background group-hover:block">
+                          {formatCurrency(point.sales)}
+                        </div>
+                      ) : null}
                       <div
-                        className="w-full rounded-t-sm bg-foreground/80 group-hover:bg-primary dark:bg-foreground/60"
-                        style={{ height: `${heightPct}%` }}
+                        className={cn(
+                          'w-full rounded-t-md transition-colors',
+                          point.sales
+                            ? 'bg-foreground/80 group-hover:bg-primary dark:bg-foreground/60'
+                            : 'bg-muted/70'
+                        )}
+                        style={{ height: point.sales ? `${heightPct}%` : '3px' }}
                       />
                     </div>
                   )
@@ -429,7 +442,7 @@ export function DashboardManager() {
               </div>
             </>
           ) : (
-            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-44 items-center justify-center text-sm text-muted-foreground">
               هنوز سفارشی در این بازه نیست
             </div>
           )}

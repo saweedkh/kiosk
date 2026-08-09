@@ -56,6 +56,11 @@ export function AttractShell({
     }
   }
 
+  const opaqueBg =
+    typeof style?.backgroundColor === 'string' && style.backgroundColor
+      ? style.backgroundColor
+      : 'hsl(var(--background))'
+
   return (
     <div
       role={preview ? undefined : 'button'}
@@ -80,12 +85,22 @@ export function AttractShell({
           : 'fixed inset-0 z-[200] cursor-pointer touch-manipulation',
         className
       )}
-      style={{ backgroundColor: 'hsl(var(--background))', ...style }}
+      style={{
+        ...style,
+        // Always last: theme `background` shorthand must not leave a see-through shell.
+        backgroundColor: opaqueBg,
+      }}
       aria-label={preview ? undefined : ariaLabel}
       aria-hidden={preview || undefined}
     >
+      {/* Solid underlay so gradient transparent stops never show the UI beneath */}
       <div
-        className="contents"
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundColor: opaqueBg }}
+      />
+      <div
+        className="absolute inset-0"
         onPointerDownCapture={(e) => {
           if (preview) return
           const target = e.target as HTMLElement | null

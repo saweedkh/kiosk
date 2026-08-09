@@ -50,7 +50,8 @@ export function CinemaLanding({
       className="text-[#111111]"
       style={{
         color: palette.text,
-        background: hasBg ? palette.bg : paletteSurfaceGradient(palette),
+        backgroundColor: palette.bg,
+        ...(hasBg ? {} : { backgroundImage: paletteSurfaceGradient(palette) }),
       }}
     >
       <BgImage

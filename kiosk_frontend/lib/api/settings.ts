@@ -23,6 +23,9 @@ export interface Settings {
   service_fee?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
+  fulfillment_choice_enabled?: boolean
+  dine_in_enabled?: boolean
+  takeaway_enabled?: boolean
   cart_layout?: 'side' | 'bottom' | string
   /** Bumps when products/categories change — kiosk refreshes menu cache. */
   catalog_revision?: number

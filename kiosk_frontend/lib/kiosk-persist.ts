@@ -26,6 +26,9 @@ export type KioskSettingsSnapshot = Pick<
   | 'service_fee'
   | 'service_fee_dine_in'
   | 'service_fee_takeaway'
+  | 'fulfillment_choice_enabled'
+  | 'dine_in_enabled'
+  | 'takeaway_enabled'
   | 'cart_layout'
   | 'catalog_revision'
   | 'landing_theme'
@@ -87,6 +90,9 @@ export function writeCachedSettings(settings?: Settings | null): void {
     service_fee: settings.service_fee,
     service_fee_dine_in: settings.service_fee_dine_in,
     service_fee_takeaway: settings.service_fee_takeaway,
+    fulfillment_choice_enabled: settings.fulfillment_choice_enabled,
+    dine_in_enabled: settings.dine_in_enabled,
+    takeaway_enabled: settings.takeaway_enabled,
     cart_layout: settings.cart_layout === 'bottom' ? 'bottom' : 'side',
     catalog_revision: Number(settings.catalog_revision) || 0,
     landing_theme: settings.landing_theme || 'cinema',

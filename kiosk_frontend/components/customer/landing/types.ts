@@ -166,7 +166,7 @@ export function resolveTagline(tagline?: string | null): string {
   return t || 'منوی روز منتظر شماست'
 }
 
-/** Soft gradient wash from accent over custom bg. */
+/** Soft gradient wash from accent over custom bg (use with backgroundImage + opaque backgroundColor). */
 export function paletteSurfaceGradient(palette: LandingPalette): string {
   return `
     radial-gradient(90% 55% at 50% 0%, ${palette.accent}22, transparent 55%),

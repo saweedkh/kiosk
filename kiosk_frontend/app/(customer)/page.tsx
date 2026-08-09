@@ -738,8 +738,25 @@ export default function CustomerPage() {
     return <CustomerMenuSkeleton productCount={6} />;
   }
 
+  const cartProps = {
+    onCheckout: handleCheckout,
+    layout: cartLayout,
+    serviceFee: baseServiceFee,
+    serviceFeeOnDineIn,
+    serviceFeeOnTakeaway,
+    couponsEnabled: settings.coupons_enabled !== false,
+    fulfillmentChoiceEnabled: settings.fulfillment_choice_enabled !== false,
+    dineInEnabled: settings.dine_in_enabled !== false,
+    takeawayEnabled: settings.takeaway_enabled !== false,
+  } as const;
+
   return (
-    <div className="flex h-dvh overflow-hidden bg-background dark:bg-background-dark">
+    <div
+      className={cn(
+        "flex h-dvh overflow-hidden bg-background dark:bg-background-dark",
+        isBottomCart ? "flex-col" : "flex-row"
+      )}
+    >
       {showAttract && (
         <KioskAttractScreen
           key={[
@@ -800,8 +817,15 @@ export default function CustomerPage() {
           }}
         />
       )}
-      {/* Left Section - Header + Products (2/3) */}
-      <div className="flex min-h-0 w-2/3 flex-col overflow-hidden border-l border-border dark:border-border-dark">
+      {/* Products: full width with bottom cart, else 2/3 beside side cart */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-col overflow-hidden",
+          isBottomCart
+            ? "w-full flex-1"
+            : "w-2/3 border-l border-border dark:border-border-dark"
+        )}
+      >
         {/* Header */}
         <header className="z-30 flex-shrink-0 border-b border-border bg-card dark:border-border-dark dark:bg-card-dark">
           <div className="px-6 py-6">
@@ -880,9 +904,11 @@ export default function CustomerPage() {
             <ProductGridSkeleton count={6} />
           ) : visibleProducts.length > 0 ? (
             <div
-              className={`grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 ${
-                productsFetching ? "opacity-90" : ""
-              }`}
+              className={cn(
+                "grid grid-cols-1 gap-6 sm:grid-cols-2",
+                isBottomCart ? "lg:grid-cols-4" : "lg:grid-cols-3",
+                productsFetching && "opacity-90"
+              )}
             >
               {visibleProducts.map((product, index) => (
                 <motion.div
@@ -920,18 +946,15 @@ export default function CustomerPage() {
         </footer>
       </div>
 
-      {/* Right Section - Cart View (1/3) */}
-      <div className="flex min-h-0 w-1/3 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1">
-          <CartView
-            onCheckout={handleCheckout}
-            serviceFee={baseServiceFee}
-            serviceFeeOnDineIn={serviceFeeOnDineIn}
-            serviceFeeOnTakeaway={serviceFeeOnTakeaway}
-            couponsEnabled={settings.coupons_enabled !== false}
-          />
+      {isBottomCart ? (
+        <CartView {...cartProps} />
+      ) : (
+        <div className="flex min-h-0 w-1/3 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1">
+            <CartView {...cartProps} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Payment Modal */}
       <PaymentModal

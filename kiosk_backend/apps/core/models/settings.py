@@ -242,6 +242,23 @@ class SiteSettings(models.Model):
         help_text='اگر روشن باشد، هزینه سرویس برای سفارش‌های بیرون‌بر اعمال می‌شود'
     )
 
+    # نوع سفارش قابل انتخاب در کیوسک
+    fulfillment_choice_enabled = models.BooleanField(
+        default=True,
+        verbose_name='فعال‌سازی انتخاب نوع سفارش',
+        help_text='اگر خاموش باشد، انتخاب داخل‌سالن/بیرون‌بر در کیوسک نمایش داده نمی‌شود',
+    )
+    dine_in_enabled = models.BooleanField(
+        default=True,
+        verbose_name='فعال‌سازی داخل سالن',
+        help_text='اگر خاموش باشد، مشتری نمی‌تواند نوع سفارش داخل سالن را انتخاب کند',
+    )
+    takeaway_enabled = models.BooleanField(
+        default=True,
+        verbose_name='فعال‌سازی بیرون‌بر',
+        help_text='اگر خاموش باشد، مشتری نمی‌تواند نوع سفارش بیرون‌بر را انتخاب کند',
+    )
+
     # چیدمان سبد خرید کیوسک
     CART_LAYOUT_SIDE = 'side'
     CART_LAYOUT_BOTTOM = 'bottom'
@@ -336,6 +353,9 @@ class SiteSettings(models.Model):
                 'service_fee': 0,
                 'service_fee_dine_in': True,
                 'service_fee_takeaway': True,
+                'dine_in_enabled': True,
+                'takeaway_enabled': True,
+                'fulfillment_choice_enabled': True,
                 'catalog_revision': 0,
                 'last_receipt_number': 0,
                 'receipt_number_mode': cls.RECEIPT_NUMBER_MODE_MANUAL,
@@ -373,6 +393,28 @@ class SiteSettings(models.Model):
         if fulfillment_type == 'takeaway':
             return bool(self.service_fee_takeaway)
         return bool(self.service_fee_dine_in)
+
+    def is_fulfillment_enabled(self, fulfillment_type: str) -> bool:
+        """Whether customers may select this fulfillment type on the kiosk."""
+        if not self.fulfillment_choice_enabled:
+            # Choice UI off: only the default dine-in path is accepted.
+            return fulfillment_type == 'dine_in'
+        if fulfillment_type == 'takeaway':
+            return bool(self.takeaway_enabled)
+        if fulfillment_type == 'dine_in':
+            return bool(self.dine_in_enabled)
+        return False
+
+    def available_fulfillment_types(self) -> list:
+        """Fulfillment types shown on the kiosk (empty when choice feature is off)."""
+        if not self.fulfillment_choice_enabled:
+            return []
+        types = []
+        if self.dine_in_enabled:
+            types.append('dine_in')
+        if self.takeaway_enabled:
+            types.append('takeaway')
+        return types
 
     def resolve_order_service_fee(self, products, fulfillment_type: str = 'dine_in') -> int:
         """

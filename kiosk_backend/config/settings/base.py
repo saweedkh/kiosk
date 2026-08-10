@@ -212,8 +212,8 @@ LOGGING = {
 }
 
 # Payment Gateway Configuration
-# NOTE: Runtime POS/printer connection is controlled from Admin → Settings → Hardware
-# (SiteSettings). These env values are legacy defaults only for old CLI helpers / bootstrap.
+# NOTE: Runtime POS/printer/protocol is controlled from Admin → Settings → Hardware
+# (SiteSettings). These env values remain for bootstrap / migrate seed only.
 PAYMENT_GATEWAY_CONFIG = {
     'gateway_name': os.getenv('PAYMENT_GATEWAY_NAME', 'mock'),
     'merchant_id': os.getenv('PAYMENT_GATEWAY_MERCHANT_ID', ''),
@@ -223,15 +223,9 @@ PAYMENT_GATEWAY_CONFIG = {
     'timeout': int(os.getenv('POS_TIMEOUT', '30')),
     'mock_payment_delay': float(os.getenv('MOCK_PAYMENT_DELAY', '3')),
     'mock_payment_success': os.getenv('MOCK_PAYMENT_SUCCESS', 'True') == 'True',
-    # Message format for direct POS connection (without bridge)
-    # Options: 'dll_exact' (matches DLL format - no prefix/terminator), 'with_length', 'with_stx_etx', 'with_terminator', 'with_null'
-    # Default: 'dll_exact' - matches what DLL sends (no length prefix, no terminator)
-    'pos_message_format': os.getenv('POS_MESSAGE_FORMAT', 'dll_exact'),
-    # Use simple format (based on real PNA software example)
-    # True: Use PR00{counter}AM004{amount}CU{customer}PD{payment} format
-    # False: Use full format with all tags (TE, ME, SO)
-    'pos_use_simple_format': os.getenv('POS_USE_SIMPLE_FORMAT', 'False') == 'True',
-    # Banner for message (used with 'with_rq_and_banner' format)
+    # Wire format for direct POS (seeded into SiteSettings on migrate).
+    'pos_message_format': os.getenv('POS_MESSAGE_FORMAT', 'pardakht_novin_official'),
+    'pos_use_simple_format': os.getenv('POS_USE_SIMPLE_FORMAT', 'True') == 'True',
     'pos_banner': os.getenv('POS_BANNER', 'R2023tejaratEParsian'),
 }
 

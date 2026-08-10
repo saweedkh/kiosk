@@ -159,7 +159,7 @@ class POSMessageBuilder:
             bytes: Formatted request bytes (ready to send)
         """
         # Check if we should use simple format (based on real PNA software)
-        use_simple_format = self.config.get('pos_use_simple_format', False)
+        use_simple_format = self.config.get('pos_use_simple_format', True)
         if use_simple_format:
             # Build simple message but DON'T return yet - need to apply format (RQ prefix)
             message_bytes = self.build_payment_request_simple(amount, order_number, additional_data)
@@ -259,8 +259,8 @@ class POSMessageBuilder:
         # IMPORTANT: DLL sends message WITHOUT any terminator
         # The message is sent as-is, no CRLF, no NULL, no length prefix
         # This is the exact format DLL uses
-        # Default to 'dll_exact' to match DLL behavior
-        format_type = self.config.get('pos_message_format', 'dll_exact')
+        # Default matches SiteSettings / former working .env (pardakht_novin_official)
+        format_type = self.config.get('pos_message_format', 'pardakht_novin_official')
         
         if format_type == 'dll_exact':
             # Exact DLL format - no terminator, no framing, just raw message

@@ -307,6 +307,11 @@ export interface Settings {
   pos_timeout?: number
   pos_merchant_id?: string
   pos_terminal_id?: string
+  pos_message_format?: string
+  pos_use_simple_format?: boolean
+  pos_banner?: string
+  mock_payment_delay?: number
+  mock_payment_success?: boolean
   printer_enabled?: boolean
   printer_host?: string
   printer_port?: number

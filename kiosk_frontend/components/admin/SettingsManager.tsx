@@ -72,6 +72,11 @@ const DIRTY_FIELDS = [
   'pos_timeout',
   'pos_merchant_id',
   'pos_terminal_id',
+  'pos_message_format',
+  'pos_use_simple_format',
+  'pos_banner',
+  'mock_payment_delay',
+  'mock_payment_success',
   'printer_enabled',
   'printer_host',
   'printer_port',
@@ -105,6 +110,11 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   pos_timeout: 'تایم‌اوت پوز',
   pos_merchant_id: 'Merchant پوز',
   pos_terminal_id: 'ترمینال پوز',
+  pos_message_format: 'فرمت پیام پوز',
+  pos_use_simple_format: 'فرمت ساده پوز',
+  pos_banner: 'بنر پوز',
+  mock_payment_delay: 'تأخیر شبیه‌سازی',
+  mock_payment_success: 'موفقیت شبیه‌سازی',
   printer_enabled: 'چاپ فیش',
   printer_host: 'آی‌پی پرینتر',
   printer_port: 'پورت پرینتر',
@@ -128,6 +138,10 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       a = Number(a || 0)
       b = Number(b || 0)
     }
+    if (key === 'mock_payment_delay') {
+      a = Number(a ?? 3)
+      b = Number(b ?? 3)
+    }
     if (key === 'service_fee_dine_in' || key === 'service_fee_takeaway') {
       a = a !== false
       b = b !== false
@@ -136,7 +150,9 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       key === 'dine_in_enabled' ||
       key === 'takeaway_enabled' ||
       key === 'fulfillment_choice_enabled' ||
-      key === 'printer_enabled'
+      key === 'printer_enabled' ||
+      key === 'pos_use_simple_format' ||
+      key === 'mock_payment_success'
     ) {
       a = a !== false
       b = b !== false
@@ -186,6 +202,16 @@ const RECEIPT_TEMPLATES = [
 const RECEIPT_TEMPLATE_LABELS: Record<string, string> = Object.fromEntries(
   RECEIPT_TEMPLATES.map((t) => [t.id, t.title])
 )
+
+const POS_MESSAGE_FORMATS = [
+  { id: 'pardakht_novin_official', title: 'پرداخت نوین (پیشنهادی)' },
+  { id: 'dll_exact', title: 'دقیق DLL' },
+  { id: 'with_rq_and_banner', title: 'با بنر RQ' },
+  { id: 'with_length', title: 'با پیشوند طول' },
+  { id: 'with_stx_etx', title: 'STX/ETX' },
+  { id: 'with_terminator', title: 'با terminator' },
+  { id: 'with_null', title: 'با null' },
+] as const
 
 function SectionHeader({
   title,
@@ -563,6 +589,11 @@ export function SettingsManager() {
       pos_timeout: Math.max(1, Math.floor(Number(settings.pos_timeout) || 30)),
       pos_merchant_id: settings.pos_merchant_id || '',
       pos_terminal_id: settings.pos_terminal_id || '',
+      pos_message_format: settings.pos_message_format || 'pardakht_novin_official',
+      pos_use_simple_format: settings.pos_use_simple_format !== false,
+      pos_banner: settings.pos_banner || 'R2023tejaratEParsian',
+      mock_payment_delay: Math.max(0, Number(settings.mock_payment_delay ?? 3)),
+      mock_payment_success: settings.mock_payment_success !== false,
       printer_enabled: Boolean(settings.printer_enabled),
       printer_host: settings.printer_host || '',
       printer_port: Math.max(1, Math.floor(Number(settings.printer_port) || 9100)),
@@ -1878,6 +1909,17 @@ export function SettingsManager() {
                         dir="ltr"
                         className="font-mono"
                       />
+                      {(settings.payment_mode || 'mock') === 'pos' &&
+                      !(settings.pos_host || '').trim() ? (
+                        <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                          در حالت پوز، آی‌پی کارتخوان الزامی است.
+                        </p>
+                      ) : null}
+                      {apiErrors.pos_host?.[0] ? (
+                        <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                          {apiErrors.pos_host[0]}
+                        </p>
+                      ) : null}
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block">
@@ -1943,6 +1985,48 @@ export function SettingsManager() {
                         className="font-mono"
                       />
                     </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        فرمت پیام (POS_MESSAGE_FORMAT)
+                      </span>
+                      <select
+                        value={settings.pos_message_format || 'pardakht_novin_official'}
+                        onChange={(e) => handleChange('pos_message_format', e.target.value)}
+                        className="flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                        dir="rtl"
+                      >
+                        {POS_MESSAGE_FORMATS.map((fmt) => (
+                          <option key={fmt.id} value={fmt.id}>
+                            {fmt.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">فرمت ساده</p>
+                        <p className="text-xs text-muted-foreground">
+                          معادل POS_USE_SIMPLE_FORMAT — برای PNA معمولاً روشن
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.pos_use_simple_format !== false}
+                        onChange={(v) => handleChange('pos_use_simple_format', v)}
+                        label={settings.pos_use_simple_format !== false ? 'روشن' : 'خاموش'}
+                      />
+                    </div>
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        بنر پوز (POS_BANNER)
+                      </span>
+                      <Input
+                        value={settings.pos_banner || 'R2023tejaratEParsian'}
+                        onChange={(e) => handleChange('pos_banner', e.target.value)}
+                        placeholder="R2023tejaratEParsian"
+                        dir="ltr"
+                        className="font-mono"
+                      />
+                    </label>
                   </div>
                 </AdminSurface>
 
@@ -1978,6 +2062,16 @@ export function SettingsManager() {
                         className="font-mono"
                         disabled={!settings.printer_enabled}
                       />
+                      {settings.printer_enabled && !(settings.printer_host || '').trim() ? (
+                        <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">
+                          با فعال بودن چاپ، آی‌پی پرینتر الزامی است.
+                        </p>
+                      ) : null}
+                      {apiErrors.printer_host?.[0] ? (
+                        <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                          {apiErrors.printer_host[0]}
+                        </p>
+                      ) : null}
                     </label>
                     <label className="block">
                       <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -2015,6 +2109,52 @@ export function SettingsManager() {
                   )}
                 </AdminSurface>
               </div>
+
+              {(settings.payment_mode || 'mock') === 'mock' && (
+                <AdminSurface>
+                  <div className="mb-4">
+                    <p className="text-sm font-bold text-foreground">شبیه‌سازی پرداخت</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      معادل MOCK_PAYMENT_DELAY و MOCK_PAYMENT_SUCCESS
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        تأخیر (ثانیه)
+                      </span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={120}
+                        step={0.5}
+                        value={String(settings.mock_payment_delay ?? 3)}
+                        onChange={(e) =>
+                          handleChange(
+                            'mock_payment_delay',
+                            Math.max(0, Number(e.target.value) || 0)
+                          )
+                        }
+                        dir="ltr"
+                        className="font-mono"
+                      />
+                    </label>
+                    <div className="flex items-end">
+                      <div className="flex w-full items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">نتیجه موفق</p>
+                          <p className="text-xs text-muted-foreground">MOCK_PAYMENT_SUCCESS</p>
+                        </div>
+                        <Switch
+                          checked={settings.mock_payment_success !== false}
+                          onChange={(v) => handleChange('mock_payment_success', v)}
+                          label={settings.mock_payment_success !== false ? 'موفق' : 'ناموفق'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </AdminSurface>
+              )}
 
               <AdminSurface className="!shadow-none bg-muted/20">
                 <p className="text-sm leading-relaxed text-muted-foreground">

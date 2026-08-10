@@ -65,6 +65,11 @@ class Command(BaseCommand):
         
         if options.get('baudrate'):
             config['serial_baudrate'] = options['baudrate']
+
+        if not (config.get('tcp_host') or '').strip():
+            raise CommandError(
+                'آی‌پی پوز خالی است. در پنل ادمین تنظیم کنید یا با --host ارسال کنید.'
+            )
         
         # Display configuration
         self.stdout.write('تنظیمات اتصال:')

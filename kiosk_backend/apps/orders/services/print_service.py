@@ -129,6 +129,15 @@ class PrintService:
             )
             return False
 
+        printer_ip = (config.get('ip') or '').strip()
+        if not printer_ip:
+            LogService.log_error(
+                'print',
+                'printer_host_missing',
+                details={'order_id': order.id, 'order_number': order.order_number},
+            )
+            return False
+
         if order.payment_status != 'paid':
             LogService.log_warning(
                 'print',
@@ -141,7 +150,6 @@ class PrintService:
             )
             return False
 
-        printer_ip = config.get('ip')
         printer_port = config.get('port', 9100)
         copy_labels = PrintService._receipt_copy_labels()
 

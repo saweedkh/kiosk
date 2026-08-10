@@ -117,8 +117,18 @@ class HealthMonitorService:
             }
 
         cfg = HardwareConfig.payment_gateway_config()
-        host = cfg.get('tcp_host') or '127.0.0.1'
+        host = (cfg.get('tcp_host') or '').strip()
         port = int(cfg.get('tcp_port') or 1362)
+        if not host:
+            return {
+                'ok': False,
+                'status': 'misconfigured',
+                'latency_ms': 0,
+                'host': None,
+                'port': port,
+                'error': 'pos_host_missing',
+                'message': 'آی‌پی پوز در تنظیمات سخت‌افزار خالی است',
+            }
         result = HealthMonitorService._tcp_probe(host, port, timeout=2.0)
         result['message'] = (
             'کارتخوان در دسترس است' if result['ok'] else 'اتصال به کارتخوان برقرار نشد'
@@ -131,17 +141,27 @@ class HealthMonitorService:
 
         cfg = HardwareConfig.printer_config()
         enabled = bool(cfg.get('enabled'))
-        host = cfg.get('ip') or '192.168.1.100'
+        host = (cfg.get('ip') or '').strip()
         port = int(cfg.get('port') or 9100)
         if not enabled:
             return {
                 'ok': True,
                 'status': 'disabled',
                 'latency_ms': 0,
-                'host': host,
+                'host': host or None,
                 'port': port,
                 'error': None,
                 'message': 'چاپگر در تنظیمات غیرفعال است',
+            }
+        if not host:
+            return {
+                'ok': False,
+                'status': 'misconfigured',
+                'latency_ms': 0,
+                'host': None,
+                'port': port,
+                'error': 'printer_host_missing',
+                'message': 'آی‌پی پرینتر در تنظیمات سخت‌افزار خالی است',
             }
         return HealthMonitorService._printer_probe(host, port, timeout=2.0)
 

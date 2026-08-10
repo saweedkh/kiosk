@@ -80,6 +80,11 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'pos_timeout',
             'pos_merchant_id',
             'pos_terminal_id',
+            'pos_message_format',
+            'pos_use_simple_format',
+            'pos_banner',
+            'mock_payment_delay',
+            'mock_payment_success',
             'printer_enabled',
             'printer_host',
             'printer_port',
@@ -114,6 +119,59 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
 
     def validate_landing_muted_color(self, value):
         return _clean_hex_color(value)
+
+    def validate_pos_message_format(self, value):
+        allowed = {c[0] for c in SiteSettings.POS_MESSAGE_FORMAT_CHOICES}
+        cleaned = (value or '').strip() or SiteSettings.POS_MESSAGE_FORMAT_PARDAKHT
+        if cleaned not in allowed:
+            raise serializers.ValidationError('فرمت پیام پوز نامعتبر است.')
+        return cleaned
+
+    def validate_mock_payment_delay(self, value):
+        try:
+            delay = float(value)
+        except (TypeError, ValueError):
+            raise serializers.ValidationError('تأخیر شبیه‌سازی باید عدد باشد.')
+        if delay < 0 or delay > 120:
+            raise serializers.ValidationError('تأخیر شبیه‌سازی باید بین ۰ تا ۱۲۰ ثانیه باشد.')
+        return delay
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, 'instance', None)
+
+        def resolved(key, default=None):
+            if key in attrs:
+                return attrs.get(key)
+            if instance is not None:
+                return getattr(instance, key, default)
+            return default
+
+        mode = str(resolved('payment_mode', 'mock') or 'mock').strip().lower()
+        if mode == 'pos':
+            host = (resolved('pos_host', '') or '').strip()
+            if not host:
+                raise serializers.ValidationError({
+                    'pos_host': 'در حالت ارسال به پوز، آی‌پی کارتخوان الزامی است.',
+                })
+            port = resolved('pos_port', 1362)
+            try:
+                port_int = int(port)
+            except (TypeError, ValueError):
+                port_int = 0
+            if port_int < 1 or port_int > 65535:
+                raise serializers.ValidationError({
+                    'pos_port': 'پورت پوز باید بین ۱ تا ۶۵۵۳۵ باشد.',
+                })
+
+        if bool(resolved('printer_enabled', False)):
+            printer_host = (resolved('printer_host', '') or '').strip()
+            if not printer_host:
+                raise serializers.ValidationError({
+                    'printer_host': 'با فعال بودن چاپ فیش، آی‌پی پرینتر الزامی است.',
+                })
+
+        return attrs
 
     def get_logo_url(self, obj):
         return _media_url(obj.logo)

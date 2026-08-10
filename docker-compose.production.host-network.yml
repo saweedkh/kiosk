@@ -33,6 +33,7 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings
       - POSTGRES_HOST=127.0.0.1
       - POSTGRES_PORT=5432
+      - SEED_DEMO_DATA=0
     volumes:
       - backend_media:/app/media
       - backend_logs:/app/logs

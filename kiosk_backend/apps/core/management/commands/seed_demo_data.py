@@ -1,6 +1,7 @@
 """
 Seed a small Persian cafe catalog for local/demo use.
 
+Opt-in only: container entrypoint runs this when SEED_DEMO_DATA=1.
 Safe by default: skips when products already exist (use --force to replace).
 """
 

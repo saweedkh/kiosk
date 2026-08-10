@@ -280,7 +280,7 @@ class SiteSettings(models.Model):
         blank=True,
         default='',
         verbose_name='آی‌پی / میزبان پوز',
-        help_text='مثلاً 192.168.1.100 — خالی = مقدار پیش‌فرض محیطی',
+        help_text='مثلاً 192.168.1.100 — خالی = ۱۹۲.۱۶۸.۱.۱۰۰',
     )
     pos_port = models.PositiveIntegerField(
         default=1362,
@@ -302,6 +302,52 @@ class SiteSettings(models.Model):
         default='',
         verbose_name='شناسه ترمینال',
     )
+    # پروتکل پوز (همان مقادیر سابق .env)
+    POS_MESSAGE_FORMAT_PARDAKHT = 'pardakht_novin_official'
+    POS_MESSAGE_FORMAT_DLL_EXACT = 'dll_exact'
+    POS_MESSAGE_FORMAT_BANNER = 'with_rq_and_banner'
+    POS_MESSAGE_FORMAT_LENGTH = 'with_length'
+    POS_MESSAGE_FORMAT_STX_ETX = 'with_stx_etx'
+    POS_MESSAGE_FORMAT_TERMINATOR = 'with_terminator'
+    POS_MESSAGE_FORMAT_NULL = 'with_null'
+    POS_MESSAGE_FORMAT_CHOICES = [
+        (POS_MESSAGE_FORMAT_PARDAKHT, 'پرداخت نوین (پیشنهادی)'),
+        (POS_MESSAGE_FORMAT_DLL_EXACT, 'دقیق DLL'),
+        (POS_MESSAGE_FORMAT_BANNER, 'با بنر RQ'),
+        (POS_MESSAGE_FORMAT_LENGTH, 'با پیشوند طول'),
+        (POS_MESSAGE_FORMAT_STX_ETX, 'STX/ETX'),
+        (POS_MESSAGE_FORMAT_TERMINATOR, 'با terminator'),
+        (POS_MESSAGE_FORMAT_NULL, 'با null'),
+    ]
+    pos_message_format = models.CharField(
+        max_length=40,
+        choices=POS_MESSAGE_FORMAT_CHOICES,
+        default=POS_MESSAGE_FORMAT_PARDAKHT,
+        verbose_name='فرمت پیام پوز',
+        help_text='معادل POS_MESSAGE_FORMAT در .env — برای PNA معمولاً پرداخت نوین',
+    )
+    pos_use_simple_format = models.BooleanField(
+        default=True,
+        verbose_name='فرمت ساده پوز',
+        help_text='معادل POS_USE_SIMPLE_FORMAT — برای PNA معمولاً روشن',
+    )
+    pos_banner = models.CharField(
+        max_length=128,
+        blank=True,
+        default='R2023tejaratEParsian',
+        verbose_name='بنر پوز',
+        help_text='معادل POS_BANNER — فقط برای فرمت with_rq_and_banner',
+    )
+    mock_payment_delay = models.FloatField(
+        default=3.0,
+        verbose_name='تأخیر شبیه‌سازی پرداخت (ثانیه)',
+        help_text='معادل MOCK_PAYMENT_DELAY',
+    )
+    mock_payment_success = models.BooleanField(
+        default=True,
+        verbose_name='موفقیت شبیه‌سازی پرداخت',
+        help_text='معادل MOCK_PAYMENT_SUCCESS',
+    )
     printer_enabled = models.BooleanField(
         default=False,
         verbose_name='ارسال فیش به پرینتر',
@@ -312,7 +358,7 @@ class SiteSettings(models.Model):
         blank=True,
         default='',
         verbose_name='آی‌پی / میزبان پرینتر',
-        help_text='مثلاً 192.168.1.100 — خالی = مقدار پیش‌فرض محیطی',
+        help_text='مثلاً 192.168.1.100 — خالی = ۱۹۲.۱۶۸.۱.۱۰۰',
     )
     printer_port = models.PositiveIntegerField(
         default=9100,
@@ -422,6 +468,11 @@ class SiteSettings(models.Model):
                 'pos_timeout': 30,
                 'pos_merchant_id': '',
                 'pos_terminal_id': '',
+                'pos_message_format': cls.POS_MESSAGE_FORMAT_PARDAKHT,
+                'pos_use_simple_format': True,
+                'pos_banner': 'R2023tejaratEParsian',
+                'mock_payment_delay': 3.0,
+                'mock_payment_success': True,
                 'printer_enabled': False,
                 'printer_host': '',
                 'printer_port': 9100,

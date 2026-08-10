@@ -13,8 +13,9 @@ services:
     networks:
       - kiosk_network
     # Optional local tooling access (pgAdmin, DBeaver). Not required by the app.
-    ports:
-      - "5432:5432"
+    # Host 5432/5433 often taken by other stacks — leave unpublished by default.
+    # ports:
+    #   - "5434:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -110,7 +111,7 @@ services:
       dockerfile: Dockerfile
     container_name: kiosk_nginx
     ports:
-      - "80:80"
+      - "8088:80"
     networks:
       - kiosk_network
     restart: unless-stopped

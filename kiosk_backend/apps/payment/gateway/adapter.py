@@ -17,6 +17,7 @@ class PaymentGatewayAdapter:
         if gateway_name == 'mock':
             return MockPaymentGateway(config)
         elif gateway_name == 'pos':
+            HardwareConfig.require_pos_host(config)
             return POSPaymentGateway(config)
         
         raise GatewayException(f'Unknown gateway: {gateway_name}')

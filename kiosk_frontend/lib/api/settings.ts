@@ -46,7 +46,6 @@ export const settingsApi = {
           'Cache-Control': 'no-cache',
           Pragma: 'no-cache',
         },
-        params: { _t: Date.now() },
       })
       const data = response.data as ApiResponse<Settings>
       if (data?.result) {

@@ -18,13 +18,16 @@ export function BrandThemeProvider({ children }: { children: React.ReactNode }) 
   const { theme } = useThemeStore()
 
   const { data } = useQuery({
-    queryKey: ['brand-theme-settings'],
+    // Share cache with customer page — one network fetch for branding + kiosk settings
+    queryKey: ['settings'],
     queryFn: async () => {
       const res = await settingsApi.getSettings()
-      return res.result || {}
+      return res
     },
+    select: (res) => res?.result || {},
     staleTime: 60_000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
+    refetchInterval: 60_000,
   })
 
   useEffect(() => {

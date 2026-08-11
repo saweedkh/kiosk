@@ -104,6 +104,15 @@ export function writeCachedSettings(settings?: Settings | null): void {
     landing_background_url: settings.landing_background_url || '',
     cached_at: Date.now(),
   }
+  // Skip write+event when content unchanged — prevents fetch→cache→render storms
+  const prev = readCachedSettings()
+  if (prev) {
+    const { cached_at: _a, ...prevBody } = prev
+    const { cached_at: _b, ...nextBody } = snapshot
+    if (JSON.stringify(prevBody) === JSON.stringify(nextBody)) {
+      return
+    }
+  }
   writeJson(SETTINGS_KEY, snapshot)
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('kiosk-settings-cache-updated'))

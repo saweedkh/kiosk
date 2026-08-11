@@ -298,11 +298,10 @@ export default function CustomerPage() {
     const onStorage = (e: StorageEvent) => {
       if (e.key === "kiosk-settings-cache-v1") syncCache();
     };
-    window.addEventListener("focus", syncCache);
+    // Do not sync on every window focus — that fought with settings invalidate/focus handlers
     window.addEventListener("storage", onStorage);
     window.addEventListener("kiosk-settings-cache-updated", syncCache);
     return () => {
-      window.removeEventListener("focus", syncCache);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("kiosk-settings-cache-updated", syncCache);
     };
@@ -398,12 +397,12 @@ export default function CustomerPage() {
           messages: {},
         }
       : undefined,
-    // Lightweight poll so kiosk picks up admin branding + catalog_revision
-    staleTime: 0,
+    // Poll slowly for admin branding / catalog_revision — not every render
+    staleTime: 30_000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchInterval: 12_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
     retry: 2,
   });
 

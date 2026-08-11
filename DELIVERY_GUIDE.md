@@ -12,12 +12,13 @@ kiosk-app.zip
 ├── stop.bat                        # اسکریپت توقف
 ├── README.txt                      # راهنمای فارسی برای مشتری
 ├── NETWORK_ACCESS.md               # راهنمای دسترسی به POS و Printer
+├── POS_BRIDGE.md                   # راهنمای بریج ویندوز + DLL
+├── pos_bridge/                     # سرویس PosBridge + pna.pcpos.dll
 └── images/                         # Docker Images
     ├── backend.tar                 # Image بک‌اند Django
     ├── frontend.tar                # Image فرانت‌اند Next.js
     └── nginx.tar                   # Image Nginx
 ```
-
 ## 🚀 مراحل ساخت پکیج
 
 ### 1. ساخت Docker Images
@@ -130,10 +131,12 @@ docker images | grep kiosk
 اگر نیاز به به‌روزرسانی دارید:
 
 1. تغییرات را در سورس کد اعمال کنید
-2. Images جدید بسازید: `build-images.bat`
+2. Images جدید بسازید: `build-images.bat` (فقط روی ریپوی توسعه)
 3. پکیج جدید بسازید: `create-delivery-package.bat`
 4. پکیج جدید را به مشتری تحویل دهید
-5. به مشتری بگویید: Stop → Extract → Run
+5. به مشتری بگویید: `images\` را عوض کند → `update-images.bat`
+
+روی ماشین مشتری `build-images.bat` / `rebuild-and-run.bat` وجود ندارد؛ به‌جای آن `update-images.bat` و در صورت نیاز `fix-docker-safe.bat` هست.
 
 ## 📞 پشتیبانی
 

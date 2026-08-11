@@ -1,13 +1,13 @@
 @echo off
 REM Kiosk Application Startup Script for Windows
-REM Normal start: only start containers (no delete / no reload of images).
-REM Images are loaded from .tar ONLY if they are missing.
+REM Starts: Docker stack + PosBridge (official PNA DLL) + Chrome
 
 setlocal EnableExtensions
 cd /d "%~dp0"
 
 set "COMPOSE_FILE=docker-compose.yml"
 set "NEED_LOAD=0"
+set "BRIDGE_OK=0"
 
 echo ==========================================
 echo Kiosk Application Startup
@@ -49,15 +49,27 @@ if not exist ".env" (
     )
 )
 
-REM Pull/ensure postgres image exists when using production compose (named image)
+REM Ensure postgres image exists: prefer offline images\postgres.tar, else pull
 docker image inspect postgres:18-alpine >nul 2>&1
 if errorlevel 1 (
-    echo Postgres image not found locally. Pulling postgres:18-alpine ...
-    docker pull postgres:18-alpine
-    if errorlevel 1 (
-        echo ERROR: Failed to pull postgres:18-alpine
-        pause
-        exit /b 1
+    if exist images\postgres.tar (
+        echo Postgres image not found. Loading from images\postgres.tar ...
+        docker load -i images\postgres.tar
+        if errorlevel 1 (
+            echo ERROR: Failed to load postgres image from images\postgres.tar
+            pause
+            exit /b 1
+        )
+    ) else (
+        echo Postgres image not found and images\postgres.tar missing.
+        echo Pulling postgres:18-alpine ^(needs internet^)...
+        docker pull postgres:18-alpine
+        if errorlevel 1 (
+            echo ERROR: Failed to pull postgres:18-alpine
+            echo Rebuild delivery with build-images.bat to include images\postgres.tar
+            pause
+            exit /b 1
+        )
     )
 )
 
@@ -72,6 +84,7 @@ if errorlevel 1 set "NEED_LOAD=1"
 if "%NEED_LOAD%"=="1" (
     echo Required app images not found. Loading from images\*.tar ...
     echo This is only done once ^(or after images were removed^).
+    echo NOTE: bale_bot uses kiosk-backend — no separate bot image.
     echo.
 
     if not exist images\backend.tar (
@@ -135,12 +148,30 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM ----- PosBridge (Windows + official DLL) -----
+if exist "pos_bridge\start_background.bat" (
+    echo.
+    echo Starting PosBridge ^(PNA DLL^)...
+    call "pos_bridge\start_background.bat"
+    if errorlevel 1 (
+        echo.
+        echo WARNING: PosBridge did not become healthy.
+        echo POS card payments via bridge will fail until it is fixed.
+        echo See POS_BRIDGE.md and pos_bridge\logs\
+    ) else (
+        set "BRIDGE_OK=1"
+    )
+) else (
+    echo.
+    echo WARNING: pos_bridge\ missing — card reader bridge not started.
+)
+
 REM Brief wait, then check status (no infinite hang)
 timeout /t 5 /nobreak >nul
 %COMPOSE% -f %COMPOSE_FILE% ps
 
 echo.
-echo Waiting for service ^(max ~90s^)...
+echo Waiting for web app ^(max ~90s^)...
 set /a "TRIES=0"
 :check_service
 set /a "TRIES+=1"
@@ -156,7 +187,7 @@ timeout /t 3 /nobreak >nul
 goto check_service
 
 :service_ready
-echo Service is ready!
+echo Web app is ready!
 echo.
 
 :open_browser
@@ -179,22 +210,30 @@ if "%CHROME_PATH%"=="" (
 )
 
 REM Dedicated profile so exit-kiosk.bat can close only this Chrome.
-REM Use --app (not --kiosk / --start-fullscreen) so the admin touch
-REM button can exit/enter via the Fullscreen API. Customer page
-REM enters fullscreen on first touch.
 set "KIOSK_PROFILE=%LOCALAPPDATA%\KioskAppChrome"
 
 start "" "%CHROME_PATH%" --user-data-dir="%KIOSK_PROFILE%" --app=http://localhost --start-maximized --no-first-run --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --disable-extensions --disable-plugins --disable-default-apps --disable-sync --disable-translate --disable-notifications --disable-password-generation --disable-save-password-bubble
 
 echo.
 echo ==========================================
-echo Browser opened in app mode.
-echo App: http://localhost
+echo Stack status:
+echo   Docker / web:  http://localhost
+if "%BRIDGE_OK%"=="1" (
+    echo   PosBridge:     http://127.0.0.1:9000/health  OK
+) else (
+    echo   PosBridge:     NOT ready — check POS_BRIDGE.md
+)
+echo.
+echo .env tips for POS:
+echo   PAYMENT_GATEWAY_NAME=bridge
+echo   POS_USE_BRIDGE=True
+echo   POS_TCP_HOST=^<POS IP^>
+echo   POS_BRIDGE_HOST=host.docker.internal
 echo.
 echo Staff exit on touch kiosk:
-echo   - Admin panel button: "خروج از تمام‌صفحه"
-echo   - Or double-click exit-kiosk.bat to close Chrome
-echo Stop containers with: stop.bat
+echo   - Admin panel: "خروج از تمام‌صفحه"
+echo   - Or exit-kiosk.bat
+echo Stop everything: stop.bat
 echo ==========================================
 echo.
 

@@ -11,18 +11,24 @@ Requirements:
    https://www.docker.com/products/docker-desktop
 3. Google Chrome (for kiosk fullscreen mode)
    https://www.google.com/chrome/
+4. Python 3.11 32-bit (for POS DLL bridge)
+   https://www.python.org/downloads/windows/
 
 Install & start:
 ----------------
 1. Extract the ZIP file
 2. Start Docker Desktop and wait until it is ready
 3. Edit the .env file:
-   - Set a strong POSTGRES_PASSWORD
-   - Set POS / printer settings if needed
+   - Set a strong POSTGRES_PASSWORD and SECRET_KEY
+   - Set POS_TCP_HOST to the card reader IP (e.g. 192.168.1.100)
+   - Defaults: PAYMENT_GATEWAY_NAME=bridge, POS_USE_BRIDGE=True
    - Set BALE_BOT_TOKEN if you use Bale
 4. Double-click run.bat
-   - Loads Docker images only if they are missing (does NOT delete images every time)
+   - Loads Docker images from images\*.tar only if missing
+     (backend, frontend, nginx, postgres — offline; no Hub pull needed)
+   - bale_bot reuses the backend image (no separate bot image)
    - Starts Postgres + backend + frontend + nginx (+ bale_bot)
+   - Starts PosBridge (PNA DLL) in the background
    - Opens Chrome fullscreen (app mode) at http://localhost
 
 Exit fullscreen / work on the PC (touch kiosk):
@@ -32,9 +38,21 @@ Exit fullscreen / work on the PC (touch kiosk):
 2. Or double-click exit-kiosk.bat to close Chrome entirely
    (containers keep running; run.bat again for customer mode)
 
-Stop containers:
----------------
-Run stop.bat
+Stop everything:
+----------------
+Run stop.bat  (stops Docker AND PosBridge)
+
+Update app images (new delivery):
+---------------------------------
+1. Replace the images\ folder with the new .tar files
+   (keep your existing .env)
+2. Double-click update-images.bat
+   - Removes old kiosk images and loads the new .tar files
+   - Keeps postgres_data and backend_media volumes
+3. If Docker has I/O errors: fix-docker-safe.bat then run.bat
+
+Do NOT use build-images.bat or rebuild-and-run.bat on the delivery
+package — those scripts only exist in the source repository.
 
 Auto-start on Windows boot:
 ---------------------------
@@ -71,11 +89,24 @@ OPERATIONS.md  — architecture, scripts, backup, migrate, troubleshooting
 
 POS / Printer:
 --------------
-Edit .env:
-  POS_TCP_HOST, POS_TCP_PORT
-  PRINTER_IP, PRINTER_PORT, PRINTER_ENABLED=True
-  PAYMENT_GATEWAY_NAME=pos
-See NETWORK_ACCESS.md for LAN details.
+Option A — raw TCP (phase 1):
+  In .env set:
+    PAYMENT_GATEWAY_NAME=pos
+    POS_TCP_HOST, POS_TCP_PORT
+    PRINTER_IP, PRINTER_PORT, PRINTER_ENABLED=True
+  See NETWORK_ACCESS.md
+
+Option B — official PNA DLL bridge (default in delivery .env):
+  run.bat starts pos_bridge automatically.
+  Requirements: Python 3.11 32-bit installed once on the PC.
+  In root .env:
+       PAYMENT_GATEWAY_NAME=bridge
+       POS_USE_BRIDGE=True
+       POS_TCP_HOST=<POS IP>
+       POS_BRIDGE_HOST=host.docker.internal
+       POS_BRIDGE_PORT=9000
+  Health: http://127.0.0.1:9000/health
+  Full guide: POS_BRIDGE.md
 
 Common issues:
 --------------

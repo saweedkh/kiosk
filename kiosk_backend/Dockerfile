@@ -17,7 +17,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY requirements/ /app/requirements/
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements/production.txt
+RUN pip install -r requirements/production.txt
 
 # Copy project
 COPY . /app/

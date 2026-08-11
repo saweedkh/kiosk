@@ -35,14 +35,25 @@ if errorlevel 1 (
 )
 
 echo.
+echo Pulling Postgres image for offline delivery...
+docker pull postgres:18-alpine
+if errorlevel 1 (
+    echo Error pulling postgres:18-alpine
+    exit /b 1
+)
+
+echo.
 echo Exporting images to .tar files...
+echo NOTE: bale_bot uses the same kiosk-backend image — no separate bot tar.
 docker save kiosk-backend:latest -o images\backend.tar
 docker save kiosk-frontend:latest -o images\frontend.tar
 docker save kiosk-nginx:latest -o images\nginx.tar
+docker save postgres:18-alpine -o images\postgres.tar
 
 echo.
 echo ==========================================
 echo Build completed successfully!
 echo Images saved in .\images\ directory
+echo   backend.tar / frontend.tar / nginx.tar / postgres.tar
 echo ==========================================
 endlocal

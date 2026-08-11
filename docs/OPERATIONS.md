@@ -68,11 +68,13 @@ kiosk-app/
   docker-compose.yml          ← از production کپی شده
   run.bat / stop.bat
   setup-startup.bat
+  update-images.bat           ← آپدیت ایمیج از .tar جدید
   .env / .env.example
   images/
     backend.tar
     frontend.tar
     nginx.tar
+    postgres.tar
   backup-database.bat
   restore-database.bat
   access-database.bat
@@ -86,7 +88,9 @@ kiosk-app/
   ...
 ```
 
-Image اپلیکیشن از فایل `.tar` لود می‌شود. Image دیتابیس (`postgres:18-alpine`) را `run.bat` در صورت نبود، از Docker Hub pull می‌کند (اینترنت لازم است یک‌بار).
+Imageهای اپ و Postgres از فایل `.tar` لود می‌شوند (`images\postgres.tar`). سرویس `bale_bot` ایمیج جدا ندارد و از همان `kiosk-backend` استفاده می‌کند. اگر `postgres.tar` نباشد، `run.bat` به‌عنوان fallback از Docker Hub pull می‌کند.
+
+**داخل ZIP نیست:** `build-images.bat` / `rebuild-and-run.bat` (فقط ریپوی سورس).
 
 ---
 
@@ -133,6 +137,14 @@ docker compose up -d --force-recreate backend bale_bot
 
 `DEBUG` و `ALLOWED_HOSTS` در compose برای production override می‌شوند (`DEBUG=False`, `ALLOWED_HOSTS=*`). برای تغییر آن‌ها باید `docker-compose.yml` را ویرایش کنید.
 
+### به‌روزرسانی ایمیج اپلیکیشن
+
+1. فایل‌های `images\*.tar` جدید را جایگزین کنید (`.env` را نگه دارید).
+2. `update-images.bat` را اجرا کنید.
+3. فقط در خطای I/O داکر: `fix-docker-safe.bat` سپس `run.bat`.
+
+`run.bat` اگر ایمیج‌ها از قبل روی ماشین باشند دوباره از `.tar` لود نمی‌کند.
+
 ---
 
 ## ۴. متغیرهای دیتابیس در `.env`
@@ -161,8 +173,8 @@ POSTGRES_CONN_MAX_AGE=60
 | وضعیت | کار run.bat |
 |--------|-------------|
 | Imageهای `kiosk-*` موجودند | فقط `docker compose up -d` |
-| Image نیستند | از `images\*.tar` یک‌بار load می‌کند |
-| `postgres:18-alpine` نیست | `docker pull` |
+| Image اپ نیستند | از `images\*.tar` یک‌بار load می‌کند |
+| `postgres:18-alpine` نیست | اول `images\postgres.tar`؛ اگر نبود `docker pull` |
 | `.env` نیست | از `.env.example` کپی می‌کند |
 
 همیشه از پوشه خودش اجرا می‌شود (`cd` به مسیر اسکریپت) تا Task Scheduler مسیر را خراب نکند.
@@ -268,6 +280,7 @@ SELECT COUNT(*) FROM products_product;
 | `exit-kiosk.bat` | بستن Chrome کیوسک بدون stop سرویس‌ها (کار روی دسکتاپ) |
 | `stop.bat` | توقف استک |
 | `setup-startup.bat` | استارت با boot ویندوز |
+| `update-images.bat` | لود دوباره ایمیج از `images\*.tar` (آپدیت روی مشتری) |
 | `backup-database.bat` | بکاپ DB + media |
 | `restore-database.bat` | ریستور بکاپ |
 | `access-database.bat` | شل `psql` |

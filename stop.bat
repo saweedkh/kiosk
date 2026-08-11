@@ -1,13 +1,18 @@
 @echo off
-REM Kiosk Application Stop Script for Windows
+REM Stop Docker stack + PosBridge
 
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0"
 
 echo ==========================================
 echo Stopping Kiosk Application
 echo ==========================================
 echo.
+
+if exist "pos_bridge\stop_bridge.bat" (
+    call "pos_bridge\stop_bridge.bat"
+    echo.
+)
 
 set "COMPOSE=docker compose"
 docker compose version >nul 2>&1
@@ -22,6 +27,6 @@ if exist "docker-compose.yml" (
 )
 
 echo.
-echo Application stopped.
+echo Application stopped ^(Docker + PosBridge^).
 pause
 endlocal

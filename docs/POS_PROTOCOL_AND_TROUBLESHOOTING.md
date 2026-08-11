@@ -8,7 +8,17 @@
 
 این راهنما بر اساس پیاده‌سازی فعلی پروژه در `kiosk_backend/apps/payment/gateway/pos/` نوشته شده است.
 
+اسناد و ابزار همراه:
+
+- پیشنهاد معماری: [`POS_RECOMMENDED_SOLUTION.md`](POS_RECOMMENDED_SOLUTION.md)
+- چک‌لیست سر دستگاه: [`docs/POS_ONSITE_CHECKLIST.md`](POS_ONSITE_CHECKLIST.md)
+- کلیدهای `.env` آماده: [`.env.pos.example`](../.env.pos.example)
+- preflight: `scripts/pos-preflight.sh` / `scripts/pos-preflight.bat`
+- جمع‌آوری لاگ: `scripts/pos-collect-logs.sh` / `scripts/pos-collect-logs.bat`
+
 ---
+
+
 
 ## 1. جمع‌بندی خیلی کوتاه
 
@@ -35,7 +45,11 @@
 
 ---
 
+
+
 ## 2. معماری مسیر پرداخت
+
+
 
 ### 2.1 فلو از UI تا پوز
 
@@ -51,6 +65,8 @@
 10. بعد **parse response**
 11. نتیجه روی سفارش ثبت می‌شود
 
+
+
 ### 2.2 فایل‌های کلیدی
 
 - `kiosk_backend/apps/orders/services/order_service.py`
@@ -64,7 +80,11 @@
 
 ---
 
+
+
 ## 3. آیا DLL استفاده می‌شود؟
+
+
 
 ### پاسخ کوتاه
 
@@ -83,6 +103,8 @@
 - در پایتون بازسازی می‌شود
 - و با **TCP socket** ارسال می‌شود
 
+
+
 ### نتیجهٔ مهم
 
 پس اگر نرم‌افزار شرکت با همان دستگاه کار می‌کند اما این پروژه نه، معنایش این نیست که شبکه خراب است؛ خیلی وقت‌ها یعنی:
@@ -91,7 +113,11 @@
 
 ---
 
+
+
 ## 4. فرآیند کامل پرداخت در backend
+
+
 
 ### 4.1 ساخت gateway
 
@@ -99,6 +125,8 @@
 
 - اگر `gateway_name=mock` → `MockPaymentGateway`
 - اگر `gateway_name=pos` → `POSPaymentGateway`
+
+
 
 ### 4.2 شروع پرداخت
 
@@ -109,6 +137,8 @@
 3. `send_command()` packet را می‌فرستد
 4. تا 120 ثانیه منتظر interaction کاربر و پاسخ دستگاه می‌ماند
 5. پاسخ parse می‌شود
+
+
 
 ### 4.3 نکتهٔ مهم
 
@@ -127,6 +157,8 @@
 
 ---
 
+
+
 ## 5. packet دقیقاً چیست؟
 
 packet از نوع:
@@ -136,6 +168,8 @@ packet از نوع:
 - بدون HTTP
 - بدون JSON
 - بدون TLS
+
+
 
 ### 5.1 بدنهٔ پیام
 
@@ -165,6 +199,8 @@ PR006000000AM00510000CU003364PD0011
 - `CU003364` → شناسه مشتری / fallback
 - `PD0011` → payment data پیش‌فرض
 
+
+
 #### حالت کامل
 
 وقتی `POS_USE_SIMPLE_FORMAT=False`
@@ -178,8 +214,10 @@ PR00AM{len}{amount}TE{terminal}ME{merchant}SO{order}CU{customer}PD{payment_id}BI
 مثال معمول:
 
 ```text
-PR00AM00510000SOPREFLIGHT-TEST      
+PR00AM00510000SOPREFLIGHT-TEST       
 ```
+
+
 
 ### 5.2 فریم دور payload
 
@@ -200,6 +238,8 @@ PR00AM00510000...
 - `CRLF`
 - `NULL`
 
+
+
 #### `pardakht_novin_official`
 
 فرمت پیشنهادی برای PNA:
@@ -214,6 +254,8 @@ PR00AM00510000...
 0067RQ062PR006000000AM00510000CU003364TL00898194184R0009260227494PD0011
 ```
 
+
+
 #### فرمت‌های دیگر
 
 - `with_rq_and_banner`
@@ -226,7 +268,11 @@ PR00AM00510000...
 
 ---
 
+
+
 ## 6. packet چطور ارسال می‌شود؟
+
+
 
 ### 6.1 نوع اتصال
 
@@ -241,22 +287,26 @@ PR00AM00510000...
 - نه UDP
 - نه serial واقعی
 
+
+
 ### 6.2 مراحل ارسال
 
 در `POSCommunication.send_command()`:
 
 1. اگر اتصال زنده نیست، `connect()`
 2. packet در لاگ ثبت می‌شود:
-   - `pos_sending_command`
-   - `hex_preview`
+  - `pos_sending_command`
+  - `hex_preview`
 3. `conn.sendall(command)` اجرا می‌شود
 4. بعد از ارسال:
-   - `pos_data_sent`
-   - `pos_connection_verified`
+  - `pos_data_sent`
+  - `pos_connection_verified`
 5. `0.5s` صبر
 6. اگر منتظر پاسخ باشیم:
-   - ابتدا ACK احتمالی
-   - سپس با `select()` تا `120s` منتظر پاسخ نهایی
+  - ابتدا ACK احتمالی
+  - سپس با `select()` تا `120s` منتظر پاسخ نهایی
+
+
 
 ### 6.3 نکتهٔ حیاتی
 
@@ -272,6 +322,8 @@ PR00AM00510000...
 
 ---
 
+
+
 ## 7. پاسخ پوز چطور parse می‌شود؟
 
 در `POSResponseParser` پاسخ بر اساس `RS` codeها parse می‌شود.
@@ -282,6 +334,8 @@ PR00AM00510000...
 - `RS00281` یا `RS00299` → لغو کاربر
 - `RS133` → رمز اشتباه
 
+
+
 ### رفتار parser
 
 - اگر پاسخ خیلی کوتاه باشد → ممکن است فقط ACK تلقی شود
@@ -289,6 +343,8 @@ PR00AM00510000...
 - اگر هیچ پاسخ meaningful نرسد → upstream معمولاً timeout/no-response می‌دهد
 
 ---
+
+
 
 ## 8. سناریوی مهم این سند
 
@@ -306,7 +362,11 @@ PR00AM00510000...
 
 ---
 
+
+
 ## 9. دلایل اصلی اینکه مبلغ به پوز نمی‌رسد
+
+
 
 ### 9.1 فرمت packet اشتباه است
 
@@ -322,12 +382,16 @@ PR00AM00510000...
   - timeout
   - یا خطاهای ارتباطی ثانویه
 
+
+
 #### چرا؟
 
 چون دستگاه:
 
 - TCP session را قبول کرده
 - اما payload را transaction معتبر ندانسته
+
+
 
 #### علت‌های رایج در همین بخش
 
@@ -337,11 +401,15 @@ PR00AM00510000...
 4. presence/absence بعضی فیلدها برای آن مدل دستگاه مهم است
 5. padding/length دقیق با انتظار دستگاه نمی‌خواند
 
+
+
 #### نتیجه
 
 دستگاه packet را silently ignore می‌کند.
 
 ---
+
+
 
 ### 9.2 نرم‌افزار شرکت هنوز باز است
 
@@ -359,6 +427,8 @@ PR00AM00510000...
 - vendor software همزمان کار می‌کند
 - app یا هیچ response نمی‌گیرد یا device عملاً busy است
 
+
+
 #### اقدام
 
 قبل از هر تست:
@@ -367,6 +437,8 @@ PR00AM00510000...
 - اگر service/background process دارد، آن را هم stop کن
 
 ---
+
+
 
 ### 9.3 TCP connect موفق است ولی مسیر transaction پایدار نیست
 
@@ -393,6 +465,8 @@ PR00AM00510000...
   - `pos_receive_error`
   - `pos_communication_network_error`
 
+
+
 #### نکته
 
 این مورد مخصوصاً وقتی مهم می‌شود که:
@@ -401,6 +475,8 @@ PR00AM00510000...
 - ولی vendor software روی host OS مستقیم به LAN می‌رود
 
 ---
+
+
 
 ### 9.4 ACK یا response از دستگاه می‌آید ولی parser/flow ما آن را درست مصرف نمی‌کند
 
@@ -419,11 +495,15 @@ PR00AM00510000...
 - بخش دوم را دیر/ناقص بخواند
 - یا اصلاً پاسخ نهایی به شکل مورد انتظار ما نباشد
 
+
+
 #### علامت‌ها
 
 - `pos_initial_response_received`
 - `pos_ack_received_waiting_for_final`
 - ولی بعد final response مناسب نداریم
+
+
 
 #### نتیجه
 
@@ -439,6 +519,8 @@ PR00AM00510000...
 
 ---
 
+
+
 ### 9.5 payload معتبر نیست چون بعضی فیلدها برای آن دستگاه مهم‌اند
 
 هرچند IP/Port درست است، بعضی دستگاه‌ها روی این چیزها حساس‌اند:
@@ -450,11 +532,15 @@ PR00AM00510000...
 - order-related tags
 - customer/payment tags
 
+
+
 #### علامت‌ها
 
 - packet ارسال می‌شود
 - دستگاه واکنشی نشان نمی‌دهد
 - یا response خطای مبهم می‌دهد
+
+
 
 #### نکته
 
@@ -471,6 +557,8 @@ PR00AM00510000...
 را هم بفرستد که implementation فعلی ما در همهٔ حالات نمی‌فرستد.
 
 ---
+
+
 
 ### 9.6 connect test با send transaction فرق دارد
 
@@ -491,7 +579,160 @@ PR00AM00510000...
 
 ---
 
-## 10. ماتریس تشخیص بر اساس رفتار
+
+
+## 10. درخت تصمیم (وقتی mock نیست و IP/Port درست است)
+
+```text
+پرداخت زدی / send_pos_payment زدی
+          │
+          ▼
+   مبلغ روی پوز آمد؟
+     │           │
+    بله         خیر
+     │           │
+     ▼           ▼
+   موفق     چند ثانیه طول کشید؟
+               │
+      ┌────────┴────────┐
+    ~2–4 ثانیه      1–2 دقیقه
+      │                  │
+      ▼                  ▼
+ هنوز mock           لاگ را ببین
+ یا UI timeout         │
+                       ▼
+              pos_data_sent هست؟
+                 │           │
+                خیر         بله
+                 │           │
+                 ▼           ▼
+          send نرسیده     پوز packet را نفهمید
+          (busy lock /    یا session اشغال است
+           connect بعد از   │
+           test شکست)       ▼
+                      نرم‌افزار شرکت باز بود؟
+                         │           │
+                        بله         خیر
+                         │           │
+                         ▼           ▼
+                    ببند و     ASCII packet را ببین
+                    دوباره    │
+                              ▼
+                     با RQ شروع می‌شود؟
+                       │           │
+                      خیر         بله
+                       │           │
+                       ▼           ▼
+                 dll_exact      فیلدهای TL/R/CU
+                 → official     را با نرم‌افزار شرکت
+                 + simple=True  مقایسه کن
+```
+
+
+
+### حکم سریع
+
+
+| اگر دیدی                                                 | حکم                                                                   |
+| -------------------------------------------------------- | --------------------------------------------------------------------- |
+| ~۳ ثانیه و سفارش موفق بدون پوز                           | هنوز mock است (این سند فرض می‌کند نیست؛ دوباره `show_pos_config` بزن) |
+| `pos_data_sent` + پوز خاموش + `pos_no_response_received` | **فرمت packet**                                                       |
+| `pos_data_sent` + vendor app باز                         | **تداخل session**                                                     |
+| `pos_connection_lost` بعد از send                        | مسیر TCP ناپایدار (Docker/NAT)                                        |
+| ACK کوتاه بدون مبلغ روی صفحه                             | parser/flow یا firmware متفاوت                                        |
+| TCP OK ولی ASCII بدون `RQ`                               | همین فریم را عوض کن؛ تست UI نکن                                       |
+
+
+---
+
+
+
+## 11. نمونه لاگ خوب در مقابل بد
+
+
+
+### ۱۱.۱ مسیر سالم (مبلغ روی پوز آمد)
+
+ترتیب eventها تقریباً این است:
+
+```text
+pos_testing_connection
+pos_connection_established          # تست TCP
+pos_connection_test_success
+pos_amount_format_simple            # یا pos_amount_format_full
+pos_message_format_pardakht_novin_official
+pos_message_final                   # ASCII شبیه 00xxRQ0xxPR00...
+pos_payment_initiated
+pos_connection_established          # اتصال دوم برای transaction
+pos_sending_command
+pos_data_sent
+pos_connection_verified             # peer = IP:1362 پوز
+pos_initial_response_received       # اغلب ACK کوتاه
+pos_ack_received_waiting_for_final
+pos_complete_response_received      # بعد از کارت/رمز
+gateway_response_received           # success=true
+```
+
+`command_preview` سالم معمولاً شبیه:
+
+```text
+0044RQ039PR00xxxxxxxAM00510000CU00xxxxxxPD0011
+```
+
+
+
+### ۱۱.۲ مسیر خراب همین کیوسک (مبلغ نیامد، ۱–۲ دقیقه صبر)
+
+```text
+pos_testing_connection
+pos_connection_established
+pos_connection_test_success
+pos_amount_format_full              # simple=False
+pos_message_final                   # format_type=dll_exact
+pos_sending_command                 # PR00AM005... بدون RQ
+pos_data_sent                       # فریبنده: «ارسال شد»
+pos_connection_verified
+pos_no_immediate_response
+pos_waiting_for_response            # تکرار تا ~120s
+pos_no_response_received            # یا TimeoutError عجیب
+```
+
+`command_preview` خراب معمولاً شبیه:
+
+```text
+PR00AM00510000SOK-000123          
+```
+
+یعنی TCP OK است؛ دستگاه transaction را شروع نکرده.
+
+### ۱۱.۳ تداخل با نرم‌افزار شرکت
+
+```text
+pos_connection_established
+pos_sending_command
+pos_data_sent
+pos_connection_verification_failed  # گاهی
+pos_receive_error / pos_connection_lost
+```
+
+یا connect دوم بعد از test شکست می‌خورد چون پورت تک‌کلاینت است.
+
+### ۱۱.۴ Docker به LAN نمی‌رسد (خارج از فرض این بخش، برای تشخیص)
+
+```text
+pos_connection_failed   error=timed out
+# یا connect_ex code 11 / 111
+```
+
+اینجا اصلاً به `pos_data_sent` نمی‌رسی.
+
+---
+
+
+
+## 12. ماتریس تشخیص بر اساس رفتار
+
+
 
 ### حالت A
 
@@ -505,6 +746,8 @@ PR00AM00510000...
 
 ---
 
+
+
 ### حالت B
 
 - `pos_connection_established`
@@ -514,6 +757,8 @@ PR00AM00510000...
 **محتمل‌ترین علت:** مشکل پایداری مسیر TCP یا تفاوت host/container path
 
 ---
+
+
 
 ### حالت C
 
@@ -525,6 +770,8 @@ PR00AM00510000...
 
 ---
 
+
+
 ### حالت D
 
 - app می‌گوید packet فرستادم
@@ -535,6 +782,8 @@ PR00AM00510000...
 
 ---
 
+
+
 ### حالت E
 
 - ACK یا response کوتاه می‌آید
@@ -544,12 +793,16 @@ PR00AM00510000...
 
 ---
 
-## 11. ترتیب دقیق عیب‌یابی روی دستگاه
+
+
+## 13. ترتیب دقیق عیب‌یابی روی دستگاه
 
 این بخش دقیقاً برای زمانی است که:
 
 - `mock` نیست
 - IP/Port درست است
+
+
 
 ### مرحله 1: config واقعی را همان‌جا ببین
 
@@ -577,6 +830,8 @@ docker exec kiosk_backend python manage.py show_pos_config
 
 ---
 
+
+
 ### مرحله 2: packet نهایی را قبل از ارسال ببین
 
 ```bash
@@ -588,6 +843,8 @@ docker exec kiosk_backend python manage.py pos_preflight --host <IP> --port 1362
 - ASCII packet
 - HEX packet
 - format type
+
+
 
 #### چیزی که باید ببینی
 
@@ -607,6 +864,8 @@ PR00AM00510000...
 
 ---
 
+
+
 ### مرحله 3: vendor software را ببند
 
 قبل از هر تست app:
@@ -618,11 +877,15 @@ PR00AM00510000...
 
 ---
 
+
+
 ### مرحله 4: ارسال مبلغ تستی
 
 ```bash
 docker exec -it kiosk_backend python manage.py send_pos_payment 10000 --host <IP> --port 1362
 ```
+
+
 
 #### تفسیر
 
@@ -634,6 +897,8 @@ docker exec -it kiosk_backend python manage.py send_pos_payment 10000 --host <IP
 احتمال اصلی همچنان format mismatch است.
 
 ---
+
+
 
 ### مرحله 5: لاگ‌های دقیق را جمع کن
 
@@ -654,6 +919,8 @@ docker exec kiosk_backend sh -c "grep -E 'pos_|gateway_response|payment_' /app/l
 - `pos_communication_network_error`
 
 ---
+
+
 
 ### مرحله 6: packet app را با packet نرم‌افزار شرکت مقایسه کن
 
@@ -691,7 +958,9 @@ PR00AM00510000SOTEST...
 
 ---
 
-## 12. نتیجه‌گیری فنی برای سناریوی «IP و Port درست است»
+
+
+## 14. نتیجه‌گیری فنی برای سناریوی «IP و Port درست است»
 
 اگر:
 
@@ -719,7 +988,11 @@ PR00AM00510000SOTEST...
 
 ---
 
-## 13. اقدام‌های پیشنهادی برای دفعهٔ بعد
+
+
+## 15. اقدام‌های پیشنهادی برای دفعهٔ بعد
+
+
 
 ### اولویت 1
 
@@ -729,6 +1002,8 @@ PR00AM00510000SOTEST...
 POS_MESSAGE_FORMAT=pardakht_novin_official
 POS_USE_SIMPLE_FORMAT=True
 ```
+
+
 
 ### اولویت 2
 
@@ -747,7 +1022,11 @@ POS_USE_SIMPLE_FORMAT=True
 
 ---
 
-## 14. دستورات مرجع
+
+
+## 16. دستورات مرجع
+
+
 
 ### نمایش config
 
@@ -755,11 +1034,15 @@ POS_USE_SIMPLE_FORMAT=True
 docker exec kiosk_backend python manage.py show_pos_config
 ```
 
+
+
 ### preflight
 
 ```bash
 docker exec kiosk_backend python manage.py pos_preflight --host <IP> --port 1362 --amount 10000
 ```
+
+
 
 ### ارسال واقعی
 
@@ -767,15 +1050,21 @@ docker exec kiosk_backend python manage.py pos_preflight --host <IP> --port 1362
 docker exec -it kiosk_backend python manage.py send_pos_payment 10000 --host <IP> --port 1362
 ```
 
+
+
 ### گرفتن لاگ
 
 ```bash
+./scripts/pos-collect-logs.sh
+# یا
 docker exec kiosk_backend sh -c "grep -E 'pos_|gateway_response|payment_' /app/logs/kiosk.log | tail -100"
 ```
 
 ---
 
-## 15. خلاصهٔ نهایی
+
+
+## 17. خلاصهٔ نهایی
 
 در این پروژه، «مبلغ به پوز نمی‌رسد» با وجود درست بودن IP و Port معمولاً به این معنی نیست که network خراب است. بیشتر وقت‌ها یعنی:
 

@@ -13,6 +13,9 @@
 | `docs/BALE_BOT.md` | ربات بله |
 | `TROUBLESHOOTING.md` | رفع اشکال Docker |
 | `NETWORK_ACCESS.md` | POS / پرینتر در شبکه |
+| `docs/POS_ONSITE_CHECKLIST.md` | چک‌لیست راه‌اندازی پوز روی کیوسک |
+| `docs/POS_PROTOCOL_AND_TROUBLESHOOTING.md` | پروتکل و عیب‌یابی مبلغ پوز |
+| `docs/POS_RECOMMENDED_SOLUTION.md` | پیشنهاد معماری پوز |
 
 ---
 

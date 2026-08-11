@@ -176,3 +176,13 @@ Build کردن imageها از کد جدید:
 - برای اطمینان از استفاده از کد جدید، همیشه `build-images.bat` را با `--no-cache` اجرا کنید
 - اگر از ZIP package استفاده می‌کنید، مطمئن شوید که imageهای `.tar` به‌روز هستند
 
+---
+
+## پوز: پینگ OK است ولی مبلغ روی دستگاه نمی‌آید
+
+این موضوع Docker I/O نیست. راهنما:
+
+- چک‌لیست سر دستگاه: `docs/POS_ONSITE_CHECKLIST.md`
+- پروتکل و درخت تصمیم: `docs/POS_PROTOCOL_AND_TROUBLESHOOTING.md`
+- تست: `scripts/pos-preflight.sh` / `scripts/pos-preflight.bat`
+

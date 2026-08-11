@@ -3,6 +3,10 @@
 برای دفعهٔ بعد که به دستگاه دسترسی داری — مرحله‌به‌مرحله.  
 **زمان تقریبی:** ۳۰–۴۵ دقیقه (اولین بار).
 
+مرجع پروتکل و عیب‌یابی عمیق: [`POS_PROTOCOL_AND_TROUBLESHOOTING.md`](POS_PROTOCOL_AND_TROUBLESHOOTING.md)  
+پیشنهاد معماری (فاز ۱ پکت / فاز ۲ بریج DLL): [`POS_RECOMMENDED_SOLUTION.md`](POS_RECOMMENDED_SOLUTION.md)  
+کلیدهای آمادهٔ `.env`: [`.env.pos.example`](../.env.pos.example)
+
 ---
 
 ## قبل از رفتن (از خانه / دفتر)
@@ -24,6 +28,8 @@ docker compose ps
 ```
 
 ### ۱.۲ فایل `.env` در ریشهٔ پروژه
+
+مقادیر آماده در `.env.pos.example` است؛ IP را عوض کن و در `.env` ریشه کپی کن.
 
 حداقل این مقادیر برای پوز واقعی:
 
@@ -184,6 +190,9 @@ docker exec -it kiosk_backend python manage.py send_pos_payment 10000 --host <IP
 
 # 4) بعد از fix .env
 docker compose up -d --force-recreate backend
+
+# 5) جمع لاگ برای آوردن به دفتر
+./scripts/pos-collect-logs.sh
 ```
 
 ---

@@ -168,6 +168,22 @@ class Command(BaseCommand):
             except GatewayException as e:
                 out(f'❌ send failed: {e}', 'ERROR')
 
+        section('حکم (Verdict)')
+        if gateway_name == 'mock' and not host_override:
+            out('FAIL_MOCK — هنوز mock است؛ هیچ مبلغی به پوز نمی‌رود.', 'ERROR')
+        elif not host:
+            out('FAIL_NO_HOST — IP پوز خالی است.', 'ERROR')
+        elif not ok:
+            out('FAIL_TCP — از داخل همین فرایند به پورت پوز وصل نشد.', 'ERROR')
+        elif fmt != 'pardakht_novin_official' or not simple:
+            out(
+                'WARN_FORMAT — TCP OK است ولی فریم PNA پیشنهادی نیست. '
+                'اگر مبلغ روی پوز نیاید اول همین را درست کن.',
+                'WARNING',
+            )
+        else:
+            out('READY — TCP OK و فریم پیشنهادی PNA. مرحله بعد: send_pos_payment 10000', 'SUCCESS')
+
         section('چک‌لیست دستی روی کیوسک')
         out('□ نرم‌افزار شرکت پوز بسته است')
         out('□ PAYMENT_GATEWAY_NAME=pos (نه mock)')

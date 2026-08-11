@@ -46,6 +46,9 @@ docker-compose up -d
 - `DELIVERY_GUIDE.md` - راهنمای تحویل به مشتری
 - `QUICK_START.md` - راهنمای سریع
 - `NETWORK_ACCESS.md` - راهنمای دسترسی به POS و Printer
+- `docs/POS_ONSITE_CHECKLIST.md` - چک‌لیست راه‌اندازی پوز روی کیوسک
+- `docs/POS_PROTOCOL_AND_TROUBLESHOOTING.md` - پروتکل TCP پوز و عیب‌یابی «مبلغ نمی‌آید»
+- `docs/POS_RECOMMENDED_SOLUTION.md` - پیشنهاد معماری پوز (پکت در مقابل بریج DLL)
 - `DOCKER_COMPOSE_EXPLANATION.md` - توضیح فایل‌های Docker Compose
 - `GIT_SETUP.md` - راهنمای راه‌اندازی Git
 

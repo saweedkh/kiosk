@@ -15,14 +15,13 @@ from __future__ import annotations
 import logging
 import sys
 from functools import wraps
+from pathlib import Path
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import config
 from dll_client import PosDllClient
-
-from pathlib import Path
 
 _LOG_DIR = Path(__file__).resolve().parent / 'logs'
 _LOG_DIR.mkdir(parents=True, exist_ok=True)

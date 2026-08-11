@@ -73,3 +73,7 @@ kiosk_backend/.git
 kiosk_frontend/.git
 
 exports/
+
+# Python bytecode
+**/__pycache__/
+*.py[cod]

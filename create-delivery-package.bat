@@ -168,6 +168,7 @@ for %%F in (
     pos_bridge\run.bat
     pos_bridge\start_background.bat
     pos_bridge\stop_bridge.bat
+    pos_bridge\resolve_python.bat
     pos_bridge\dll_client.py
     pos_bridge\requirements.txt
     pos_bridge\.env.example

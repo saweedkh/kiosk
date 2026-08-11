@@ -51,6 +51,7 @@ class Command(BaseCommand):
         
         if options.get('host'):
             config['tcp_host'] = options['host']
+            config['gateway_name'] = 'pos'
         
         if options.get('port'):
             if config.get('connection_type') == 'serial':
@@ -60,6 +61,7 @@ class Command(BaseCommand):
                     config['tcp_port'] = int(options['port'])
                 except ValueError:
                     raise CommandError(f'پورت باید یک عدد باشد: {options["port"]}')
+            config['gateway_name'] = 'pos'
         
         if options.get('baudrate'):
             config['serial_baudrate'] = options['baudrate']
@@ -80,7 +82,7 @@ class Command(BaseCommand):
         
         # Get gateway instance
         try:
-            gateway = PaymentGatewayAdapter.get_gateway()
+            gateway = PaymentGatewayAdapter.get_gateway(config)
             self.stdout.write(f'Gateway انتخاب شده: {gateway.__class__.__name__}\n')
         except GatewayException as e:
             raise CommandError(f'خطا در ایجاد Gateway: {str(e)}')

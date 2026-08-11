@@ -11,6 +11,8 @@ images/
 .env
 .env.local
 .env*.local
+pos_bridge/.env
+pos_bridge/logs/
 
 # OS files
 .DS_Store

@@ -49,6 +49,8 @@ docker-compose up -d
 - `docs/POS_ONSITE_CHECKLIST.md` - چک‌لیست راه‌اندازی پوز روی کیوسک
 - `docs/POS_PROTOCOL_AND_TROUBLESHOOTING.md` - پروتکل TCP پوز و عیب‌یابی «مبلغ نمی‌آید»
 - `docs/POS_RECOMMENDED_SOLUTION.md` - پیشنهاد معماری پوز (پکت در مقابل بریج DLL)
+- `docs/POS_BRIDGE.md` - نصب PosBridge ویندوز + `pna.pcpos.dll`
+- `pos_bridge/` - سرویس HTTP ویندوز برای DLL رسمی PNA
 - `DOCKER_COMPOSE_EXPLANATION.md` - توضیح فایل‌های Docker Compose
 - `GIT_SETUP.md` - راهنمای راه‌اندازی Git
 

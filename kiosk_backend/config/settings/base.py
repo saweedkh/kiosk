@@ -212,8 +212,24 @@ LOGGING = {
 }
 
 # Payment Gateway Configuration
+# gateway_name: mock | pos | bridge
+# bridge = Windows PosBridge + official pna.pcpos.dll (see pos_bridge/ and docs/POS_BRIDGE.md)
+_PAYMENT_GATEWAY_NAME = os.getenv('PAYMENT_GATEWAY_NAME', 'mock').strip().lower()
+if os.getenv('POS_USE_BRIDGE', 'False').lower() in ('1', 'true', 'yes') and _PAYMENT_GATEWAY_NAME in (
+    'mock',
+    'pos',
+    '',
+):
+    # Explicit bridge switch wins when left on default pos/mock by mistake
+    _PAYMENT_GATEWAY_NAME = 'bridge'
+
+POS_BRIDGE_HOST = os.getenv('POS_BRIDGE_HOST', 'host.docker.internal').strip() or 'host.docker.internal'
+POS_BRIDGE_PORT = int(os.getenv('POS_BRIDGE_PORT', '9000') or 9000)
+POS_BRIDGE_TOKEN = os.getenv('POS_BRIDGE_TOKEN', '').strip()
+POS_BRIDGE_TIMEOUT = float(os.getenv('POS_BRIDGE_TIMEOUT', '130') or 130)
+
 PAYMENT_GATEWAY_CONFIG = {
-    'gateway_name': os.getenv('PAYMENT_GATEWAY_NAME', 'mock'),
+    'gateway_name': _PAYMENT_GATEWAY_NAME,
     'merchant_id': os.getenv('PAYMENT_GATEWAY_MERCHANT_ID', ''),
     'terminal_id': os.getenv('PAYMENT_GATEWAY_TERMINAL_ID', ''),
     'tcp_host': os.getenv('POS_TCP_HOST', '192.168.1.100'),
@@ -222,15 +238,14 @@ PAYMENT_GATEWAY_CONFIG = {
     'mock_payment_delay': float(os.getenv('MOCK_PAYMENT_DELAY', '3')),
     'mock_payment_success': os.getenv('MOCK_PAYMENT_SUCCESS', 'True') == 'True',
     # Message format for direct POS connection (without bridge)
-    # Options: 'dll_exact' (matches DLL format - no prefix/terminator), 'with_length', 'with_stx_etx', 'with_terminator', 'with_null'
-    # Default: 'dll_exact' - matches what DLL sends (no length prefix, no terminator)
     'pos_message_format': os.getenv('POS_MESSAGE_FORMAT', 'dll_exact'),
-    # Use simple format (based on real PNA software example)
-    # True: Use PR00{counter}AM004{amount}CU{customer}PD{payment} format
-    # False: Use full format with all tags (TE, ME, SO)
     'pos_use_simple_format': os.getenv('POS_USE_SIMPLE_FORMAT', 'False') == 'True',
-    # Banner for message (used with 'with_rq_and_banner' format)
     'pos_banner': os.getenv('POS_BANNER', 'R2023tejaratEParsian'),
+    # Windows PosBridge
+    'bridge_host': POS_BRIDGE_HOST,
+    'bridge_port': POS_BRIDGE_PORT,
+    'bridge_token': POS_BRIDGE_TOKEN,
+    'bridge_timeout': POS_BRIDGE_TIMEOUT,
 }
 
 # Printer Configuration

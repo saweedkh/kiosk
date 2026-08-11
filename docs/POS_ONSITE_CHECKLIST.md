@@ -5,6 +5,7 @@
 
 مرجع پروتکل و عیب‌یابی عمیق: [`POS_PROTOCOL_AND_TROUBLESHOOTING.md`](POS_PROTOCOL_AND_TROUBLESHOOTING.md)  
 پیشنهاد معماری (فاز ۱ پکت / فاز ۲ بریج DLL): [`POS_RECOMMENDED_SOLUTION.md`](POS_RECOMMENDED_SOLUTION.md)  
+نصب بریج ویندوز: [`POS_BRIDGE.md`](POS_BRIDGE.md)  
 کلیدهای آمادهٔ `.env`: [`.env.pos.example`](../.env.pos.example)
 
 ---

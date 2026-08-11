@@ -1,7 +1,5 @@
 # Install on Windows (recommend Python 3.11 32-bit — DLL is PE32):
-#   py -3.11-32 -m pip install -r requirements/bridge.txt
-# Or use the copy under pos_bridge/requirements.txt
-
+#   py -3.11-32 -m pip install -r requirements.txt
 Flask==3.0.0
 flask-cors==4.0.0
 pythonnet==3.0.3

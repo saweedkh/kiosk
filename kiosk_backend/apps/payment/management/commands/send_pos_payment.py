@@ -71,17 +71,19 @@ class Command(BaseCommand):
         
         self.stdout.write(self.style.SUCCESS(f'\n=== ارسال مبلغ {amount:,} ریال به دستگاه POS ===\n'))
         
-        # Get gateway configuration
+        # Get gateway configuration (respect bridge | pos | mock from .env)
         config = settings.PAYMENT_GATEWAY_CONFIG.copy()
-        
-        # Override with command line arguments if provided
+        name = str(config.get('gateway_name') or 'mock').lower()
+
+        # --host/--port only apply to raw TCP gateway
         if options.get('connection_type'):
             config['connection_type'] = options['connection_type']
-        
+
         if options.get('host'):
             config['tcp_host'] = options['host']
             config['gateway_name'] = 'pos'
-        
+            name = 'pos'
+
         if options.get('port'):
             if config.get('connection_type') == 'serial':
                 config['serial_port'] = options['port']
@@ -90,20 +92,27 @@ class Command(BaseCommand):
                     config['tcp_port'] = int(options['port'])
                 except ValueError:
                     raise CommandError(f'پورت باید یک عدد باشد: {options["port"]}')
-            config['gateway_name'] = 'pos'
-        
+            if name != 'bridge':
+                config['gateway_name'] = 'pos'
+                name = 'pos'
+
         # Display configuration
         self.stdout.write('تنظیمات:')
         self.stdout.write(f'  مبلغ: {amount:,} ریال')
         self.stdout.write(f'  نوع Gateway: {config.get("gateway_name", "pos")}')
-        self.stdout.write(f'  نوع اتصال: {config.get("connection_type", "tcp")}')
-        
-        if config.get('connection_type') == 'tcp':
-            self.stdout.write(f'  IP: {config.get("tcp_host", "N/A")}')
-            self.stdout.write(f'  Port: {config.get("tcp_port", "N/A")}')
+        if name == 'bridge':
+            self.stdout.write(
+                f'  Bridge: http://{config.get("bridge_host")}:{config.get("bridge_port")}'
+            )
+            self.stdout.write(f'  Timeout: {config.get("bridge_timeout", 130)}s')
         else:
-            self.stdout.write(f'  پورت سریال: {config.get("serial_port", "N/A")}')
-            self.stdout.write(f'  Baudrate: {config.get("serial_baudrate", "N/A")}')
+            self.stdout.write(f'  نوع اتصال: {config.get("connection_type", "tcp")}')
+            if config.get('connection_type') == 'tcp':
+                self.stdout.write(f'  IP: {config.get("tcp_host", "N/A")}')
+                self.stdout.write(f'  Port: {config.get("tcp_port", "N/A")}')
+            else:
+                self.stdout.write(f'  پورت سریال: {config.get("serial_port", "N/A")}')
+                self.stdout.write(f'  Baudrate: {config.get("serial_baudrate", "N/A")}')
         
         if options.get('order_number'):
             self.stdout.write(f'  شماره سفارش: {options["order_number"]}')

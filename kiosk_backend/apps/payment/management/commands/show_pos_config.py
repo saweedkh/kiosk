@@ -22,10 +22,21 @@ class Command(BaseCommand):
         self.stdout.write(f'Gateway: {gateway_name}')
         if gateway_name == 'mock':
             self.stdout.write(self.style.WARNING(
-                '⚠️  mock فعال است — هیچ پکتی به پوز نمی‌رود. PAYMENT_GATEWAY_NAME=pos بگذارید.'
+                '⚠️  mock فعال است — هیچ پکتی به پوز نمی‌رود. '
+                'PAYMENT_GATEWAY_NAME=pos یا bridge بگذارید.'
             ))
         elif gateway_name == 'pos':
-            self.stdout.write(self.style.SUCCESS('✅ درگاه واقعی پوز'))
+            self.stdout.write(self.style.SUCCESS('✅ درگاه خام TCP پوز'))
+        elif gateway_name in ('bridge', 'pos_bridge', 'dll_bridge'):
+            self.stdout.write(self.style.SUCCESS('✅ PosBridge + DLL رسمی'))
+            self.stdout.write(
+                f'  URL: http://{config.get("bridge_host")}:{config.get("bridge_port")}'
+            )
+            self.stdout.write(f'  Timeout: {config.get("bridge_timeout", 130)}s')
+            self.stdout.write('  راهنما: docs/POS_BRIDGE.md')
+            self.stdout.write('')
+            self.stdout.write(self.style.SUCCESS('=== پایان تنظیمات ===\n'))
+            return
 
         self.stdout.write('')
         # Connection type

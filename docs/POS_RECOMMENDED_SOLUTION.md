@@ -30,7 +30,7 @@
 | نرم‌افزار شرکت از همان کیوسک مبلغ را می‌آورد | شبکه و خود پوز سالم‌اند |
 | اپ ما `connect` + `sendall` داشت، ۱–۲ دقیقه صبر، پوز خاموش | TCP رسیده؛ **پکت معتبر نبوده** یا session تداخل داشته |
 | کد فعلی DLL را صدا نمی‌زند | تقلید پروتکل است، نه درایور رسمی |
-| `POS_USE_BRIDGE` فقط روی کاغذ است | بریج هنوز نوشته نشده |
+| `POS_USE_BRIDGE` / `PAYMENT_GATEWAY_NAME=bridge` | پیاده‌سازی در `pos_bridge/` + `docs/POS_BRIDGE.md` |
 
 پس دو مشکل جدا داریم:
 
@@ -96,6 +96,13 @@ POS_USE_SIMPLE_FORMAT=True
 
 هدف: لینوکس دیگر پکت پوز نسازد. DLL رسمی همان کاری را بکند که نرم‌افزار شرکت می‌کند.
 
+**پیاده‌سازی آماده است:** راهنمای کامل نصب و API → [`POS_BRIDGE.md`](POS_BRIDGE.md)  
+کد سرویس ویندوز → [`pos_bridge/`](../pos_bridge/)  
+گیت‌وی Django → `PAYMENT_GATEWAY_NAME=bridge` (`apps/payment/gateway/bridge.py`)
+
+DLL این پروژه (`pna.pcpos.dll`) کلاس `Intek.PcPosLibrary.PCPOS` است با
+`TestConnection` / `send_transaction` / رویداد `GetResponse(string)`.
+
 ### معماری
 
 ```text
@@ -107,10 +114,10 @@ POS_USE_SIMPLE_FORMAT=True
   { "amount": 10000, "order_number": "K-…" }
         │
         ▼
-[ویندوز همیشه روشن — همان کیوسک یا PC کنارش]
-  PosBridge.exe
-    → Load DLL شرکت
-    → TestConnection / SendTransaction
+   [ویندوز همیشه روشن — همان کیوسک یا PC کنارش]
+  pos_bridge (Python + pythonnet)
+    → Load pna.pcpos.dll
+    → TestConnection / send_transaction
         │
         ▼
 [پوز TCP 1362]
@@ -126,66 +133,12 @@ POS_USE_SIMPLE_FORMAT=True
 | لینوکس خالص | یک PC/مینی‌پی‌سی ویندوز روی همان LAN، یا VM ویندوز روی کیوسک |
 | چند کیوسک، یک پوز | یک بریج، یک پوز؛ همزمان فقط یک تراکنش |
 
-### قرارداد پیشنهادی بریج (ساده و کافی)
-
-سرویس محلی، فقط LAN، بدون اینترنت.
-
-`POST /pay`
-
-```json
-{
-  "amount": 10000,
-  "order_number": "K-000123"
-}
-```
-
-پاسخ:
-
-```json
-{
-  "success": true,
-  "status": "success",
-  "response_code": "00",
-  "response_message": "تراکنش موفق",
-  "reference_number": "…",
-  "card_number": "****1234",
-  "raw": "…"
-}
-```
-
-`GET /health` → DLL load شده و `TestConnection` به پوز OK است.
-
-Timeout سمت Django: **حداقل ۱۲۰ ثانیه** (کارت + رمز)، مثل امروز.
-
-### تغییر در Django (وقتی بریج آماده شد)
-
-- گیت‌وی جدید مثلاً `BridgePaymentGateway`
-- `PAYMENT_GATEWAY_NAME=bridge`
-- `POS_BRIDGE_HOST` / `POS_BRIDGE_PORT` (همین کلیدها از قبل در `.env.example` هستند)
-- `OrderService` عوض نمی‌شود؛ فقط adapter یک شاخه اضافه می‌کند
-
-مسیر TCP فعلی (`pos/`) را پاک نکن؛ fallback و محیط توسعه می‌ماند.
-
-### پیاده‌سازی بریج
-
-ترجیح: **C# / .NET** روی ویندوز — همان دنیایی که DLL معمولاً برایش ساخته شده.
-
-کار بریج:
-
-1. DLL را از مسیر تنظیم‌شده load کند
-2. یک قفل تک‌تراکنش (مثل `_transaction_in_progress` فعلی)
-3. `TestConnection` سپس ارسال مبلغ
-4. پاسخ DLL را به JSON بالا ترجمه کند
-5. به‌صورت Windows Service بالا بماند (با ری‌استارت ویندوز)
-
-API دقیق متدهای DLL را باید از همان فایل/داک شرکت خواند (معمولاً چیزی شبیه `TestConnection` و `send_transaction`). بدون آن نمی‌شود بریج را کامل نوشت.
-
 ### امنیت و عملیات
 
-- بریج فقط روی `127.0.0.1` یا LAN داخلی listen کند، نه اینترنت
+- بریج فقط روی LAN داخلی listen کند، نه اینترنت؛ `BRIDGE_TOKEN` بگذار
 - فایروال: فقط IP کیوسک به پورت ۹۰۰۰
-- نرم‌افزار شرکت را روی آن ماشین **نبند مگر موقع تست موازی** — در تولید فقط بریج به پوز وصل باشد
-- DLL و لایسنس را در گیت نگذار؛ روی ماشین ویندوز بماند
+- نرم‌افزار شرکت را در تولید ببند — فقط بریج به پوز وصل باشد
+- DLL و لایسنس روی ماشین ویندوز بماند
 
 ---
 

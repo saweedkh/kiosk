@@ -197,22 +197,23 @@ if errorlevel 1 (
 
 :after_db_sync
 
-REM ----- PosBridge (Windows + official DLL) -----
+REM ----- PosBridge (Windows + official DLL) — automatic, no manual pos_bridge\run.bat -----
 if exist "pos_bridge\start_background.bat" (
     echo.
-    echo Starting PosBridge ^(PNA DLL^)...
+    echo Starting PosBridge in background ^(from run.bat^)...
     call "pos_bridge\start_background.bat"
     if errorlevel 1 (
         echo.
         echo WARNING: PosBridge did not become healthy.
-        echo POS card payments via bridge will fail until it is fixed.
-        echo See POS_BRIDGE.md and pos_bridge\logs\
+        echo Card payments will fail until bridge listens on :9000.
+        echo Fix Python 3.11 32-bit, then re-run run.bat ^(or check Task Manager for KioskPosBridge^).
+        echo See POS_BRIDGE.md
     ) else (
         set "BRIDGE_OK=1"
     )
 ) else (
     echo.
-    echo WARNING: pos_bridge\ missing — card reader bridge not started.
+    echo WARNING: pos_bridge\start_background.bat missing — bridge not started.
 )
 
 REM Brief wait, then check status (no infinite hang)

@@ -6,8 +6,10 @@ REM Do NOT use setlocal here — variables must leak to caller.
 set "PY_EXE="
 set "PY_BITS="
 set "PF86=%ProgramFiles(x86)%"
+set "PY_BITS_OUT=%TEMP%\kiosk_pos_py_bits.txt"
+set "PY_BITS_PY=%TEMP%\kiosk_pos_py_bits.py"
 
-REM 1) Explicit 32-bit install locations (common on Windows)
+REM 1) Explicit 32-bit install locations
 if exist "%LocalAppData%\Programs\Python\Python311-32\python.exe" (
   set "PY_EXE=%LocalAppData%\Programs\Python\Python311-32\python.exe"
   goto check_bits
@@ -49,9 +51,23 @@ goto check_bits
 :check_bits
 if not defined PY_EXE goto not_found
 
-REM No >, *, or nested quotes — safe inside for /f on cmd.exe
+REM Heuristic: official 32-bit layout folder name
+echo %PY_EXE% | findstr /I /C:"Python311-32" /C:"Python312-32" /C:"Python310-32" /C:"-32\python.exe" >nul
+if not errorlevel 1 (
+  echo [PosBridge] Python OK: "%PY_EXE%" ^(32-bit path^)
+  exit /b 0
+)
+
+REM Bitness via temp script — avoids for /f + quoted-path cmd bug
+(
+  echo import platform
+  echo print^(platform.architecture^(^)[0][:2]^)
+) > "%PY_BITS_PY%"
+
+del "%PY_BITS_OUT%" >nul 2>&1
+"%PY_EXE%" "%PY_BITS_PY%" > "%PY_BITS_OUT%" 2>nul
 set "PY_BITS="
-for /f "delims=" %%b in ('"%PY_EXE%" -c "import platform;print(platform.architecture()[0][:2])" 2^>nul') do set "PY_BITS=%%b"
+if exist "%PY_BITS_OUT%" set /p PY_BITS=<"%PY_BITS_OUT%"
 
 if "%PY_BITS%"=="32" (
   echo [PosBridge] Python OK: "%PY_EXE%" ^(32-bit^)
@@ -62,24 +78,17 @@ echo.
 if "%PY_BITS%"=="" (
   echo [PosBridge] ERROR: Could not detect Python bitness for:
   echo   %PY_EXE%
+  echo   Try running manually:
+  echo   "%PY_EXE%" -c "import platform; print(platform.architecture())"
 ) else (
   echo [PosBridge] ERROR: Found Python but it is %PY_BITS%-bit:
   echo   %PY_EXE%
 )
 echo.
-echo The POS DLL ^(pna.pcpos.dll^) is 32-bit ^(PE32^). You MUST install
-echo Python 3.11 Windows installer 32-bit from python.org:
+echo Install Python 3.11 Windows installer ^(32-bit^) / win32.exe:
 echo   https://www.python.org/downloads/release/python-3119/
-echo   File: Windows installer ^(32-bit^)  —  python-3.11.x-win32.exe
-echo.
-echo NOTE: Your current path looks like the 64-bit install:
-echo   ...\Python\Python311\python.exe
-echo 32-bit usually installs to:
-echo   ...\Python\Python311-32\python.exe
-echo.
-echo After install, verify:
-echo   py -3.11-32 -c "import platform; print(platform.architecture()[0])"
-echo Must print: 32bit
+echo Expected path after install:
+echo   %LocalAppData%\Programs\Python\Python311-32\python.exe
 echo.
 set "PY_EXE="
 exit /b 1
@@ -96,7 +105,10 @@ exit /b 1
 :try_py_tag
 set "_TAG=%~1"
 set "_OUT="
-for /f "delims=" %%i in ('py -%_TAG% -c "import sys;print(sys.executable)" 2^>nul') do set "_OUT=%%i"
+REM Use temp file — for /f with quoted py path is unreliable
+del "%TEMP%\kiosk_pos_py_exe.txt" >nul 2>&1
+py -%_TAG% -c "import sys;print(sys.executable)" > "%TEMP%\kiosk_pos_py_exe.txt" 2>nul
+if exist "%TEMP%\kiosk_pos_py_exe.txt" set /p _OUT=<"%TEMP%\kiosk_pos_py_exe.txt"
 if defined _OUT set "PY_EXE=%_OUT%"
 set "_TAG="
 set "_OUT="

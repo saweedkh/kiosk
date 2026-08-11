@@ -77,8 +77,9 @@
 
 ### ۲) Python 32-bit
 
-از python.org نسخهٔ **Windows installer (32-bit)** پایتون 3.11 را نصب کن.  
-تیک *Add to PATH* را بزن.
+از python.org نسخهٔ **Windows installer (32-bit)** پایتون 3.11 را نصب کن  
+(فایل شبیه `python-3.11.x-win32.exe` — نه نسخهٔ 64-bit).  
+تیک *Add to PATH* و *Install launcher* را بزن، بعد **ترمینال را ببند و دوباره باز کن**.
 
 چک:
 
@@ -88,27 +89,51 @@ py -3.11-32 -c "import struct; print(struct.calcsize('P')*8)"
 
 باید `32` چاپ شود.
 
-### ۳) تنظیم `.env`
+اگر `run.bat` قبلاً می‌نوشت `Using: py -3.11-32` و بعد `No suitable Python runtime found`، یعنی همان نسخه نصب نبود؛ اسکریپت‌های جدید این را واضح می‌گویند و به‌اشتباه 3.11-32 را انتخاب نمی‌کنند.
+### ۳) تنظیم `.env` — فقط ریشهٔ پکیج
 
-```bat
-cd C:\kiosk\pos_bridge
-copy .env.example .env
-notepad .env
-```
-
-حداقل:
+روی پکیج تحویل **یک** فایل کافی است: `.env` کنار `run.bat`  
+(PosBridge خودش همان را می‌خواند؛ `POS_TCP_HOST` = آی‌پی پوز.)
 
 ```env
-BRIDGE_HOST=0.0.0.0
-BRIDGE_PORT=9000
-POS_DLL_PATH=C:\kiosk\kiosk_backend\pna.pcpos.dll
-POS_IP=192.168.1.100
-POS_PORT=1362
-POS_TIMEOUT_SECONDS=120
-BRIDGE_TOKEN=
+PAYMENT_GATEWAY_NAME=bridge
+POS_USE_BRIDGE=True
+
+# آی‌پی کارتخوان (نه آی‌پی ویندوز)
+POS_TCP_HOST=192.168.1.100
+POS_TCP_PORT=1362
+
+# Django داخل Docker → بریج روی همین ویندوز
+POS_BRIDGE_HOST=host.docker.internal
+POS_BRIDGE_PORT=9000
+POS_BRIDGE_TOKEN=
+POS_BRIDGE_TIMEOUT=130
 ```
 
-`BRIDGE_TOKEN` را در پروداکشن پر کن و همان را در `.env` Django هم بگذار.
+| کلید در `.env` ریشه (delivery) | معنی |
+|--------------------------------|------|
+| `PAYMENT_GATEWAY_NAME=bridge` | Django از بریج استفاده کند |
+| `POS_USE_BRIDGE=True` | اجبار به حالت بریج |
+| `POS_TCP_HOST` / `POS_TCP_PORT` | آی‌پی و پورت **پوز** |
+| `POS_BRIDGE_HOST` / `POS_BRIDGE_PORT` | آدرس سرویس بریج از دید Docker |
+| `POS_BRIDGE_TOKEN` | توکن مشترک (اختیاری) |
+| `POS_BRIDGE_TIMEOUT` | تایم‌اوت Django (≥ زمان کارت+رمز) |
+
+DLL به‌صورت خودکار از `pos_bridge\pna.pcpos.dll` لود می‌شود؛ معمولاً `POS_DLL_PATH` لازم نیست.
+
+#### نام‌های قدیمی داخل `pos_bridge/.env.example` (اختیاری)
+
+اگر فقط بریج را جدا تست می‌کنی، این aliasها هم کار می‌کنند — معادل همان‌ها در ریشه:
+
+| قدیمی (فقط بریج) | معادل در `.env` ریشه |
+|------------------|----------------------|
+| `POS_IP` | `POS_TCP_HOST` |
+| `POS_PORT` | `POS_TCP_PORT` |
+| `BRIDGE_PORT` | `POS_BRIDGE_PORT` |
+| `BRIDGE_TOKEN` | `POS_BRIDGE_TOKEN` |
+| `POS_TIMEOUT_SECONDS` | `POS_BRIDGE_TIMEOUT` |
+
+روی کیوسک با `run.bat` لازم نیست `pos_bridge\.env` جدا بسازی.
 
 ### ۴) اجرا با کل استک
 
@@ -155,20 +180,7 @@ curl -X POST http://127.0.0.1:9000/pay -H "Content-Type: application/json" -d "{
 
 ## تنظیم Django / Docker
 
-در `.env` ریشهٔ پروژه (همان فایلی که compose می‌خواند):
-
-```env
-PAYMENT_GATEWAY_NAME=bridge
-POS_USE_BRIDGE=True
-
-# Docker Desktop روی همان ویندوز:
-POS_BRIDGE_HOST=host.docker.internal
-POS_BRIDGE_PORT=9000
-POS_BRIDGE_TOKEN=
-POS_BRIDGE_TIMEOUT=130
-```
-
-اگر بک‌اند روی لینوکس است و بریج روی PC ویندوز جدا:
+همان `.env` ریشه کافی است (بخش بالا). اگر بک‌اند روی لینوکس است و بریج روی PC ویندوز جدا:
 
 ```env
 POS_BRIDGE_HOST=192.168.1.50
@@ -176,12 +188,12 @@ POS_BRIDGE_HOST=192.168.1.50
 
 (آی‌پی همان ویندوزی که PosBridge روش است — نه IP پوز.)
 
-سپس:
+بعد از عوض کردن `.env`:
 
 ```bash
+docker compose restart backend
+# یا:
 docker compose up -d --force-recreate backend
-# یا production:
-docker compose -f docker-compose.production.yml up -d --force-recreate backend
 ```
 
 چک از داخل کانتینر:

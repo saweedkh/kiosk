@@ -6,13 +6,17 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Single source of truth: monorepo root .env, then backend/.env fallback
-for _env_path in (BASE_DIR.parent / '.env', BASE_DIR / '.env'):
-    if _env_path.exists():
-        load_dotenv(_env_path)
+# Prefer process env (Docker Compose). Only load a non-empty .env file as fallback.
+# Never load an empty kiosk_backend/.env ahead of the monorepo root .env.
+# override=False so Compose-injected POSTGRES_* always win over file values.
+_env_candidates = (
+    BASE_DIR.parent / '.env',  # monorepo root when running on host
+    BASE_DIR / '.env',         # /app/.env in container (compose bind-mount)
+)
+for _env_path in _env_candidates:
+    if _env_path.is_file() and _env_path.stat().st_size > 0:
+        load_dotenv(_env_path, override=False)
         break
-else:
-    load_dotenv()
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-in-production')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'

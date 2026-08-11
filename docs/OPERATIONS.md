@@ -356,6 +356,45 @@ docker logs kiosk_db --tail 100
 3. `POSTGRES_PASSWORD` و بقیه `POSTGRES_*` در `.env`  
 4. صبر برای اولین migrate (entrypoint)
 
+### backend روی «Waiting for PostgreSQL» گیر می‌کند در حالی که db healthy است
+
+این رفتار طبیعیِ entrypoint است؛ دو چک فرق دارند:
+
+| چک | چه چیزی را می‌سنجد |
+|----|---------------------|
+| healthcheck کانتینر `db` (`pg_isready`) | فقط اینکه Postgres قبول connection می‌کند |
+| entrypoint بک‌اند (`manage.py check --database`) | لاگین واقعی با `POSTGRES_USER` / `POSTGRES_PASSWORD` |
+
+پسورد Postgres **فقط بار اول** که volume `postgres_data` ساخته می‌شود از `.env` خوانده می‌شود. اگر بعداً `POSTGRES_PASSWORD` را عوض کنید، db همچنان healthy می‌ماند ولی Django با پسورد جدید وصل نمی‌شود و تا ۶۰ بار retry می‌زند.
+
+**تشخیص:** در لاگ بک‌اند معمولاً `password authentication failed` می‌بینید (بعد از آپدیت entrypoint هر چند attempt یک‌بار چاپ می‌شود).
+
+**رفع پیشنهادی (داده می‌ماند — پسورد قدیمی لازم نیست):** داخل کانتینر با local trust وصل می‌شوید و role را با پسورد فعلی `.env` یکی می‌کنید:
+
+```bat
+reset-postgres-password.bat
+```
+
+یا دستی:
+
+```bat
+docker exec kiosk_db sh -c "psql -U $POSTGRES_USER -d $POSTGRES_DB -c \"ALTER USER $POSTGRES_USER WITH PASSWORD '$POSTGRES_PASSWORD';\""
+docker compose up -d --force-recreate backend
+```
+
+**رفع جایگزین (اگر پسورد اول را بلد هستید):** همان را در `.env` بگذارید و backend را recreate کنید.
+
+**رفع (نصب تازه / داده مهم نیست):** volume را پاک کنید تا Postgres دوباره با پسورد فعلی `.env` init شود:
+
+```bat
+docker compose down
+docker volume ls
+docker volume rm <نام>_postgres_data
+run.bat
+```
+
+نام دقیق volume را از `docker volume ls` بردارید (معمولاً چیزی مثل `kiosk_postgres_data`).
+
 ### بعد از ری‌استارت داده نیست
 
 - داده در volume `postgres_data` است، نه داخل image.  

@@ -144,9 +144,42 @@ if errorlevel 1 (
     echo 2. Run: stop.bat
     echo 3. Check logs: docker compose -f %COMPOSE_FILE% logs
     echo 4. Do NOT run fix-docker-io-error.bat unless images are corrupted
+    echo 5. DB auth stuck: fix-backend-db.bat
     pause
     exit /b 1
 )
+
+REM ----- Sync Postgres role password to current .env -----
+REM Volume keeps the password from FIRST init; .env changes alone do not update it.
+REM Local socket inside kiosk_db needs no old password. Safe; does not wipe data.
+echo.
+echo Syncing Postgres password with .env ...
+set /a "DBWAIT=0"
+:wait_db
+set /a "DBWAIT+=1"
+docker exec kiosk_db sh -c "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"" >nul 2>&1
+if not errorlevel 1 goto db_ready
+REM Prefer env user if container is up enough to answer
+docker inspect -f "{{.State.Health.Status}}" kiosk_db 2>nul | findstr /I "healthy" >nul
+if not errorlevel 1 goto db_ready
+if %DBWAIT% GEQ 30 (
+    echo WARNING: kiosk_db not ready yet — skipping password sync.
+    goto after_db_sync
+)
+timeout /t 2 /nobreak >nul
+goto wait_db
+
+:db_ready
+docker exec kiosk_db sh -c "echo \"ALTER USER $POSTGRES_USER WITH PASSWORD '$POSTGRES_PASSWORD';\" | psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1" >nul 2>&1
+if errorlevel 1 (
+    echo WARNING: could not sync DB password. If backend keeps retrying, run fix-backend-db.bat
+) else (
+    echo Postgres password synced with .env.
+    REM Restart backend so entrypoint reconnects with matching password
+    %COMPOSE% -f %COMPOSE_FILE% up -d --force-recreate backend >nul 2>&1
+)
+
+:after_db_sync
 
 REM ----- PosBridge (Windows + official DLL) -----
 if exist "pos_bridge\start_background.bat" (
@@ -179,7 +212,12 @@ curl -s -o nul http://localhost >nul 2>&1
 if not errorlevel 1 goto service_ready
 if %TRIES% GEQ 30 (
     echo WARNING: Service did not respond in time.
-    echo Containers may still be starting. Open http://localhost manually.
+    echo.
+    echo If backend logs show Waiting for PostgreSQL / password authentication:
+    echo   1^) fix-backend-db.bat
+    echo   2^) If still broken and data can be wiped, type YES when asked
+    echo.
+    echo Check: docker logs kiosk_backend --tail 40
     echo Check: docker compose -f %COMPOSE_FILE% ps
     goto open_browser
 )

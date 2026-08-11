@@ -7,25 +7,9 @@ cd /d "%~dp0"
 
 if not exist "logs" mkdir "logs"
 
-REM Prefer 32-bit Python 3.11 (DLL is PE32)
-set "PY="
-where py >nul 2>&1
-if %ERRORLEVEL%==0 (
-  py -3.11-32 -c "import sys" >nul 2>&1
-  if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('py -3.11-32 -c "import sys;print(sys.executable)"') do set "PY=%%i"
-  )
-)
-if "%PY%"=="" (
-  where python >nul 2>&1
-  if %ERRORLEVEL%==0 (
-    for /f "delims=" %%i in ('where python') do (
-      if "%PY%"=="" set "PY=%%i"
-    )
-  )
-)
-if "%PY%"=="" (
-  echo [PosBridge] ERROR: Python not found. Install Python 3.11 32-bit.
+call "%~dp0resolve_python.bat"
+if errorlevel 1 (
+  echo [PosBridge] ERROR: need Python 3.11 32-bit — see message above / POS_BRIDGE.md
   exit /b 1
 )
 
@@ -37,18 +21,18 @@ if not errorlevel 1 (
 )
 
 REM Install deps only if missing
-"%PY%" -c "import flask, waitress, dotenv, clr" >nul 2>&1
+"%PY_EXE%" -c "import flask, waitress, dotenv, clr" >nul 2>&1
 if errorlevel 1 (
   echo [PosBridge] Installing Python packages...
-  "%PY%" -m pip install -r requirements.txt
+  "%PY_EXE%" -m pip install -r requirements.txt
   if errorlevel 1 (
     echo [PosBridge] ERROR: pip install failed
     exit /b 1
   )
 )
 
-echo [PosBridge] Starting with "%PY%" ...
-start "KioskPosBridge" /MIN cmd /c ""%PY%" app.py >>"%~dp0logs\bridge.out.log" 2>>"%~dp0logs\bridge.err.log""
+echo [PosBridge] Starting with "%PY_EXE%" ...
+start "KioskPosBridge" /MIN cmd /c ""%PY_EXE%" app.py >>"%~dp0logs\bridge.out.log" 2>>"%~dp0logs\bridge.err.log""
 
 REM Wait up to ~45s for health
 set /a "TRIES=0"

@@ -5,17 +5,30 @@ set -e
 
 mkdir -p /app/logs /app/media
 
-echo "Waiting for PostgreSQL..."
+echo "Waiting for PostgreSQL at ${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432} (db=${POSTGRES_DB:-kiosk} user=${POSTGRES_USER:-kiosk})..."
+echo "Note: Docker 'healthy' only means pg_isready — Django still needs matching POSTGRES_PASSWORD (set once when the volume was first created)."
 for i in $(seq 1 60); do
-  if python manage.py check --database default >/dev/null 2>&1; then
+  # Capture real error (auth/host mismatch) instead of silent retries
+  if err=$(python manage.py check --database default 2>&1); then
     echo "Database is ready."
     break
   fi
   if [ "$i" -eq 60 ]; then
     echo "ERROR: Database did not become ready in time."
+    echo "Last Django DB check error:"
+    echo "$err"
+    echo ""
+    echo "Common fix: POSTGRES_PASSWORD in .env must match the password used when volume postgres_data was first initialized."
+    echo "If this is a fresh install and data can be wiped: docker compose down && docker volume rm <project>_postgres_data && run.bat"
     exit 1
   fi
-  echo "Attempt $i/60 – retrying in 2s..."
+  # Print error every 5 attempts so logs explain the loop
+  if [ $((i % 5)) -eq 1 ]; then
+    echo "Attempt $i/60 – not ready yet:"
+    echo "$err" | head -n 5
+  else
+    echo "Attempt $i/60 – retrying in 2s..."
+  fi
   sleep 2
 done
 

@@ -50,6 +50,8 @@ copy /Y access-database.bat "%PACKAGE_DIR%\" >nul
 copy /Y export-sqlite-data.bat "%PACKAGE_DIR%\" >nul
 copy /Y import-data-to-postgres.bat "%PACKAGE_DIR%\" >nul
 copy /Y migrate-sqlite-to-postgres.bat "%PACKAGE_DIR%\" >nul
+copy /Y fix-backend-db.bat "%PACKAGE_DIR%\" >nul
+copy /Y reset-postgres-password.bat "%PACKAGE_DIR%\" >nul
 
 echo [docker fix scripts]
 copy /Y fix-docker-safe.bat "%PACKAGE_DIR%\" >nul
@@ -140,6 +142,8 @@ for %%F in (
     export-sqlite-data.bat
     import-data-to-postgres.bat
     migrate-sqlite-to-postgres.bat
+    fix-backend-db.bat
+    reset-postgres-password.bat
     fix-docker-safe.bat
     fix-docker-io-error.bat
     README.txt

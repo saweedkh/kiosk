@@ -8,13 +8,14 @@ REM 3) Run this script as Administrator
 set SERVICE_NAME=KioskPosBridge
 set SERVICE_DIR=%~dp0
 set PYTHON=
-where py >nul 2>&1
-if %ERRORLEVEL%==0 (
-  for /f "delims=" %%i in ('py -3.11-32 -c "import sys;print(sys.executable)" 2^>nul') do set PYTHON=%%i
+
+call "%~dp0resolve_python.bat"
+if errorlevel 1 (
+  echo [!] Python 32-bit required — see message above
+  exit /b 1
 )
-if "%PYTHON%"=="" (
-  for /f "delims=" %%i in ('where python') do set PYTHON=%%i & goto :have_py
-)
+set "PYTHON=%PY_EXE%"
+
 :have_py
 if "%PYTHON%"=="" (
   echo [!] Python not found

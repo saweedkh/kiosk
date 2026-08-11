@@ -5,7 +5,8 @@ setlocal EnableExtensions EnableDelayedExpansion
 REM Always use this script's folder (absolute)
 set "BRIDGE_DIR=%~dp0"
 if "!BRIDGE_DIR:~-1!"=="\" set "BRIDGE_DIR=!BRIDGE_DIR:~0,-1!"
-cd /d "!BRIDGE_DIR!" || (
+cd /d "!BRIDGE_DIR!"
+if errorlevel 1 (
   echo [PosBridge] ERROR: cannot cd to !BRIDGE_DIR!
   exit /b 1
 )

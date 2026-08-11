@@ -11,6 +11,12 @@ if not exist ".env" (
   )
 )
 
+if not exist "%~dp0resolve_python.bat" (
+  echo [!] Missing resolve_python.bat in this folder.
+  echo     Copy pos_bridge\resolve_python.bat from the latest package/repo.
+  pause
+  exit /b 1
+)
 call "%~dp0resolve_python.bat"
 if errorlevel 1 (
   pause

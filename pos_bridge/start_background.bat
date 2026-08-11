@@ -7,6 +7,11 @@ cd /d "%~dp0"
 
 if not exist "logs" mkdir "logs"
 
+if not exist "%~dp0resolve_python.bat" (
+  echo [PosBridge] ERROR: resolve_python.bat missing in pos_bridge\
+  echo   Copy it from the latest kiosk package, then re-run.
+  exit /b 1
+)
 call "%~dp0resolve_python.bat"
 if errorlevel 1 (
   echo [PosBridge] ERROR: need Python 3.11 32-bit — see message above / POS_BRIDGE.md

@@ -5,6 +5,7 @@ REM Do NOT use setlocal here — variables must leak to caller.
 
 set "PY_EXE="
 set "PY_BITS="
+set "PF86=%ProgramFiles(x86)%"
 
 REM 1) Explicit 32-bit install locations (common on Windows)
 if exist "%LocalAppData%\Programs\Python\Python311-32\python.exe" (
@@ -15,12 +16,12 @@ if exist "%LocalAppData%\Programs\Python\Python312-32\python.exe" (
   set "PY_EXE=%LocalAppData%\Programs\Python\Python312-32\python.exe"
   goto check_bits
 )
-if exist "%ProgramFiles(x86)%\Python311-32\python.exe" (
-  set "PY_EXE=%ProgramFiles(x86)%\Python311-32\python.exe"
+if defined PF86 if exist "%PF86%\Python311-32\python.exe" (
+  set "PY_EXE=%PF86%\Python311-32\python.exe"
   goto check_bits
 )
-if exist "%ProgramFiles(x86)%\Python311\python.exe" (
-  set "PY_EXE=%ProgramFiles(x86)%\Python311\python.exe"
+if defined PF86 if exist "%PF86%\Python311\python.exe" (
+  set "PY_EXE=%PF86%\Python311\python.exe"
   goto check_bits
 )
 
@@ -48,9 +49,9 @@ goto check_bits
 :check_bits
 if not defined PY_EXE goto not_found
 
-REM Avoid \" escaping bugs in cmd — use sys.maxsize (no quotes inside -c)
+REM No >, *, or nested quotes — safe inside for /f on cmd.exe
 set "PY_BITS="
-for /f "delims=" %%b in ('"%PY_EXE%" -c "import sys;print(64 if sys.maxsize>2**32 else 32)" 2^>nul') do set "PY_BITS=%%b"
+for /f "delims=" %%b in ('"%PY_EXE%" -c "import platform;print(platform.architecture()[0][:2])" 2^>nul') do set "PY_BITS=%%b"
 
 if "%PY_BITS%"=="32" (
   echo [PosBridge] Python OK: "%PY_EXE%" ^(32-bit^)
@@ -71,15 +72,14 @@ echo Python 3.11 Windows installer 32-bit from python.org:
 echo   https://www.python.org/downloads/release/python-3119/
 echo   File: Windows installer ^(32-bit^)  —  python-3.11.x-win32.exe
 echo.
-echo NOTE: Default "Python 3.11" from microsoft store / 64-bit installer will NOT work.
-echo During setup: enable "Add python.exe to PATH" and py launcher.
+echo NOTE: Your current path looks like the 64-bit install:
+echo   ...\Python\Python311\python.exe
+echo 32-bit usually installs to:
+echo   ...\Python\Python311-32\python.exe
 echo.
 echo After install, verify:
-echo   py -3.11-32 -c "import sys; print(64 if sys.maxsize^>2**32 else 32)"
-echo Must print: 32
-echo.
-echo Or check folder exists:
-echo   %%LocalAppData%%\Programs\Python\Python311-32\python.exe
+echo   py -3.11-32 -c "import platform; print(platform.architecture()[0])"
+echo Must print: 32bit
 echo.
 set "PY_EXE="
 exit /b 1

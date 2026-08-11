@@ -6,10 +6,28 @@ REM Do NOT use setlocal here — variables must leak to caller.
 set "PY_EXE="
 set "PY_BITS="
 
+REM 1) Explicit 32-bit install locations (common on Windows)
+if exist "%LocalAppData%\Programs\Python\Python311-32\python.exe" (
+  set "PY_EXE=%LocalAppData%\Programs\Python\Python311-32\python.exe"
+  goto check_bits
+)
+if exist "%LocalAppData%\Programs\Python\Python312-32\python.exe" (
+  set "PY_EXE=%LocalAppData%\Programs\Python\Python312-32\python.exe"
+  goto check_bits
+)
+if exist "%ProgramFiles(x86)%\Python311-32\python.exe" (
+  set "PY_EXE=%ProgramFiles(x86)%\Python311-32\python.exe"
+  goto check_bits
+)
+if exist "%ProgramFiles(x86)%\Python311\python.exe" (
+  set "PY_EXE=%ProgramFiles(x86)%\Python311\python.exe"
+  goto check_bits
+)
+
+REM 2) py launcher 32-bit tags
 where py >nul 2>&1
 if errorlevel 1 goto try_path_python
 
-REM Prefer 3.11 32-bit, then other 32-bit tags the launcher knows
 call :try_py_tag 3.11-32
 if defined PY_EXE goto check_bits
 call :try_py_tag 3.12-32
@@ -29,27 +47,39 @@ goto check_bits
 
 :check_bits
 if not defined PY_EXE goto not_found
-for /f "delims=" %%b in ('"%PY_EXE%" -c "import struct;print(struct.calcsize(\"P\")*8)" 2^>nul') do set "PY_BITS=%%b"
+
+REM Avoid \" escaping bugs in cmd — use sys.maxsize (no quotes inside -c)
+set "PY_BITS="
+for /f "delims=" %%b in ('"%PY_EXE%" -c "import sys;print(64 if sys.maxsize>2**32 else 32)" 2^>nul') do set "PY_BITS=%%b"
+
 if "%PY_BITS%"=="32" (
   echo [PosBridge] Python OK: "%PY_EXE%" ^(32-bit^)
   exit /b 0
 )
 
 echo.
-echo [PosBridge] ERROR: Found Python but it is %PY_BITS%-bit:
-echo   %PY_EXE%
+if "%PY_BITS%"=="" (
+  echo [PosBridge] ERROR: Could not detect Python bitness for:
+  echo   %PY_EXE%
+) else (
+  echo [PosBridge] ERROR: Found Python but it is %PY_BITS%-bit:
+  echo   %PY_EXE%
+)
 echo.
 echo The POS DLL ^(pna.pcpos.dll^) is 32-bit ^(PE32^). You MUST install
 echo Python 3.11 Windows installer 32-bit from python.org:
 echo   https://www.python.org/downloads/release/python-3119/
 echo   File: Windows installer ^(32-bit^)  —  python-3.11.x-win32.exe
 echo.
-echo During setup: enable "Add python.exe to PATH" and
-echo "Install launcher for all users" ^(py.exe^).
+echo NOTE: Default "Python 3.11" from microsoft store / 64-bit installer will NOT work.
+echo During setup: enable "Add python.exe to PATH" and py launcher.
 echo.
-echo Verify:
-echo   py -3.11-32 -c "import struct; print(struct.calcsize('P')*8)"
+echo After install, verify:
+echo   py -3.11-32 -c "import sys; print(64 if sys.maxsize^>2**32 else 32)"
 echo Must print: 32
+echo.
+echo Or check folder exists:
+echo   %%LocalAppData%%\Programs\Python\Python311-32\python.exe
 echo.
 set "PY_EXE="
 exit /b 1
@@ -64,7 +94,6 @@ echo.
 exit /b 1
 
 :try_py_tag
-REM %1 = launcher tag e.g. 3.11-32
 set "_TAG=%~1"
 set "_OUT="
 for /f "delims=" %%i in ('py -%_TAG% -c "import sys;print(sys.executable)" 2^>nul') do set "_OUT=%%i"

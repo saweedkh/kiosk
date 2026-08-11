@@ -5,27 +5,43 @@ set -e
 
 mkdir -p /app/logs /app/media
 
+# Pure DB probe — do NOT use `manage.py check` here.
+# Full system checks can fail for non-DB reasons and look like "Postgres not ready".
+db_ping() {
+  python - <<'PY'
+import os, sys
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+import django
+django.setup()
+from django.db import connection
+try:
+    connection.ensure_connection()
+except Exception as exc:
+    print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
+    sys.exit(1)
+print("ok")
+PY
+}
+
 echo "Waiting for PostgreSQL at ${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432} (db=${POSTGRES_DB:-kiosk} user=${POSTGRES_USER:-kiosk})..."
-echo "Note: Docker 'healthy' only means pg_isready — Django still needs matching POSTGRES_PASSWORD (set once when the volume was first created)."
+echo "Note: Docker 'healthy' only means pg_isready — Django still needs matching POSTGRES_PASSWORD."
 for i in $(seq 1 60); do
-  # Capture real error (auth/host mismatch) instead of silent retries
-  if err=$(python manage.py check --database default 2>&1); then
+  if err=$(db_ping 2>&1); then
     echo "Database is ready."
     break
   fi
   if [ "$i" -eq 60 ]; then
     echo "ERROR: Database did not become ready in time."
-    echo "Last Django DB check error:"
+    echo "Last connection error:"
     echo "$err"
     echo ""
-    echo "Common fix: POSTGRES_PASSWORD in .env must match the password used when volume postgres_data was first initialized."
-    echo "If this is a fresh install and data can be wiped: docker compose down && docker volume rm <project>_postgres_data && run.bat"
+    echo "Common fix: POSTGRES_PASSWORD in .env must match the password baked into volume postgres_data."
+    echo "On Windows delivery: run reset-db-and-run.bat  (wipes DB volume) or fix-backend-db.bat"
     exit 1
   fi
-  # Print error every 5 attempts so logs explain the loop
   if [ $((i % 5)) -eq 1 ]; then
     echo "Attempt $i/60 – not ready yet:"
-    echo "$err" | head -n 5
+    echo "$err" | head -n 8
   else
     echo "Attempt $i/60 – retrying in 2s..."
   fi

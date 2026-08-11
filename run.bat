@@ -49,6 +49,14 @@ if not exist ".env" (
     )
 )
 
+REM Windows Notepad .env is often CRLF. Compose env_file can keep trailing CR in
+REM values while ${POSTGRES_PASSWORD} interpolation does not → auth mismatch.
+echo Normalizing .env line endings ^(CRLF -^> LF^)...
+powershell -NoProfile -Command "$p='.env'; if(Test-Path $p){ $c=[IO.File]::ReadAllText((Resolve-Path $p)); $c=$c -replace \"`r`n\",'`n' -replace '`r','`n'; $utf8=New-Object System.Text.UTF8Encoding $false; [IO.File]::WriteAllText((Resolve-Path $p), $c, $utf8) }"
+if errorlevel 1 (
+    echo WARNING: could not normalize .env line endings
+)
+
 REM Ensure postgres image exists: prefer offline images\postgres.tar, else pull
 docker image inspect postgres:18-alpine >nul 2>&1
 if errorlevel 1 (
@@ -170,12 +178,19 @@ timeout /t 2 /nobreak >nul
 goto wait_db
 
 :db_ready
-docker exec kiosk_db sh -c "echo \"ALTER USER $POSTGRES_USER WITH PASSWORD '$POSTGRES_PASSWORD';\" | psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1" >nul 2>&1
+REM Prefer scripted sync (safer quoting) when present
+if exist "scripts\sync-postgres-password.sh" (
+    docker cp "scripts\sync-postgres-password.sh" kiosk_db:/tmp/sync-postgres-password.sh >nul 2>&1
+    docker exec kiosk_db sh /tmp/sync-postgres-password.sh
+) else (
+    docker exec kiosk_db sh -c "echo \"ALTER USER $POSTGRES_USER WITH PASSWORD '$POSTGRES_PASSWORD';\" | psql -U $POSTGRES_USER -d $POSTGRES_DB -v ON_ERROR_STOP=1"
+)
 if errorlevel 1 (
-    echo WARNING: could not sync DB password. If backend keeps retrying, run fix-backend-db.bat
+    echo WARNING: could not sync DB password.
+    echo   Try: sync-postgres-password.bat
+    echo   Or wipe DB: reset-db-and-run.bat
 ) else (
     echo Postgres password synced with .env.
-    REM Restart backend so entrypoint reconnects with matching password
     %COMPOSE% -f %COMPOSE_FILE% up -d --force-recreate backend >nul 2>&1
 )
 
@@ -214,8 +229,12 @@ if %TRIES% GEQ 30 (
     echo WARNING: Service did not respond in time.
     echo.
     echo If backend logs show Waiting for PostgreSQL / password authentication:
-    echo   1^) fix-backend-db.bat
-    echo   2^) If still broken and data can be wiped, type YES when asked
+    echo   1^) sync-postgres-password.bat
+    echo   2^) fix-backend-db.bat
+    echo   3^) reset-db-and-run.bat   ^(wipes DB — last resort^)
+    echo.
+    echo NOTE: entrypoint fixes need a rebuilt backend image on delivery:
+    echo   update-images.bat   ^(after new images\backend.tar^)
     echo.
     echo Check: docker logs kiosk_backend --tail 40
     echo Check: docker compose -f %COMPOSE_FILE% ps

@@ -365,6 +365,10 @@ docker logs kiosk_db --tail 100
 | healthcheck کانتینر `db` (`pg_isready`) | فقط اینکه Postgres قبول connection می‌کند |
 | entrypoint بک‌اند (`manage.py check --database`) | لاگین واقعی با `POSTGRES_USER` / `POSTGRES_PASSWORD` |
 
+**علت خیلی رایج روی ویندوز (حتی بعد از wipe کامل):** فایل `.env` با CRLF (Notepad).  
+Compose برای سرویس `db` پسورد را با `${POSTGRES_PASSWORD}` (بدون `\r`) ست می‌کند، ولی بک‌اند قبلاً فقط از `env_file` می‌خواند و پسورد با `\r` می‌گرفت → authentication failed برای همیشه.  
+در compose فعلی `POSTGRES_PASSWORD` برای backend/bale_bot هم از همان interpolation ست می‌شود و `run.bat` قبل از up فایل `.env` را LF می‌کند.
+
 پسورد Postgres **فقط بار اول** که volume `postgres_data` ساخته می‌شود از `.env` خوانده می‌شود. اگر بعداً `POSTGRES_PASSWORD` را عوض کنید، db همچنان healthy می‌ماند ولی Django با پسورد جدید وصل نمی‌شود و تا ۶۰ بار retry می‌زند.
 
 **تشخیص:** در لاگ بک‌اند معمولاً `password authentication failed` می‌بینید (بعد از آپدیت entrypoint هر چند attempt یک‌بار چاپ می‌شود).
@@ -384,16 +388,19 @@ docker compose up -d --force-recreate backend
 
 **رفع جایگزین (اگر پسورد اول را بلد هستید):** همان را در `.env` بگذارید و backend را recreate کنید.
 
-**رفع (نصب تازه / داده مهم نیست):** volume را پاک کنید تا Postgres دوباره با پسورد فعلی `.env` init شود:
+**رفع قطعی روی کیوسک (داده DB پاک می‌شود، media می‌ماند):**
 
 ```bat
-docker compose down
-docker volume ls
-docker volume rm <نام>_postgres_data
-run.bat
+reset-db-and-run.bat
 ```
 
-نام دقیق volume را از `docker volume ls` بردارید (معمولاً چیزی مثل `kiosk_postgres_data`).
+وقتی پرسید `YES` بزن. Postgres از نو با پسورد فعلی `.env` ساخته می‌شود.
+
+اگر فقط می‌خواهی پسورد role را با `.env` یکی کنی (بدون wipe):
+
+```bat
+sync-postgres-password.bat
+```
 
 ### بعد از ری‌استارت داده نیست
 

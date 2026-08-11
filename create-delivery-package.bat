@@ -52,6 +52,12 @@ copy /Y import-data-to-postgres.bat "%PACKAGE_DIR%\" >nul
 copy /Y migrate-sqlite-to-postgres.bat "%PACKAGE_DIR%\" >nul
 copy /Y fix-backend-db.bat "%PACKAGE_DIR%\" >nul
 copy /Y reset-postgres-password.bat "%PACKAGE_DIR%\" >nul
+copy /Y reset-db-and-run.bat "%PACKAGE_DIR%\" >nul
+copy /Y sync-postgres-password.bat "%PACKAGE_DIR%\" >nul
+if exist "scripts\sync-postgres-password.sh" (
+    mkdir "%PACKAGE_DIR%\scripts" >nul 2>&1
+    copy /Y scripts\sync-postgres-password.sh "%PACKAGE_DIR%\scripts\" >nul
+)
 
 echo [docker fix scripts]
 copy /Y fix-docker-safe.bat "%PACKAGE_DIR%\" >nul
@@ -144,6 +150,8 @@ for %%F in (
     migrate-sqlite-to-postgres.bat
     fix-backend-db.bat
     reset-postgres-password.bat
+    reset-db-and-run.bat
+    sync-postgres-password.bat
     fix-docker-safe.bat
     fix-docker-io-error.bat
     README.txt

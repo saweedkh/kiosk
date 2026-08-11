@@ -28,11 +28,14 @@ services:
     env_file:
       - .env
     environment:
-      - DEBUG=False
-      - ALLOWED_HOSTS=*
-      - DJANGO_SETTINGS_MODULE=config.settings
-      - POSTGRES_HOST=127.0.0.1
-      - POSTGRES_PORT=5432
+      DEBUG: "False"
+      ALLOWED_HOSTS: "*"
+      DJANGO_SETTINGS_MODULE: config.settings
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-kiosk}
+      POSTGRES_USER: ${POSTGRES_USER:-kiosk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
     volumes:
       - backend_media:/app/media
       - backend_logs:/app/logs
@@ -68,11 +71,14 @@ services:
     env_file:
       - .env
     environment:
-      - DEBUG=False
-      - ALLOWED_HOSTS=*
-      - DJANGO_SETTINGS_MODULE=config.settings
-      - POSTGRES_HOST=127.0.0.1
-      - POSTGRES_PORT=5432
+      DEBUG: "False"
+      ALLOWED_HOSTS: "*"
+      DJANGO_SETTINGS_MODULE: config.settings
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-kiosk}
+      POSTGRES_USER: ${POSTGRES_USER:-kiosk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
     command: python manage.py bale_poll
     volumes:
       - backend_media:/app/media

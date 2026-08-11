@@ -31,11 +31,15 @@ services:
     env_file:
       - ./.env
     environment:
-      - DEBUG=False
-      - ALLOWED_HOSTS=*
-      - DJANGO_SETTINGS_MODULE=config.settings
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
+      # Compose ${...} strips Windows CRLF; env_file alone may keep \r → auth mismatch
+      DEBUG: "False"
+      ALLOWED_HOSTS: "*"
+      DJANGO_SETTINGS_MODULE: config.settings
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-kiosk}
+      POSTGRES_USER: ${POSTGRES_USER:-kiosk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
     volumes:
       - ./kiosk_backend:/app
       - backend_media:/app/media
@@ -81,11 +85,14 @@ services:
     env_file:
       - ./.env
     environment:
-      - DEBUG=False
-      - ALLOWED_HOSTS=*
-      - DJANGO_SETTINGS_MODULE=config.settings
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
+      DEBUG: "False"
+      ALLOWED_HOSTS: "*"
+      DJANGO_SETTINGS_MODULE: config.settings
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-kiosk}
+      POSTGRES_USER: ${POSTGRES_USER:-kiosk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
     # Migrate only in backend entrypoint to avoid lock races
     command: python manage.py bale_poll
     volumes:

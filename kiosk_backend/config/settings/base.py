@@ -18,9 +18,18 @@ for _env_path in _env_candidates:
         load_dotenv(_env_path, override=False)
         break
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-in-production')
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',') if os.getenv('ALLOWED_HOSTS') else ['127.0.0.1', 'localhost']
+def _env(key: str, default: str = '') -> str:
+    """Read env var and strip Windows CR leftovers from .env / env_file."""
+    val = os.getenv(key, default)
+    if val is None:
+        return default
+    return str(val).replace('\r', '').strip()
+
+
+SECRET_KEY = _env('SECRET_KEY', 'django-insecure-change-in-production')
+DEBUG = _env('DEBUG', 'False') == 'True'
+_allowed = _env('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = _allowed.split(',') if _allowed else ['127.0.0.1', 'localhost']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -80,12 +89,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'kiosk'),
-        'USER': os.getenv('POSTGRES_USER', 'kiosk'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'kiosk'),
-        'HOST': os.getenv('POSTGRES_HOST', 'db'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
-        'CONN_MAX_AGE': int(os.getenv('POSTGRES_CONN_MAX_AGE', '60')),
+        'NAME': _env('POSTGRES_DB', 'kiosk'),
+        'USER': _env('POSTGRES_USER', 'kiosk'),
+        'PASSWORD': _env('POSTGRES_PASSWORD', 'kiosk'),
+        'HOST': _env('POSTGRES_HOST', 'db'),
+        'PORT': _env('POSTGRES_PORT', '5432'),
+        'CONN_MAX_AGE': int(_env('POSTGRES_CONN_MAX_AGE', '60') or '60'),
         'OPTIONS': {
             'connect_timeout': 10,
         },

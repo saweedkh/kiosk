@@ -4,8 +4,10 @@ Management command to show POS connection configuration.
 Usage:
     python manage.py show_pos_config
 """
-from django.core.management.base import BaseCommand
+import os
+
 from django.conf import settings
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
@@ -13,13 +15,23 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('\n=== تنظیمات اتصال POS ===\n'))
-        
+
+        self.stdout.write('env خام داخل پروسه:')
+        for key in (
+            'PAYMENT_GATEWAY_NAME',
+            'POS_USE_BRIDGE',
+            'POS_BRIDGE_HOST',
+            'POS_BRIDGE_PORT',
+        ):
+            self.stdout.write(f'  {key}={os.getenv(key)!r}')
+        self.stdout.write('')
+
         config = settings.PAYMENT_GATEWAY_CONFIG
         gateway_name = config.get('gateway_name', 'mock')
         fmt = config.get('pos_message_format', 'dll_exact')
         simple = config.get('pos_use_simple_format', False)
 
-        self.stdout.write(f'Gateway: {gateway_name}')
+        self.stdout.write(f'Gateway (Django): {gateway_name}')
         if gateway_name == 'mock':
             self.stdout.write(self.style.WARNING(
                 '⚠️  mock فعال است — هیچ پکتی به پوز نمی‌رود. '

@@ -251,6 +251,12 @@ goto check_service
 echo Web app is ready!
 echo.
 
+echo Active payment gateway inside backend:
+docker exec kiosk_backend printenv PAYMENT_GATEWAY_NAME 2>nul
+docker exec kiosk_backend python -c "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings'); import django; django.setup(); from django.conf import settings; print('Django:', settings.PAYMENT_GATEWAY_CONFIG.get('gateway_name'))" 2>nul
+echo If that says mock, run check-payment-env.bat and force-recreate backend.
+echo.
+
 :open_browser
 echo Opening Chrome in fullscreen app mode...
 

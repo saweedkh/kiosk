@@ -54,6 +54,7 @@ copy /Y fix-backend-db.bat "%PACKAGE_DIR%\" >nul
 copy /Y reset-postgres-password.bat "%PACKAGE_DIR%\" >nul
 copy /Y reset-db-and-run.bat "%PACKAGE_DIR%\" >nul
 copy /Y sync-postgres-password.bat "%PACKAGE_DIR%\" >nul
+copy /Y check-payment-env.bat "%PACKAGE_DIR%\" >nul
 if exist "scripts\sync-postgres-password.sh" (
     mkdir "%PACKAGE_DIR%\scripts" >nul 2>&1
     copy /Y scripts\sync-postgres-password.sh "%PACKAGE_DIR%\scripts\" >nul

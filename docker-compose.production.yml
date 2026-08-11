@@ -36,10 +36,13 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-kiosk}
       POSTGRES_USER: ${POSTGRES_USER:-kiosk}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
-      PAYMENT_GATEWAY_NAME: ${PAYMENT_GATEWAY_NAME:-bridge}
-      POS_USE_BRIDGE: ${POS_USE_BRIDGE:-True}
+      # Kiosk delivery ALWAYS uses PosBridge — do not interpolate from .env
+      # (Windows CRLF / stale env_file kept sending mock despite .env=bridge).
+      PAYMENT_GATEWAY_NAME: bridge
+      POS_USE_BRIDGE: "True"
       POS_BRIDGE_HOST: ${POS_BRIDGE_HOST:-host.docker.internal}
       POS_BRIDGE_PORT: ${POS_BRIDGE_PORT:-9000}
+      POS_BRIDGE_TIMEOUT: ${POS_BRIDGE_TIMEOUT:-130}
       POS_TCP_HOST: ${POS_TCP_HOST:-192.168.1.100}
       POS_TCP_PORT: ${POS_TCP_PORT:-1362}
     volumes:

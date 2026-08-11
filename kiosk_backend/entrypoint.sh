@@ -69,5 +69,8 @@ fi
 echo "Collecting static files..."
 python manage.py collectstatic --noinput || true
 
+echo "Payment gateway: PAYMENT_GATEWAY_NAME=${PAYMENT_GATEWAY_NAME:-} POS_USE_BRIDGE=${POS_USE_BRIDGE:-}"
+python manage.py show_pos_config || true
+
 echo "Starting Gunicorn..."
 exec gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 config.wsgi:application

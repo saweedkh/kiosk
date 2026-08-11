@@ -227,34 +227,30 @@ LOGGING = {
 # Payment Gateway Configuration
 # gateway_name: mock | pos | bridge
 # bridge = Windows PosBridge + official pna.pcpos.dll (see pos_bridge/ and docs/POS_BRIDGE.md)
-_PAYMENT_GATEWAY_NAME = os.getenv('PAYMENT_GATEWAY_NAME', 'mock').strip().lower()
-if os.getenv('POS_USE_BRIDGE', 'False').lower() in ('1', 'true', 'yes') and _PAYMENT_GATEWAY_NAME in (
-    'mock',
-    'pos',
-    '',
-):
-    # Explicit bridge switch wins when left on default pos/mock by mistake
+_PAYMENT_GATEWAY_NAME = _env('PAYMENT_GATEWAY_NAME', 'mock').lower()
+_POS_USE_BRIDGE = _env('POS_USE_BRIDGE', 'False').lower() in ('1', 'true', 'yes', 'on')
+# Bridge flag wins over leftover mock/pos (common when .env was edited but container not recreated,
+# or Windows CRLF left mock active). Explicit PAYMENT_GATEWAY_NAME=bridge also kept.
+if _POS_USE_BRIDGE or _PAYMENT_GATEWAY_NAME in ('bridge', 'pos_bridge', 'dll_bridge'):
     _PAYMENT_GATEWAY_NAME = 'bridge'
 
-POS_BRIDGE_HOST = os.getenv('POS_BRIDGE_HOST', 'host.docker.internal').strip() or 'host.docker.internal'
-POS_BRIDGE_PORT = int(os.getenv('POS_BRIDGE_PORT', '9000') or 9000)
-POS_BRIDGE_TOKEN = os.getenv('POS_BRIDGE_TOKEN', '').strip()
-POS_BRIDGE_TIMEOUT = float(os.getenv('POS_BRIDGE_TIMEOUT', '130') or 130)
+POS_BRIDGE_HOST = _env('POS_BRIDGE_HOST', 'host.docker.internal') or 'host.docker.internal'
+POS_BRIDGE_PORT = int(_env('POS_BRIDGE_PORT', '9000') or 9000)
+POS_BRIDGE_TOKEN = _env('POS_BRIDGE_TOKEN', '')
+POS_BRIDGE_TIMEOUT = float(_env('POS_BRIDGE_TIMEOUT', '130') or 130)
 
 PAYMENT_GATEWAY_CONFIG = {
     'gateway_name': _PAYMENT_GATEWAY_NAME,
-    'merchant_id': os.getenv('PAYMENT_GATEWAY_MERCHANT_ID', ''),
-    'terminal_id': os.getenv('PAYMENT_GATEWAY_TERMINAL_ID', ''),
-    'tcp_host': os.getenv('POS_TCP_HOST', '192.168.1.100'),
-    'tcp_port': int(os.getenv('POS_TCP_PORT', '1362')),
-    'timeout': int(os.getenv('POS_TIMEOUT', '30')),
-    'mock_payment_delay': float(os.getenv('MOCK_PAYMENT_DELAY', '3')),
-    'mock_payment_success': os.getenv('MOCK_PAYMENT_SUCCESS', 'True') == 'True',
-    # Message format for direct POS connection (without bridge)
-    'pos_message_format': os.getenv('POS_MESSAGE_FORMAT', 'dll_exact'),
-    'pos_use_simple_format': os.getenv('POS_USE_SIMPLE_FORMAT', 'False') == 'True',
-    'pos_banner': os.getenv('POS_BANNER', 'R2023tejaratEParsian'),
-    # Windows PosBridge
+    'merchant_id': _env('PAYMENT_GATEWAY_MERCHANT_ID', ''),
+    'terminal_id': _env('PAYMENT_GATEWAY_TERMINAL_ID', ''),
+    'tcp_host': _env('POS_TCP_HOST', '192.168.1.100'),
+    'tcp_port': int(_env('POS_TCP_PORT', '1362') or 1362),
+    'timeout': int(_env('POS_TIMEOUT', '30') or 30),
+    'mock_payment_delay': float(_env('MOCK_PAYMENT_DELAY', '3') or 3),
+    'mock_payment_success': _env('MOCK_PAYMENT_SUCCESS', 'True').lower() in ('1', 'true', 'yes', 'on'),
+    'pos_message_format': _env('POS_MESSAGE_FORMAT', 'dll_exact'),
+    'pos_use_simple_format': _env('POS_USE_SIMPLE_FORMAT', 'False').lower() in ('1', 'true', 'yes', 'on'),
+    'pos_banner': _env('POS_BANNER', 'R2023tejaratEParsian'),
     'bridge_host': POS_BRIDGE_HOST,
     'bridge_port': POS_BRIDGE_PORT,
     'bridge_token': POS_BRIDGE_TOKEN,
@@ -262,9 +258,9 @@ PAYMENT_GATEWAY_CONFIG = {
 }
 
 # Printer Configuration
-PRINTER_ENABLED = os.getenv('PRINTER_ENABLED', 'False') == 'True'
-PRINTER_IP = os.getenv('PRINTER_IP', '192.168.1.100')
-PRINTER_PORT = int(os.getenv('PRINTER_PORT', '9100'))
+PRINTER_ENABLED = _env('PRINTER_ENABLED', 'False').lower() in ('1', 'true', 'yes', 'on')
+PRINTER_IP = _env('PRINTER_IP', '192.168.1.100')
+PRINTER_PORT = int(_env('PRINTER_PORT', '9100') or 9100)
 
 # JWT Settings
 SIMPLE_JWT = {

@@ -28,7 +28,6 @@ services:
       - .env
     environment:
       # Compose ${...} interpolation strips Windows CRLF; env_file alone may keep \r
-      # and then Django password would not match what Postgres baked on init.
       DEBUG: "False"
       ALLOWED_HOSTS: "*"
       DJANGO_SETTINGS_MODULE: config.settings
@@ -37,6 +36,12 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-kiosk}
       POSTGRES_USER: ${POSTGRES_USER:-kiosk}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kiosk}
+      PAYMENT_GATEWAY_NAME: ${PAYMENT_GATEWAY_NAME:-bridge}
+      POS_USE_BRIDGE: ${POS_USE_BRIDGE:-True}
+      POS_BRIDGE_HOST: ${POS_BRIDGE_HOST:-host.docker.internal}
+      POS_BRIDGE_PORT: ${POS_BRIDGE_PORT:-9000}
+      POS_TCP_HOST: ${POS_TCP_HOST:-192.168.1.100}
+      POS_TCP_PORT: ${POS_TCP_PORT:-1362}
     volumes:
       - backend_media:/app/media
       - backend_logs:/app/logs

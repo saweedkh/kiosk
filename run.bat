@@ -41,7 +41,8 @@ if not exist ".env" (
     if exist ".env.example" (
         echo WARNING: .env missing. Copying from .env.example ...
         copy /Y ".env.example" ".env" >nul
-        echo Edit .env and set POSTGRES_PASSWORD before production use.
+        echo Edit .env: set SECRET_KEY and POSTGRES_PASSWORD before production use.
+        echo Tip: SEED_DEMO_DATA=0 is already set ^(no demo catalog on empty DB^).
     ) else (
         echo ERROR: .env not found. Create it from .env.example
         pause

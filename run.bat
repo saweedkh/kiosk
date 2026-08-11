@@ -2,7 +2,7 @@
 REM Kiosk Application Startup Script for Windows
 REM Starts: Docker stack + PosBridge (official PNA DLL) + Chrome
 
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 set "COMPOSE_FILE=docker-compose.yml"
@@ -197,7 +197,7 @@ if errorlevel 1 (
 
 :after_db_sync
 
-REM ----- PosBridge (Windows + official DLL) — automatic, no manual pos_bridge\run.bat -----
+REM ----- PosBridge — automatic via pos_bridge\start_background.bat -----
 if exist "pos_bridge\start_background.bat" (
     echo.
     echo Starting PosBridge in background ^(from run.bat^)...
@@ -206,16 +206,18 @@ if exist "pos_bridge\start_background.bat" (
         echo.
         echo WARNING: PosBridge did not become healthy.
         echo Card payments will fail until bridge listens on :9000.
-        echo Fix Python 3.11 32-bit, then re-run run.bat ^(or check Task Manager for KioskPosBridge^).
+        echo Details: pos_bridge\logs\start_from_run.log
         echo See POS_BRIDGE.md
+        echo.
+        pause
     ) else (
         set "BRIDGE_OK=1"
     )
 ) else (
     echo.
     echo WARNING: pos_bridge\start_background.bat missing — bridge not started.
+    pause
 )
-
 REM Brief wait, then check status (no infinite hang)
 timeout /t 5 /nobreak >nul
 %COMPOSE% -f %COMPOSE_FILE% ps
@@ -297,5 +299,8 @@ echo ==========================================
 echo.
 
 :done
+echo.
+echo Press any key to close this window ^(PosBridge keeps running in background^)...
+pause >nul
 endlocal
 exit /b 0

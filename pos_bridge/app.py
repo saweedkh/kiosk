@@ -22,9 +22,19 @@ from flask_cors import CORS
 import config
 from dll_client import PosDllClient
 
+from pathlib import Path
+
+_LOG_DIR = Path(__file__).resolve().parent / 'logs'
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FMT = '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+_LOG_LEVEL = logging.DEBUG if config.DEBUG else logging.INFO
 logging.basicConfig(
-    level=logging.DEBUG if config.DEBUG else logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    level=_LOG_LEVEL,
+    format=_LOG_FMT,
+    handlers=[
+        logging.FileHandler(_LOG_DIR / 'bridge.out.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout),
+    ],
 )
 logger = logging.getLogger('pos_bridge')
 

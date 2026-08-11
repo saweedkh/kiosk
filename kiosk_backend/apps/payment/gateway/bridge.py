@@ -9,8 +9,8 @@ import requests
 from django.conf import settings
 
 from apps.logs.services.log_service import LogService
-from ..base import BasePaymentGateway
-from ..exceptions import GatewayException
+from .base import BasePaymentGateway
+from .exceptions import GatewayException
 
 
 class BridgePaymentGateway(BasePaymentGateway):

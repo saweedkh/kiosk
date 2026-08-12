@@ -7,7 +7,7 @@
     "beforeDevCommand": "npm run dev:tauri --prefix ../kiosk_frontend",
     "devUrl": "http://127.0.0.1:3000",
     "beforeBuildCommand": "npm run build:tauri --prefix ../kiosk_frontend",
-    "frontendDist": "../kiosk_frontend/out"
+    "frontendDist": "../../kiosk_frontend/out"
   },
   "app": {
     "windows": [

@@ -137,22 +137,38 @@ jobs:
             throw "No kiosk exe found in $releaseDir"
           }
           Copy-Item $exe "release/kiosk.exe"
-          # Sidecar must sit next to the app EXE for Tauri externalBin
-          $sidecar = Get-ChildItem $releaseDir -Filter "kiosk-backend*.exe" -ErrorAction SilentlyContinue
-          if ($sidecar) {
-            Copy-Item $sidecar.FullName "release/"
-          } elseif (Test-Path "kiosk_desktop/src-tauri/binaries/kiosk-backend-x86_64-pc-windows-msvc.exe") {
-            Copy-Item "kiosk_desktop/src-tauri/binaries/kiosk-backend-x86_64-pc-windows-msvc.exe" "release/"
-          }
-          $msi = Get-ChildItem "$releaseDir/bundle/msi/*.msi" -ErrorAction SilentlyContinue
-          if ($msi) { Copy-Item $msi.FullName "release/" }
-          $nsis = Get-ChildItem "$releaseDir/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
-          if ($nsis) { Copy-Item $nsis.FullName "release/" }
+
+          # Tauri expects this exact sidecar filename beside the app
+          $sidecarName = "kiosk-backend-x86_64-pc-windows-msvc.exe"
+          $sidecarSrc = @(
+            "$releaseDir/$sidecarName",
+            "kiosk_desktop/src-tauri/binaries/$sidecarName",
+            "$releaseDir/kiosk-backend.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $sidecarSrc) { throw "Sidecar binary not found for packaging" }
+          Copy-Item $sidecarSrc "release/$sidecarName"
+          # Also ship short name for manual runs / older docs
+          Copy-Item $sidecarSrc "release/kiosk-backend.exe"
+
           if (Test-Path "kiosk_backend/pna.pcpos.dll") {
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"
           }
+
+          @"
+Kiosk Windows build
+===================
+1. Keep ALL files in the same folder.
+2. Run kiosk.exe (not the backend alone).
+3. First start may take 1–2 minutes (database migrate).
+4. If nothing opens, read kiosk-startup.log in this folder.
+
+Required:
+- kiosk.exe
+- kiosk-backend-x86_64-pc-windows-msvc.exe
+"@ | Set-Content -Encoding utf8 "release/README.txt"
+
           Get-ChildItem release | Format-Table Name, Length
-          Write-Host "NOTE: Run kiosk.exe; keep kiosk-backend-*.exe beside it."
+
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

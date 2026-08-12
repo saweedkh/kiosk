@@ -10,7 +10,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            backend::start(app.handle())?;
+            if let Err(err) = backend::start(app.handle()) {
+                backend::show_fatal(&err);
+                return Err(err.into());
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

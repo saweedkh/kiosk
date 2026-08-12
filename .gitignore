@@ -47,6 +47,13 @@ kiosk_frontend/.vercel
 kiosk_frontend/.turbo
 kiosk_frontend/.cache/
 
+# Tauri desktop
+kiosk_desktop/node_modules/
+kiosk_desktop/src-tauri/target/
+
+# Local desktop / host data (SQLite, media, logs)
+/data/
+
 # IDE
 .vscode/
 .idea/

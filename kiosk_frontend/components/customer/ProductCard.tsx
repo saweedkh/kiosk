@@ -11,6 +11,7 @@ import {
   type CartSelectedOption,
 } from '@/lib/store/cart-store'
 import { formatCurrency, formatNumber } from '@/lib/utils'
+import { resolveMediaUrl } from '@/lib/media-url'
 import type { Product } from '@/types'
 
 interface ProductCardProps {
@@ -82,6 +83,8 @@ export function ProductCard({ product }: ProductCardProps) {
     }
   }
 
+  const imageUrl = resolveMediaUrl(product.image)
+
   return (
     <>
       <motion.div
@@ -91,19 +94,20 @@ export function ProductCard({ product }: ProductCardProps) {
         className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg dark:border-border-dark dark:bg-card-dark"
       >
         <div className="relative h-56 w-full bg-gray-100 dark:bg-gray-800">
-          {product.image ? (
+          {imageUrl ? (
             <Image
-              src={product.image}
+              src={imageUrl}
               alt={product.name}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               unoptimized={
-                product.image?.startsWith('http://localhost') ||
-                product.image?.startsWith('http://')
+                imageUrl.startsWith('http://localhost') ||
+                imageUrl.startsWith('http://127.0.0.1') ||
+                imageUrl.startsWith('http://')
               }
               onError={(e) => {
-                console.error('Image load error:', product.image)
+                console.error('Image load error:', imageUrl)
                 e.currentTarget.style.display = 'none'
               }}
             />

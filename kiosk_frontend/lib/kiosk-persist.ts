@@ -150,7 +150,10 @@ export function readCachedCategories(): ApiResponse<
   const envelope = readJson<CachedEnvelope<ApiResponse<Category[] | PaginatedResponse<Category>>>>(
     CATEGORIES_KEY
   )
-  if (!envelope?.data || Date.now() - envelope.cached_at > MENU_MAX_AGE_MS) return null
+  if (!envelope) return null
+  if (!envelope.data) return null
+  if (envelope.cached_at == null) return null
+  if (Date.now() - envelope.cached_at > MENU_MAX_AGE_MS) return null
   return envelope.data
 }
 
@@ -163,7 +166,10 @@ export function writeCachedCategories(
 
 export function readCachedProducts(): ApiResponse<PaginatedResponse<Product>> | null {
   const envelope = readJson<CachedEnvelope<ApiResponse<PaginatedResponse<Product>>>>(PRODUCTS_KEY)
-  if (!envelope?.data || Date.now() - envelope.cached_at > MENU_MAX_AGE_MS) return null
+  if (!envelope) return null
+  if (!envelope.data) return null
+  if (envelope.cached_at == null) return null
+  if (Date.now() - envelope.cached_at > MENU_MAX_AGE_MS) return null
   return envelope.data
 }
 

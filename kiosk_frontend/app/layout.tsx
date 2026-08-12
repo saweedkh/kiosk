@@ -46,10 +46,16 @@ const vazir = localFont({
 });
 
 // Always resolve metadata from backend settings (DB), not env defaults
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const dynamic = process.env.TAURI_BUILD === "1" ? "auto" : "force-dynamic";
+export const revalidate = process.env.TAURI_BUILD === "1" ? false : 0;
 
 export async function generateMetadata(): Promise<Metadata> {
+  if (process.env.TAURI_BUILD === "1") {
+    return {
+      title: "کیوسک",
+      description: "Kiosk self-service",
+    };
+  }
   const settings = await settingsApi.getSettingsServer();
   const siteName = resolveSiteName(settings);
   const description = resolveSiteDescription(settings);

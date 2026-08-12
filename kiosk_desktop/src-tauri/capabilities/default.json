@@ -1,0 +1,32 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Kiosk main window — spawn bundled Django sidecar only",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "core:window:default",
+    "core:webview:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "kiosk-backend",
+          "sidecar": true,
+          "args": true
+        },
+        {
+          "name": "python3",
+          "cmd": "python3",
+          "args": true
+        },
+        {
+          "name": "python",
+          "cmd": "python",
+          "args": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,13 +1,16 @@
+const isTauriBuild = process.env.TAURI_BUILD === '1'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable React Strict Mode
   reactStrictMode: true,
   
-  // Enable standalone output for Docker
-  output: 'standalone',
+  // Docker: standalone | Tauri: static export
+  output: isTauriBuild ? 'export' : 'standalone',
   
   // Image optimization configuration
   images: {
+    unoptimized: isTauriBuild,
     remotePatterns: [
       {
         protocol: 'https',

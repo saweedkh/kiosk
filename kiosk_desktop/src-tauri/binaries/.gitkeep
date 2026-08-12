@@ -1,0 +1,2 @@
+# PyInstaller builds kiosk-backend sidecar for Tauri (Windows).
+# Run from repo root: pyinstaller kiosk_backend/kiosk-backend.spec

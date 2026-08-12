@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kiosk",
+  "version": "1.0.0",
+  "identifier": "com.kiosk.app",
+  "build": {
+    "beforeDevCommand": "NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api npm run dev --prefix ../kiosk_frontend",
+    "devUrl": "http://127.0.0.1:3000",
+    "beforeBuildCommand": "npm run build:tauri --prefix ../kiosk_frontend",
+    "frontendDist": "../kiosk_frontend/out"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kiosk",
+        "width": 1280,
+        "height": 800,
+        "fullscreen": true,
+        "decorations": false,
+        "resizable": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://127.0.0.1:8000; connect-src 'self' http://127.0.0.1:8000 http://127.0.0.1:3000 ipc: http://ipc.localhost; object-src 'none'; frame-ancestors 'none'",
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "externalBin": ["binaries/kiosk-backend"]
+  }
+}

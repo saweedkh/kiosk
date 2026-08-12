@@ -34,7 +34,9 @@ import {
   clearCachedMenu,
   preloadImage,
   preloadImages,
+  type KioskSettingsSnapshot,
 } from "@/lib/kiosk-persist";
+import { resolveMediaUrl } from "@/lib/media-url";
 import {
   CustomerMenuSkeleton,
   CategoryFilterSkeleton,
@@ -289,9 +291,19 @@ export default function CustomerPage() {
     }, 2000);
   };
 
-  const [cachedSettings, setCachedSettings] = useState(() => readCachedSettings());
-  const cachedCategories = useMemo(() => readCachedCategories(), []);
-  const cachedProducts = useMemo(() => readCachedProducts(), []);
+  const [cachedSettings, setCachedSettings] = useState<KioskSettingsSnapshot | null>(null);
+  const [cachedCategories, setCachedCategories] = useState<
+    ReturnType<typeof readCachedCategories>
+  >(null);
+  const [cachedProducts, setCachedProducts] = useState<
+    ReturnType<typeof readCachedProducts>
+  >(null);
+
+  useEffect(() => {
+    setCachedSettings(readCachedSettings());
+    setCachedCategories(readCachedCategories());
+    setCachedProducts(readCachedProducts());
+  }, []);
 
   useEffect(() => {
     const syncCache = () => setCachedSettings(readCachedSettings());
@@ -482,6 +494,14 @@ export default function CustomerPage() {
     "cinema"
   ).toLowerCase();
   landingThemeRef.current = landingTheme;
+
+  const resolvedLogoUrl =
+    resolveMediaUrl(
+      settings.logo_url?.trim() ? settings.logo_url : cachedSettings?.logo_url
+    ) || (logoError ? undefined : "/logo.png");
+  const resolvedBackgroundUrl = resolveMediaUrl(
+    settings.landing_background_url || cachedSettings?.landing_background_url
+  );
 
   useEffect(() => {
     if (!showAttract || !landingTheme) return;
@@ -770,12 +790,7 @@ export default function CustomerPage() {
           ].join("|")}
           theme={landingTheme}
           siteName={siteName || cachedSettings?.site_name || "کیوسک"}
-          logoUrl={
-            (settings.logo_url && settings.logo_url.trim() !== ""
-              ? settings.logo_url
-              : cachedSettings?.logo_url) ||
-            (logoError ? null : "/logo.png")
-          }
+          logoUrl={resolvedLogoUrl}
           tagline={siteDescription || cachedSettings?.description}
           ctaText={
             settings.landing_cta_text ||
@@ -802,11 +817,7 @@ export default function CustomerPage() {
             cachedSettings?.landing_muted_color ||
             undefined
           }
-          backgroundUrl={
-            settings.landing_background_url ||
-            cachedSettings?.landing_background_url ||
-            undefined
-          }
+          backgroundUrl={resolvedBackgroundUrl}
           onStart={startOrdering}
           onSecretAdmin={() => {
             if (typeof window !== "undefined") {
@@ -835,9 +846,9 @@ export default function CustomerPage() {
                   onClick={handleLogoClick}
                   title="کلیک کنید"
                 >
-                  {settings.logo_url && settings.logo_url.trim() !== '' ? (
+                  {resolvedLogoUrl && resolvedLogoUrl !== "/logo.png" ? (
                     <Image
-                      src={settings.logo_url}
+                      src={resolvedLogoUrl}
                       alt={siteName || 'لوگو'}
                       width={56}
                       height={56}

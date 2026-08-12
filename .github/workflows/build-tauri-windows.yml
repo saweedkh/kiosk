@@ -85,7 +85,12 @@ jobs:
           pip install -r requirements/base.txt pyinstaller
           pyinstaller --noconfirm --clean kiosk-backend.spec
           if not exist "..\kiosk_desktop\src-tauri\binaries" mkdir "..\kiosk_desktop\src-tauri\binaries"
-          copy /Y "dist\kiosk-backend-x86_64-pc-windows-msvc.exe" "..\kiosk_desktop\src-tauri\binaries\kiosk-backend-x86_64-pc-windows-msvc.exe"
+          if not exist "dist\kiosk-backend.exe" (
+            echo PyInstaller did not produce dist\kiosk-backend.exe
+            dir dist
+            exit /b 1
+          )
+          copy /Y "dist\kiosk-backend.exe" "..\kiosk_desktop\src-tauri\binaries\kiosk-backend-x86_64-pc-windows-msvc.exe"
 
       - name: Verify sidecar binary
         shell: pwsh

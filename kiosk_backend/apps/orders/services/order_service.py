@@ -4,7 +4,6 @@ from django.utils import timezone
 from apps.orders.models import Order, OrderItem
 from apps.orders.selectors.order_selector import OrderSelector
 from apps.orders.services.receipt_service import ReceiptService
-from apps.orders.services.print_service import PrintService
 from apps.orders.services.coupon_service import CouponService
 from apps.products.models import Product, ProductOption
 from apps.products.services.stock_service import StockService
@@ -535,6 +534,8 @@ class OrderService:
             order.status = 'paid'
             order.payment_status = payment_status
             order.save()
+            from apps.orders.services.print_service import PrintService
+
             PrintService.print_receipt(order)
         else:
             order.payment_status = payment_status

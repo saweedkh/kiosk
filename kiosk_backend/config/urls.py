@@ -8,20 +8,21 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 from apps.core.api import health
 
 urlpatterns = [
+    # Health first — still imports includes below when ROOT_URLCONF loads,
+    # but keeps probes easy to find in the list.
+    path('health/', health.health_check, name='health'),
+    path('health/ready/', health.readiness_check, name='readiness'),
+    path('health/live/', health.liveness_check, name='liveness'),
+
     # Django Admin
     path('django-admin/', admin.site.urls),
-    
+
     # API Routes
     path('api/kiosk/', include('apps.core.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    
-    # Health checks
-    path('health/', health.health_check, name='health'),
-    path('health/ready/', health.readiness_check, name='readiness'),
-    path('health/live/', health.liveness_check, name='liveness'),
-    
+
     # Media files
     re_path(
         r'^media/(?P<path>.*)$',

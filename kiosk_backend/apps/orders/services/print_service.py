@@ -94,7 +94,7 @@ class PrintService:
         return f"{settings.MEDIA_URL}receipts/{filename}"
 
     @staticmethod
-    def _print_image(printer: Network, receipt_image: Image.Image) -> None:
+    def _print_image(printer: Any, receipt_image: Image.Image) -> None:
         printer.set(align='center')
         if receipt_image.mode != 'RGB':
             receipt_image = receipt_image.convert('RGB')

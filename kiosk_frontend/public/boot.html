@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>کیوسک — در حال راه‌اندازی</title>
+    <style>
+      :root {
+        --bg: #fff3e8;
+        --primary: #e17100;
+        --text: #1c1917;
+        --muted: #78716c;
+        --err: #b91c1c;
+        --err-bg: #fef2f2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Tahoma, "Segoe UI", Vazirmatn, sans-serif;
+        background:
+          radial-gradient(ellipse 80% 50% at 50% -10%, rgba(225, 113, 0, 0.18), transparent),
+          var(--bg);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        width: min(440px, 100%);
+        text-align: center;
+      }
+      .brand {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--primary);
+        margin: 0 0 8px;
+      }
+      .spinner {
+        width: 48px;
+        height: 48px;
+        margin: 28px auto 20px;
+        border: 4px solid rgba(225, 113, 0, 0.2);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 0.85s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      h1 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin: 0 0 8px;
+      }
+      #status {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        min-height: 3em;
+      }
+      #error {
+        display: none;
+        margin-top: 20px;
+        padding: 16px;
+        border-radius: 12px;
+        background: var(--err-bg);
+        color: var(--err);
+        text-align: right;
+        font-size: 0.9rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+      #error.visible {
+        display: block;
+      }
+      .hidden {
+        display: none !important;
+      }
+      button {
+        margin-top: 16px;
+        appearance: none;
+        border: none;
+        border-radius: 10px;
+        background: var(--primary);
+        color: #fff;
+        font: inherit;
+        font-size: 0.95rem;
+        padding: 10px 20px;
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(1.05);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <p class="brand">کیوسک</p>
+      <div id="spinner" class="spinner" aria-hidden="true"></div>
+      <h1 id="title">در حال راه‌اندازی…</h1>
+      <p id="status">لطفاً صبر کنید. اولین اجرا ممکن است ۱ تا ۲ دقیقه طول بکشد.</p>
+      <div id="error" role="alert"></div>
+      <button id="retry" class="hidden" type="button">تلاش دوباره</button>
+    </div>
+    <script>
+      (function () {
+        var HEALTH = "http://127.0.0.1:8000/health/";
+        var TIMEOUT_MS = 180000;
+        var INTERVAL_MS = 500;
+        var started = Date.now();
+        var timer = null;
+
+        var statusEl = document.getElementById("status");
+        var titleEl = document.getElementById("title");
+        var spinnerEl = document.getElementById("spinner");
+        var errorEl = document.getElementById("error");
+        var retryBtn = document.getElementById("retry");
+
+        var messages = [
+          "در حال شروع سرویس بک‌اند…",
+          "در حال آماده‌سازی پایگاه داده…",
+          "هنوز صبر کنید — مهاجرت اولیه ممکن است طول بکشد…",
+          "در حال بررسی سلامت سرویس…",
+        ];
+
+        function elapsedLabel() {
+          var s = Math.floor((Date.now() - started) / 1000);
+          return s + " ثانیه";
+        }
+
+        function setBusy(msg) {
+          var idx = Math.min(
+            messages.length - 1,
+            Math.floor((Date.now() - started) / 25000)
+          );
+          statusEl.textContent = (msg || messages[idx]) + "\n(" + elapsedLabel() + ")";
+        }
+
+        function showError(detail) {
+          if (timer) clearInterval(timer);
+          spinnerEl.classList.add("hidden");
+          titleEl.textContent = "راه‌اندازی ناموفق";
+          statusEl.textContent = "اپلیکیشن نتوانست به سرور داخلی وصل شود.";
+          errorEl.textContent =
+            detail +
+            "\n\nلاگ‌ها را کنار فایل kiosk.exe در پوشه logs ببینید:\n" +
+            "• kiosk.log\n• django.log";
+          errorEl.classList.add("visible");
+          retryBtn.classList.remove("hidden");
+        }
+
+        function goApp() {
+          if (timer) clearInterval(timer);
+          statusEl.textContent = "آماده شد — در حال باز کردن صفحه…";
+          location.replace("./");
+        }
+
+        function tick() {
+          if (Date.now() - started > TIMEOUT_MS) {
+            showError(
+              "بک‌اند تا ۳ دقیقه پاسخ نداد.\nآدرس: " +
+                HEALTH +
+                "\nفایل kiosk-backend-x86_64-pc-windows-msvc.exe باید کنار kiosk.exe باشد."
+            );
+            return;
+          }
+          setBusy();
+          fetch(HEALTH, { cache: "no-store" })
+            .then(function (r) {
+              if (r.ok) goApp();
+            })
+            .catch(function () {
+              /* still starting */
+            });
+        }
+
+        retryBtn.addEventListener("click", function () {
+          started = Date.now();
+          spinnerEl.classList.remove("hidden");
+          titleEl.textContent = "در حال راه‌اندازی…";
+          errorEl.classList.remove("visible");
+          errorEl.textContent = "";
+          retryBtn.classList.add("hidden");
+          setBusy();
+          timer = setInterval(tick, INTERVAL_MS);
+          tick();
+        });
+
+        setBusy();
+        timer = setInterval(tick, INTERVAL_MS);
+        tick();
+      })();
+    </script>
+  </body>
+</html>

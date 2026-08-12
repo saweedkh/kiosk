@@ -73,7 +73,13 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     app.manage(BackendHandle {
         child: Mutex::new(child),
     });
+    // Health wait runs in a background thread (see lib.rs) so boot.html can show.
+    Ok(())
+}
 
+/// Block until `/health/` returns 200 or the deadline expires.
+pub fn wait_until_ready() -> Result<(), String> {
+    let config = AppConfig::from_env();
     wait_for_health(&config)?;
     logutil::info(&format!(
         "Django ready http://{}:{}/",

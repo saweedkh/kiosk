@@ -93,6 +93,12 @@ Frontend `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api` at build time.
 
 Relative `/media/` URLs are resolved via `lib/media-url.ts` in the WebView.
 
+## Startup UI
+
+The window opens on `boot.html` (Persian loading screen) while Django migrates/starts.
+When `http://127.0.0.1:8000/health/` is OK it redirects into the app.
+On failure it shows an error and points to the `logs/` folder (MessageBox backup too).
+
 ## Logs (beside the EXE)
 
 On each run the app creates:

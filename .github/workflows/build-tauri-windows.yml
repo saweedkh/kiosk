@@ -94,12 +94,29 @@ jobs:
           if (-not (Test-Path $sidecar)) { throw "Missing sidecar: $sidecar" }
           Write-Host "Sidecar OK:" (Get-Item $sidecar).Length "bytes"
 
-      - name: Build Tauri (Next static + kiosk.exe + MSI)
+      - name: Build Next.js static export for Tauri
+        working-directory: kiosk_frontend
+        env:
+          TAURI_BUILD: '1'
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api
+        run: npx next build
+
+      - name: Verify frontend out/
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "kiosk_frontend/out/index.html")) {
+            Write-Host "kiosk_frontend contents:"
+            Get-ChildItem kiosk_frontend -Force | Format-Table Name, Mode
+            throw "kiosk_frontend/out/index.html missing — static export failed"
+          }
+          Write-Host "Static export OK"
+          Get-ChildItem kiosk_frontend/out | Select-Object -First 15 Name
+
+      - name: Build Tauri (frontend already built)
         working-directory: kiosk_desktop
         env:
           CI: 'true'
-          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api
-        run: npm run build
+        run: npm run build:ci
 
       - name: Stage release artifacts
         shell: pwsh

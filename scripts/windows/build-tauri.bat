@@ -5,24 +5,30 @@ cd /d "%~dp0..\.."
 
 echo === Kiosk Tauri Full Stack Build ===
 
-if exist "kiosk_backend\pna.pcpos.dll" (
-  if not exist "kiosk_desktop\src-tauri\resources" mkdir "kiosk_desktop\src-tauri\resources"
-  copy /Y "kiosk_backend\pna.pcpos.dll" "kiosk_desktop\src-tauri\resources\pna.pcpos.dll" >nul
-  echo Copied pna.pcpos.dll
-)
-
 call "%~dp0build-backend-sidecar.bat"
 if errorlevel 1 exit /b 1
 
+echo === Next.js static export ===
+cd kiosk_frontend
+if not exist node_modules call npm install
+set TAURI_BUILD=1
+set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api
+call npx next build
+if errorlevel 1 exit /b 1
+if not exist out\index.html (
+  echo ERROR: kiosk_frontend\out\index.html missing
+  exit /b 1
+)
+cd ..
+
+echo === Tauri package ===
 cd kiosk_desktop
 if not exist node_modules call npm install
-call npm run build
+call npm run build:ci
 if errorlevel 1 exit /b 1
 
-REM Optional POS DLL next to release bundle (not required for CI)
-if exist "kiosk_backend\pna.pcpos.dll" (
-  copy /Y "kiosk_backend\pna.pcpos.dll" "src-tauri\target\release\pna.pcpos.dll" >nul 2>nul
-  copy /Y "kiosk_backend\pna.pcpos.dll" "src-tauri\target\release\bundle\msi\pna.pcpos.dll" >nul 2>nul
+if exist "..\kiosk_backend\pna.pcpos.dll" (
+  copy /Y "..\kiosk_backend\pna.pcpos.dll" "src-tauri\target\release\pna.pcpos.dll" >nul 2>nul
 )
 
 echo.

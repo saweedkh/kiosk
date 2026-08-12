@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:ci": "tauri build --config tauri.ci.json",
     "build:frontend": "npm run build:tauri --prefix ../kiosk_frontend",
     "tauri": "tauri"
   },

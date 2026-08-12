@@ -1,14 +1,21 @@
-const isTauriBuild = process.env.TAURI_BUILD === '1'
+const isTauriBuild =
+  process.env.TAURI_BUILD === '1' ||
+  process.env.npm_lifecycle_event === 'build:tauri'
+
+if (isTauriBuild) {
+  console.log(
+    '[next.config] Tauri static export enabled',
+    `(TAURI_BUILD=${process.env.TAURI_BUILD}, lifecycle=${process.env.npm_lifecycle_event})`
+  )
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable React Strict Mode
   reactStrictMode: true,
-  
-  // Docker: standalone | Tauri: static export
+
+  // Docker: standalone | Tauri: static export into ./out
   output: isTauriBuild ? 'export' : 'standalone',
-  
-  // Image optimization configuration
+
   images: {
     unoptimized: isTauriBuild,
     remotePatterns: [
@@ -22,32 +29,27 @@ const nextConfig = {
       },
     ],
   },
-  
-  // Optimize on-demand entries for better performance
+
   onDemandEntries: {
-    maxInactiveAge: 60 * 1000, // 60 seconds
+    maxInactiveAge: 60 * 1000,
     pagesBufferLength: 10,
   },
-  
-  // Webpack configuration for better dev experience
-  webpack: (config, { dev, isServer }) => {
+
+  webpack: (config, { dev }) => {
     if (dev) {
-      // Use filesystem cache for faster builds
       config.cache = {
         type: 'filesystem',
         buildDependencies: {
           config: [__filename],
         },
       }
-      // Reduce webpack logging noise
       config.infrastructureLogging = {
         level: 'error',
       }
     }
     return config
   },
-  
-  // Reduce logging in development
+
   logging: {
     fetches: {
       fullUrl: false,
@@ -56,4 +58,3 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
-

@@ -104,13 +104,18 @@ jobs:
       - name: Verify frontend out/
         shell: pwsh
         run: |
-          if (-not (Test-Path "kiosk_frontend/out/index.html")) {
+          $out = "kiosk_frontend/out/index.html"
+          if (-not (Test-Path $out)) {
             Write-Host "kiosk_frontend contents:"
             Get-ChildItem kiosk_frontend -Force | Format-Table Name, Mode
             throw "kiosk_frontend/out/index.html missing — static export failed"
           }
-          Write-Host "Static export OK"
-          Get-ChildItem kiosk_frontend/out | Select-Object -First 15 Name
+          $resolved = (Resolve-Path "kiosk_frontend/out").Path
+          Write-Host "Static export OK at $resolved"
+          # Tauri resolves frontendDist from src-tauri → ../../kiosk_frontend/out
+          $fromTauri = "kiosk_desktop/src-tauri/../../kiosk_frontend/out/index.html"
+          if (-not (Test-Path $fromTauri)) { throw "Path from src-tauri does not resolve: $fromTauri" }
+          Write-Host "Tauri-relative path OK"
 
       - name: Build Tauri (frontend already built)
         working-directory: kiosk_desktop

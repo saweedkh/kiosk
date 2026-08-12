@@ -16,7 +16,7 @@ Tauri only provides the window + lifecycle; **no partial Rust API rewrite**.
 ```text
 kiosk.exe (Tauri)
   ├── WebView → Next.js out/  (/, /admin, …)
-  └── sidecar: kiosk-backend.exe (Django + Waitress :8000)
+  └── sidecar: kiosk-backend-x86_64-pc-windows-msvc.exe (Django + Waitress :8000)
         └── SQLite + media + full /api/kiosk/*
 ```
 
@@ -92,6 +92,19 @@ All `/api/kiosk/*` routes from Django — products, orders, payment, admin auth,
 Frontend `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api` at build time.
 
 Relative `/media/` URLs are resolved via `lib/media-url.ts` in the WebView.
+
+## Logs (beside the EXE)
+
+On each run the app creates:
+
+```text
+kiosk.exe
+logs/
+  README.txt
+  kiosk.log       # Tauri + startup + health
+  django.log      # backend process stdout/stderr
+  django-app.log  # Django logging.FileHandler (when KIOSK_LOG_DIR is set)
+```
 
 ## Security (Tauri skill)
 

@@ -147,8 +147,6 @@ jobs:
           ) | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $sidecarSrc) { throw "Sidecar binary not found for packaging" }
           Copy-Item $sidecarSrc "release/$sidecarName"
-          # Also ship short name for manual runs / older docs
-          Copy-Item $sidecarSrc "release/kiosk-backend.exe"
 
           if (Test-Path "kiosk_backend/pna.pcpos.dll") {
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"

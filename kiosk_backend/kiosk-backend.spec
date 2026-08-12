@@ -1,63 +1,67 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""Build Django backend as Tauri external binary (Windows x64).
+# Build (Windows): pyinstaller kiosk-backend.spec
+# Output: dist/kiosk-backend.exe — copy beside Tauri as
+#   kiosk-backend-x86_64-pc-windows-msvc.exe
 
-SPECPATH is injected by PyInstaller when this file is executed (not __file__).
-"""
+import os
 
-from pathlib import Path
-
-BACKEND = Path(SPECPATH).resolve()
+from PyInstaller.building.build_main import Analysis, COLLECT, EXE, PYZ
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
 
+# SPECPATH is set by PyInstaller to the directory containing this .spec
+# (do not use __file__; it is undefined when the spec is exec'd).
+spec_dir = SPECPATH
+project_root = spec_dir
+
+# python-escpos ships capabilities.json (and related data) next to the package.
+# Without these datas, a frozen EXE crashes on `from escpos.printer import Network`.
+escpos_datas = collect_data_files("escpos")
+try:
+    arabic_datas = collect_data_files("arabic_reshaper")
+except Exception:
+    arabic_datas = []
+
 a = Analysis(
-    [str(BACKEND / 'main.py')],
-    pathex=[str(BACKEND)],
+    [os.path.join(project_root, "main.py")],
+    pathex=[project_root],
     binaries=[],
     datas=[
-        (str(BACKEND / 'apps'), 'apps'),
-        (str(BACKEND / 'config'), 'config'),
-        (str(BACKEND / 'manage.py'), '.'),
+        (os.path.join(project_root, "apps"), "apps"),
+        (os.path.join(project_root, "config"), "config"),
+        *escpos_datas,
+        *arabic_datas,
     ],
     hiddenimports=[
-        'django',
-        'django.contrib.admin',
-        'django.contrib.auth',
-        'django.contrib.contenttypes',
-        'django.contrib.sessions',
-        'django.contrib.messages',
-        'django.contrib.staticfiles',
-        'django.db.backends.sqlite3',
-        'rest_framework',
-        'rest_framework_simplejwt',
-        'rest_framework_simplejwt.token_blacklist',
-        'corsheaders',
-        'django_filters',
-        'drf_spectacular',
-        'waitress',
-        'apps.core',
-        'apps.core.apps',
-        'apps.products',
-        'apps.products.apps',
-        'apps.orders',
-        'apps.orders.apps',
-        'apps.payment',
-        'apps.payment.apps',
-        'apps.admin_panel',
-        'apps.admin_panel.apps',
-        'apps.accounts',
-        'apps.accounts.apps',
-        'apps.bale_bot',
-        'apps.bale_bot.apps',
-        'apps.logs',
-        'apps.logs.apps',
-        'config.settings.desktop',
-        'config.wsgi',
+        "django",
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "django.contrib.sessions",
+        "django.contrib.messages",
+        "django.contrib.staticfiles",
+        "rest_framework",
+        "rest_framework_simplejwt",
+        "rest_framework_simplejwt.token_blacklist",
+        "corsheaders",
+        "django_filters",
+        "waitress",
+        "apps.accounts",
+        "apps.products",
+        "apps.orders",
+        "apps.payment",
+        "apps.admin_panel",
+        "apps.core",
+        "apps.bale_bot",
+        "apps.logs",
+        "config.settings.desktop",
+        *collect_submodules("escpos"),
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['nuitka', 'PyInstaller'],
+    excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -73,11 +77,11 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='kiosk-backend-x86_64-pc-windows-msvc',
+    name="kiosk-backend",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,

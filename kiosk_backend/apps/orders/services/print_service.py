@@ -4,7 +4,6 @@ Print service for sending receipts to network printers using python-escpos.
 from typing import Dict, Any, List
 import os
 from PIL import Image, ImageFont
-from escpos.printer import Network
 from django.conf import settings
 from apps.orders.models import Order
 from apps.orders.services.receipt_service import ReceiptService
@@ -148,6 +147,11 @@ class PrintService:
         copy_labels = PrintService._receipt_copy_labels()
 
         try:
+            # Lazy import: python-escpos loads capabilities.json at import time.
+            # Keep it out of module import so PyInstaller/Django URL load (and /health/)
+            # does not fail when that data file is missing or unused.
+            from escpos.printer import Network
+
             printer = Network(printer_ip, port=printer_port)
             printer.profile.media['width']['pixel'] = ReceiptConstants.IMAGE_WIDTH
 

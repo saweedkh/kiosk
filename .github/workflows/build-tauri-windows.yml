@@ -154,13 +154,14 @@ jobs:
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"
           }
 
-          @(
+            @(
             "Kiosk Windows build",
             "===================",
             "1. Keep ALL files in the same folder.",
             "2. Run kiosk.exe (not the backend alone).",
             "3. First start may take 1-2 minutes (database migrate).",
-            "4. If nothing opens, read kiosk-startup.log in this folder.",
+            "4. Logs are written to the logs\\ folder next to kiosk.exe",
+            "   (kiosk.log, django.log, django-app.log).",
             "",
             "Required:",
             "- kiosk.exe",

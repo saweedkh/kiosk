@@ -9,44 +9,16 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 
 use crate::config::AppConfig;
+use crate::logutil;
 
 pub struct BackendHandle {
     #[allow(dead_code)]
     child: Mutex<Child>,
 }
 
-fn exe_dir() -> Option<PathBuf> {
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-}
-
-fn append_log(msg: &str) {
-    let line = format!("[{}] {}\n", now_stamp(), msg);
-    if let Some(dir) = exe_dir() {
-        let path = dir.join("kiosk-startup.log");
-        let _ = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .and_then(|mut f| {
-                use std::io::Write;
-                f.write_all(line.as_bytes())
-            });
-    }
-    tracing::info!("{}", msg);
-}
-
-fn now_stamp() -> String {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs().to_string())
-        .unwrap_or_else(|_| "?".into())
-}
-
 #[cfg(target_os = "windows")]
 pub fn show_fatal(msg: &str) {
-    append_log(&format!("FATAL: {msg}"));
+    logutil::error(&format!("FATAL: {msg}"));
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::ptr::null_mut;
@@ -65,7 +37,8 @@ pub fn show_fatal(msg: &str) {
         OsStr::new(s).encode_wide().chain(Some(0)).collect()
     }
 
-    let text = wide(msg);
+    let full = format!("{msg}\n\n{}", logutil::open_logs_hint());
+    let text = wide(&full);
     let caption = wide("Kiosk");
     unsafe {
         MessageBoxW(null_mut(), text.as_ptr(), caption.as_ptr(), 0x10);
@@ -74,8 +47,8 @@ pub fn show_fatal(msg: &str) {
 
 #[cfg(not(target_os = "windows"))]
 pub fn show_fatal(msg: &str) {
-    append_log(&format!("FATAL: {msg}"));
-    eprintln!("Kiosk fatal: {msg}");
+    logutil::error(&format!("FATAL: {msg}"));
+    eprintln!("Kiosk fatal: {msg}\n{}", logutil::open_logs_hint());
 }
 
 pub fn start(app: &AppHandle) -> Result<(), String> {
@@ -85,21 +58,24 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         .app_data_dir()
         .map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
-    append_log(&format!(
-        "exe_dir={:?} data_dir={} api={}:{}",
-        exe_dir(),
+
+    let log_dir = logutil::logs_dir();
+    logutil::info(&format!(
+        "exe_dir={:?} data_dir={} log_dir={} api={}:{}",
+        logutil::exe_dir(),
         data_dir.display(),
+        log_dir.display(),
         config.api_host,
         config.api_port
     ));
 
-    let child = spawn_backend(&config, &data_dir)?;
+    let child = spawn_backend(&config, &data_dir, &log_dir)?;
     app.manage(BackendHandle {
         child: Mutex::new(child),
     });
 
     wait_for_health(&config)?;
-    append_log(&format!(
+    logutil::info(&format!(
         "Django ready http://{}:{}/",
         config.api_host, config.api_port
     ));
@@ -107,7 +83,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
 }
 
 fn find_backend_binary() -> Result<PathBuf, String> {
-    let dir = exe_dir().ok_or_else(|| "cannot resolve kiosk.exe directory".to_string())?;
+    let dir = logutil::exe_dir().ok_or_else(|| "cannot resolve kiosk.exe directory".to_string())?;
     let names = [
         "kiosk-backend-x86_64-pc-windows-msvc.exe",
         "kiosk-backend.exe",
@@ -123,7 +99,6 @@ fn find_backend_binary() -> Result<PathBuf, String> {
         }
     }
 
-    // Dev: python main.py from repo
     let cwd = std::env::current_dir().unwrap_or_else(|_| dir.clone());
     let main_py = cwd.join("kiosk_backend").join("main.py");
     if main_py.is_file() {
@@ -136,14 +111,15 @@ fn find_backend_binary() -> Result<PathBuf, String> {
          Put one of these files beside kiosk.exe:\n\
          - kiosk-backend-x86_64-pc-windows-msvc.exe\n\
          - kiosk-backend.exe\n\n\
-         See kiosk-startup.log for details.",
-        dir.display()
+         {}",
+        dir.display(),
+        logutil::open_logs_hint()
     ))
 }
 
-fn spawn_backend(config: &AppConfig, data_dir: &Path) -> Result<Child, String> {
+fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<Child, String> {
     let path = find_backend_binary()?;
-    append_log(&format!("starting backend {}", path.display()));
+    logutil::info(&format!("starting backend {}", path.display()));
 
     let mut cmd = if path.extension().and_then(|e| e.to_str()) == Some("py") {
         let mut c = Command::new(if cfg!(windows) { "python" } else { "python3" });
@@ -161,6 +137,7 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path) -> Result<Child, String> {
     };
 
     cmd.env("KIOSK_DATA_DIR", data_dir)
+        .env("KIOSK_LOG_DIR", log_dir)
         .env("KIOSK_API_HOST", &config.api_host)
         .env("KIOSK_API_PORT", config.api_port.to_string())
         .env("DJANGO_SETTINGS_MODULE", "config.settings.desktop")
@@ -179,26 +156,23 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path) -> Result<Child, String> {
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
-    let mut child = cmd.spawn().map_err(|e| {
-        format!(
-            "Failed to start backend {}: {e}",
-            path.display()
-        )
-    })?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to start backend {}: {e}", path.display()))?;
 
     if let Some(out) = child.stdout.take() {
         std::thread::spawn(move || {
             for line in BufReader::new(out).lines().flatten() {
+                logutil::django_line("stdout", &line);
                 tracing::info!(target: "django", "{line}");
-                append_log(&format!("stdout: {line}"));
             }
         });
     }
     if let Some(err) = child.stderr.take() {
         std::thread::spawn(move || {
             for line in BufReader::new(err).lines().flatten() {
+                logutil::django_line("stderr", &line);
                 tracing::warn!(target: "django", "{line}");
-                append_log(&format!("stderr: {line}"));
             }
         });
     }
@@ -211,23 +185,30 @@ fn wait_for_health(config: &AppConfig) -> Result<(), String> {
         "http://{}:{}/health/",
         config.api_host, config.api_port
     );
-    append_log(&format!("waiting for {url} (up to 3 min for first migrate)"));
+    logutil::info(&format!("waiting for {url} (up to 3 min for first migrate)"));
     let deadline = Instant::now() + Duration::from_secs(180);
+    let mut attempts = 0u32;
 
     while Instant::now() < deadline {
+        attempts += 1;
         if ureq::get(&url)
             .timeout(Duration::from_secs(2))
             .call()
             .map(|r| r.status() == 200)
             .unwrap_or(false)
         {
+            logutil::info(&format!("health OK after {attempts} attempts"));
             return Ok(());
+        }
+        if attempts % 10 == 0 {
+            logutil::info(&format!("still waiting for backend… attempt {attempts}"));
         }
         std::thread::sleep(Duration::from_millis(500));
     }
     Err(format!(
         "Backend did not become ready at {url}.\n\n\
-         Open kiosk-startup.log next to kiosk.exe.\n\
-         First launch can take 1–2 minutes (SQLite migrate)."
+         First launch can take 1–2 minutes (SQLite migrate).\n\n\
+         {}",
+        logutil::open_logs_hint()
     ))
 }

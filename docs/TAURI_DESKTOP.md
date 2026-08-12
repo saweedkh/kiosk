@@ -80,8 +80,8 @@ Workflow: `.github/workflows/build-tauri-windows.yml`
 
 | OS | Path |
 |----|------|
-| Windows | `%APPDATA%\com.kiosk.app\` |
-| macOS | `~/Library/Application Support/com.kiosk.app/` |
+| Windows | `%APPDATA%\com.kiosk.desktop\` |
+| macOS | `~/Library/Application Support/com.kiosk.desktop/` |
 
 Contains `kiosk.db`, `media/`, `logs/`.
 

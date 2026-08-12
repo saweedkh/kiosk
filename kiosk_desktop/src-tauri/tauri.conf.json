@@ -2,9 +2,9 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Kiosk",
   "version": "1.0.0",
-  "identifier": "com.kiosk.app",
+  "identifier": "com.kiosk.desktop",
   "build": {
-    "beforeDevCommand": "NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api npm run dev --prefix ../kiosk_frontend",
+    "beforeDevCommand": "npm run dev:tauri --prefix ../kiosk_frontend",
     "devUrl": "http://127.0.0.1:3000",
     "beforeBuildCommand": "npm run build:tauri --prefix ../kiosk_frontend",
     "frontendDist": "../kiosk_frontend/out"

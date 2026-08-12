@@ -154,21 +154,20 @@ jobs:
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"
           }
 
-          @"
-Kiosk Windows build
-===================
-1. Keep ALL files in the same folder.
-2. Run kiosk.exe (not the backend alone).
-3. First start may take 1–2 minutes (database migrate).
-4. If nothing opens, read kiosk-startup.log in this folder.
-
-Required:
-- kiosk.exe
-- kiosk-backend-x86_64-pc-windows-msvc.exe
-"@ | Set-Content -Encoding utf8 "release/README.txt"
+          @(
+            "Kiosk Windows build",
+            "===================",
+            "1. Keep ALL files in the same folder.",
+            "2. Run kiosk.exe (not the backend alone).",
+            "3. First start may take 1-2 minutes (database migrate).",
+            "4. If nothing opens, read kiosk-startup.log in this folder.",
+            "",
+            "Required:",
+            "- kiosk.exe",
+            "- kiosk-backend-x86_64-pc-windows-msvc.exe"
+          ) | Set-Content -Encoding utf8 "release/README.txt"
 
           Get-ChildItem release | Format-Table Name, Length
-
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

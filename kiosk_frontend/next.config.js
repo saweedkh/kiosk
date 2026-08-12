@@ -16,6 +16,13 @@ const nextConfig = {
   // Docker: standalone | Tauri: static export into ./out
   output: isTauriBuild ? 'export' : 'standalone',
 
+  // Help static asset resolution inside Tauri WebView
+  ...(isTauriBuild
+    ? {
+        trailingSlash: true,
+      }
+    : {}),
+
   images: {
     unoptimized: isTauriBuild,
     remotePatterns: [

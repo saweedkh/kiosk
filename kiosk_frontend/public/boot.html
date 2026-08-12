@@ -160,7 +160,8 @@
         function goApp() {
           if (timer) clearInterval(timer);
           statusEl.textContent = "آماده شد — در حال باز کردن صفحه…";
-          location.replace("./");
+          // Explicit index.html — "./" can resolve to a blank document in WebView
+          location.replace("index.html");
         }
 
         function tick() {

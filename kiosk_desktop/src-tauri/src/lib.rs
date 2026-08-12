@@ -2,7 +2,7 @@ mod backend;
 mod config;
 mod logutil;
 
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,6 +26,12 @@ pub fn run() {
                 } else {
                     logutil::info("backend health OK (background waiter)");
                     let _ = handle.emit("backend-ready", ());
+                    // Ensure WebView leaves boot.html even if splash JS stalls
+                    if let Some(win) = handle.get_webview_window("main") {
+                        let _ = win.eval(
+                            "if (!/index\\.html?$/i.test(location.pathname) && location.pathname.indexOf('boot') !== -1) { location.replace('index.html'); }",
+                        );
+                    }
                 }
             });
 

@@ -14,6 +14,10 @@ pub struct BackendHandle {
     child: tauri_plugin_shell::process::CommandChild,
 }
 
+fn bytes_to_log(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).trim_end().to_string()
+}
+
 pub fn start(app: &AppHandle) -> Result<(), String> {
     let config = AppConfig::from_env();
     let data_dir = app
@@ -57,8 +61,12 @@ fn spawn_sidecar(
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
-                CommandEvent::Stdout(line) => tracing::info!(target: "django", "{}", line),
-                CommandEvent::Stderr(line) => tracing::warn!(target: "django", "{}", line),
+                CommandEvent::Stdout(line) => {
+                    tracing::info!(target: "django", "{}", bytes_to_log(&line));
+                }
+                CommandEvent::Stderr(line) => {
+                    tracing::warn!(target: "django", "{}", bytes_to_log(&line));
+                }
                 CommandEvent::Error(err) => tracing::error!(target: "django", "{}", err),
                 CommandEvent::Terminated(payload) => {
                     tracing::error!(target: "django", "backend exited: {:?}", payload);
@@ -103,7 +111,7 @@ fn spawn_dev_python(
     tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             if let CommandEvent::Stdout(line) = event {
-                tracing::info!(target: "django", "{}", line);
+                tracing::info!(target: "django", "{}", bytes_to_log(&line));
             }
         }
     });

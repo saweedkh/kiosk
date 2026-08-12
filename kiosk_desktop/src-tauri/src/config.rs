@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub pos_host: String,
     pub pos_port: u16,
     pub payment_gateway: String,
+    #[allow(dead_code)]
     pub dll_path: Option<PathBuf>,
 }
 

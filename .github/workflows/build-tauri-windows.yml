@@ -127,15 +127,32 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Copy-Item "kiosk_desktop/src-tauri/target/release/kiosk.exe" "release/" -ErrorAction Stop
-          $msi = Get-ChildItem "kiosk_desktop/src-tauri/target/release/bundle/msi/*.msi" -ErrorAction SilentlyContinue
+          $releaseDir = "kiosk_desktop/src-tauri/target/release"
+          $exe = @(
+            "$releaseDir/kiosk-desktop.exe",
+            "$releaseDir/kiosk.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) {
+            Get-ChildItem $releaseDir -Filter *.exe | Format-Table Name, Length
+            throw "No kiosk exe found in $releaseDir"
+          }
+          Copy-Item $exe "release/kiosk.exe"
+          # Sidecar must sit next to the app EXE for Tauri externalBin
+          $sidecar = Get-ChildItem $releaseDir -Filter "kiosk-backend*.exe" -ErrorAction SilentlyContinue
+          if ($sidecar) {
+            Copy-Item $sidecar.FullName "release/"
+          } elseif (Test-Path "kiosk_desktop/src-tauri/binaries/kiosk-backend-x86_64-pc-windows-msvc.exe") {
+            Copy-Item "kiosk_desktop/src-tauri/binaries/kiosk-backend-x86_64-pc-windows-msvc.exe" "release/"
+          }
+          $msi = Get-ChildItem "$releaseDir/bundle/msi/*.msi" -ErrorAction SilentlyContinue
           if ($msi) { Copy-Item $msi.FullName "release/" }
-          $nsis = Get-ChildItem "kiosk_desktop/src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
+          $nsis = Get-ChildItem "$releaseDir/bundle/nsis/*.exe" -ErrorAction SilentlyContinue
           if ($nsis) { Copy-Item $nsis.FullName "release/" }
           if (Test-Path "kiosk_backend/pna.pcpos.dll") {
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"
           }
           Get-ChildItem release | Format-Table Name, Length
+          Write-Host "NOTE: Run kiosk.exe; keep kiosk-backend-*.exe beside it."
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

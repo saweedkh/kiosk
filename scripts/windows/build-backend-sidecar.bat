@@ -19,7 +19,7 @@ cd kiosk_backend
 pyinstaller --noconfirm --clean kiosk-backend.spec
 cd ..
 
-set "OUT=kiosk_backend\dist\kiosk-backend-x86_64-pc-windows-msvc.exe"
+set "OUT=kiosk_backend\dist\kiosk-backend.exe"
 set "DEST=kiosk_desktop\src-tauri\binaries\kiosk-backend-x86_64-pc-windows-msvc.exe"
 if not exist "%OUT%" (
   echo PyInstaller output missing: %OUT%

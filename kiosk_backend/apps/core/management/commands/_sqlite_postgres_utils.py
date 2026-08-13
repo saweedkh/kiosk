@@ -59,3 +59,11 @@ def require_postgres_default() -> None:
             f'Default database is not PostgreSQL (ENGINE={engine}). '
             'Aborting to avoid writing into the wrong database.'
         )
+
+
+def require_sqlite_engine(engine: str) -> None:
+    if 'sqlite' not in (engine or ''):
+        raise CommandError(
+            f'Target is not SQLite (ENGINE={engine}). '
+            'Aborting to avoid writing into the wrong database.'
+        )

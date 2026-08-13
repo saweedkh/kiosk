@@ -76,6 +76,7 @@ export interface Category {
   parent?: number
   display_order?: number
   is_active: boolean
+  image?: string | null
   children_count?: number
   created_at?: string
   updated_at?: string

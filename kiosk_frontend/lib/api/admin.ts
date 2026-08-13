@@ -20,25 +20,47 @@ export const adminApi = {
     return response.data
   },
 
-  createCategory: async (data: {
-    name: string
-    parent?: number | null
-    display_order?: number
-    is_active?: boolean
-  }): Promise<ApiResponse<Category>> => {
+  createCategory: async (
+    data:
+      | FormData
+      | {
+          name: string
+          parent?: number | null
+          display_order?: number
+          is_active?: boolean
+          image?: File | string | null
+        }
+  ): Promise<ApiResponse<Category>> => {
+    if (data instanceof FormData) {
+      const response = await apiClient.post('/kiosk/admin/categories/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data
+    }
     const response = await apiClient.post('/kiosk/admin/categories/', data)
     return response.data
   },
 
   updateCategory: async (
     id: number,
-    data: {
-      name: string
-      parent?: number | null
-      display_order?: number
-      is_active?: boolean
-    }
+    data:
+      | FormData
+      | {
+          name: string
+          parent?: number | null
+          display_order?: number
+          is_active?: boolean
+          image?: File | string | null
+        }
   ): Promise<ApiResponse<Category>> => {
+    if (data instanceof FormData) {
+      const response = await apiClient.put(
+        `/kiosk/admin/categories/${id}/`,
+        data,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      )
+      return response.data
+    }
     const response = await apiClient.put(`/kiosk/admin/categories/${id}/`, data)
     return response.data
   },

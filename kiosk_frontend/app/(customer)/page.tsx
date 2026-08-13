@@ -950,12 +950,7 @@ export default function CustomerPage() {
   } as const;
 
   return (
-    <div
-      className={cn(
-        "flex h-dvh overflow-hidden bg-background dark:bg-background-dark",
-        isBottomCart ? "flex-col" : "flex-row"
-      )}
-    >
+    <div className="flex h-dvh flex-col overflow-hidden bg-background dark:bg-background-dark">
       {showAttract && (
         <KioskAttractScreen
           key={[
@@ -989,146 +984,150 @@ export default function CustomerPage() {
           }}
         />
       )}
-      {/* Products: full width with bottom cart, else 2/3 beside side cart */}
-      <div
-        className={cn(
-          "flex min-h-0 flex-col overflow-hidden",
-          isBottomCart
-            ? "w-full flex-1"
-            : "w-2/3 border-l border-border dark:border-border-dark"
-        )}
-      >
-        {/* Header */}
-        <header className="z-30 flex-shrink-0 border-b border-border bg-card dark:border-border-dark dark:bg-card-dark">
-          <div className="px-6 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div 
-                  className="relative flex h-14 w-14 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-primary transition-opacity hover:opacity-80"
-                  onClick={handleLogoClick}
-                  title="کلیک کنید"
-                >
-                  {resolvedLogoUrl && resolvedLogoUrl !== "/logo.png" ? (
-                    <Image
-                      src={resolvedLogoUrl}
-                      alt={siteName || 'لوگو'}
-                      width={56}
-                      height={56}
-                      className="object-cover"
-                      unoptimized
-                      onError={(e) => {
-                        console.error('Logo load error:', settings.logo_url, e)
-                        setLogoError(true)
-                      }}
-                      onLoad={() => {
-                        setLogoError(false)
-                      }}
-                    />
-                  ) : !logoError ? (
-                    <Image
-                      src="/logo.png"
-                      alt="لوگو"
-                      width={56}
-                      height={56}
-                      className="object-cover"
-                      unoptimized
-                      onError={() => setLogoError(true)}
-                    />
+
+      {/* Header + categories span full page width; cart sits below */}
+      <header className="z-30 w-full flex-shrink-0 border-b border-border bg-card dark:border-border-dark dark:bg-card-dark">
+        <div className="px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div
+                className="relative flex h-14 w-14 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-primary transition-opacity hover:opacity-80"
+                onClick={handleLogoClick}
+                title="کلیک کنید"
+              >
+                {resolvedLogoUrl && resolvedLogoUrl !== "/logo.png" ? (
+                  <Image
+                    src={resolvedLogoUrl}
+                    alt={siteName || "لوگو"}
+                    width={56}
+                    height={56}
+                    className="object-cover"
+                    unoptimized
+                    onError={(e) => {
+                      console.error("Logo load error:", settings.logo_url, e);
+                      setLogoError(true);
+                    }}
+                    onLoad={() => {
+                      setLogoError(false);
+                    }}
+                  />
+                ) : !logoError ? (
+                  <Image
+                    src="/logo.png"
+                    alt="لوگو"
+                    width={56}
+                    height={56}
+                    className="object-cover"
+                    unoptimized
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <span className="text-xl font-bold text-white">
+                    {siteName ? siteName.charAt(0) : "ک"}
+                  </span>
+                )}
+              </div>
+              <div>
+                <h1 className="min-h-[2rem] text-2xl font-bold text-text dark:text-text-dark">
+                  {settingsLoading && !settingsFetched && !siteName ? (
+                    <span className="inline-block h-7 w-40 animate-pulse rounded-lg bg-muted/70 dark:bg-white/10" />
                   ) : (
-                    <span className="text-white font-bold text-xl">
-                      {siteName ? siteName.charAt(0) : 'ک'}
-                    </span>
+                    siteName
                   )}
-                </div>
-                <div>
-                  <h1 className="min-h-[2rem] text-2xl font-bold text-text dark:text-text-dark">
-                    {settingsLoading && !settingsFetched && !siteName ? (
-                      <span className="inline-block h-7 w-40 animate-pulse rounded-lg bg-muted/70 dark:bg-white/10" />
-                    ) : (
-                      siteName
-                    )}
-                  </h1>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <ThemeToggle />
+                </h1>
               </div>
             </div>
-          </div>
-        </header>
 
-        {/* Products Section - Scrollable (min-h-0 required for flex touch scroll) */}
-        <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-8">
-          <div className="mb-8">
-            {categoriesPending && categories.length === 0 ? (
-              <CategoryFilterSkeleton />
-            ) : (
-              <CategoryFilter
-                categories={categories}
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
-              />
-            )}
-          </div>
-
-          {productsPending && !hasMenuData ? (
-            <ProductGridSkeleton count={6} />
-          ) : visibleProducts.length > 0 ? (
-            <div
-              className={cn(
-                "grid grid-cols-1 gap-6 sm:grid-cols-2",
-                isBottomCart ? "lg:grid-cols-4" : "lg:grid-cols-3",
-                productsFetching && "opacity-90"
-              )}
-            >
-              {visibleProducts.map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <ProductCard product={product} />
-                </motion.div>
-              ))}
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
             </div>
-          ) : (
-            <div className="py-16 text-center">
-              <p className="text-text-secondary dark:text-gray-400">
-                محصولی یافت نشد
-              </p>
-            </div>
-          )}
-        </main>
-
-        {/* Footer stays at bottom of column, not after short product lists */}
-        <footer className="mt-auto flex-shrink-0 border-t border-border py-6 dark:border-border-dark">
-          <div className="flex flex-col items-center justify-center gap-2">
-            <p className="text-center text-sm text-text-secondary dark:text-gray-400">
-              © {new Date().getFullYear()}
-              {copyrightText ? ` ${copyrightText}` : ''}
-            </p>
-            {settings.contact_phone && (
-              <div className="text-xs text-text-secondary dark:text-gray-400">
-                {settings.contact_phone}
-              </div>
-            )}
-          </div>
-        </footer>
-      </div>
-
-      {isBottomCart ? (
-        <CartView {...cartProps} />
-      ) : (
-        <div className="flex min-h-0 w-1/3 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1">
-            <CartView {...cartProps} />
           </div>
         </div>
-      )}
+      </header>
 
-      {/* Payment Modal */}
+      <section className="w-full flex-shrink-0 border-b border-border/70 bg-background/80 px-6 py-3 backdrop-blur-sm dark:border-border-dark dark:bg-background-dark/80">
+        {categoriesPending && categories.length === 0 ? (
+          <CategoryFilterSkeleton />
+        ) : (
+          <CategoryFilter
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+        )}
+      </section>
+
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 overflow-hidden",
+          isBottomCart ? "flex-col" : "flex-row"
+        )}
+      >
+        <div
+          className={cn(
+            "flex min-h-0 flex-col overflow-hidden",
+            isBottomCart
+              ? "w-full flex-1"
+              : "w-2/3 border-l border-border dark:border-border-dark"
+          )}
+        >
+          <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-8">
+            {productsPending && !hasMenuData ? (
+              <ProductGridSkeleton count={6} />
+            ) : visibleProducts.length > 0 ? (
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-6 sm:grid-cols-2",
+                  isBottomCart ? "lg:grid-cols-4" : "lg:grid-cols-3",
+                  productsFetching && "opacity-90"
+                )}
+              >
+                {visibleProducts.map((product, index) => (
+                  <motion.div
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <ProductCard product={product} />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-16 text-center">
+                <p className="text-text-secondary dark:text-gray-400">
+                  محصولی یافت نشد
+                </p>
+              </div>
+            )}
+          </main>
+
+          <footer className="mt-auto flex-shrink-0 border-t border-border py-6 dark:border-border-dark">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <p className="text-center text-sm text-text-secondary dark:text-gray-400">
+                © {new Date().getFullYear()}
+                {copyrightText ? ` ${copyrightText}` : ""}
+              </p>
+              {settings.contact_phone && (
+                <div className="text-xs text-text-secondary dark:text-gray-400">
+                  {settings.contact_phone}
+                </div>
+              )}
+            </div>
+          </footer>
+        </div>
+
+        {isBottomCart ? (
+          <CartView {...cartProps} />
+        ) : (
+          <div className="flex min-h-0 w-1/3 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1">
+              <CartView {...cartProps} />
+            </div>
+          </div>
+        )}
+      </div>
+
       <PaymentModal
         isOpen={isPaymentModalOpen}
         totalAmount={checkoutTotal}

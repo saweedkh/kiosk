@@ -9,7 +9,7 @@ import type { ApiResponse, Category, PaginatedResponse, Product } from '@/types'
 /** Bump when settings shape / semantics change so stale exe WebView caches drop. */
 const SETTINGS_KEY = 'kiosk-settings-cache-v3'
 const SETTINGS_UPDATED_EVENT = 'kiosk-settings-cache-updated'
-const CATEGORIES_KEY = 'kiosk-categories-cache-v1'
+const CATEGORIES_KEY = 'kiosk-categories-cache-v2'
 const PRODUCTS_KEY = 'kiosk-products-cache-v1'
 const PRELOADED = new Set<string>()
 

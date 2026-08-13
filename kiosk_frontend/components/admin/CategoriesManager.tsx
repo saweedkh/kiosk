@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { translateError } from '@/lib/utils'
+import { resolveMediaUrl } from '@/lib/media-url'
 import type { Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { hasPermission } from '@/lib/auth/permissions'
@@ -126,10 +127,20 @@ export function CategoriesManager() {
   const currentCount = totalCount
 
   const handleSubmit = async (data: any) => {
+    const formData = new FormData()
+    if (data.name) formData.append('name', data.name)
+    if (data.display_order !== undefined)
+      formData.append('display_order', String(data.display_order))
+    if (data.is_active !== undefined)
+      formData.append('is_active', String(data.is_active))
+    if (data.image instanceof File) {
+      formData.append('image', data.image)
+    }
+
     if (editingCategory) {
-      await updateMutation.mutateAsync({ id: editingCategory.id, data })
+      await updateMutation.mutateAsync({ id: editingCategory.id, data: formData })
     } else {
-      await createMutation.mutateAsync(data)
+      await createMutation.mutateAsync(formData)
     }
   }
 
@@ -267,6 +278,9 @@ export function CategoriesManager() {
               <thead>
                 <tr className="border-b border-border/80 bg-muted/40">
                   <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
+                    تصویر
+                  </th>
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
                     نام
                   </th>
                   <th className="px-5 py-3.5 text-right text-xs font-bold text-muted-foreground">
@@ -289,6 +303,19 @@ export function CategoriesManager() {
                     transition={{ delay: Math.min(index * 0.03, 0.2) }}
                     className="transition-colors hover:bg-muted/40"
                   >
+                    <td className="px-5 py-3.5">
+                      {resolveMediaUrl(category.image) ? (
+                        <img
+                          src={resolveMediaUrl(category.image)}
+                          alt={category.name}
+                          className="h-12 w-12 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">
+                          —
+                        </div>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-sm font-semibold text-foreground">
                       {category.name}
                     </td>

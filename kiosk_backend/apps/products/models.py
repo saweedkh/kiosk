@@ -18,6 +18,12 @@ class Category(TimeStampedModel):
     )
     display_order = models.IntegerField(default=0, verbose_name=_('ترتیب نمایش'))
     is_active = models.BooleanField(default=True, verbose_name=_('فعال'))
+    image = models.ImageField(
+        upload_to='categories/',
+        null=True,
+        blank=True,
+        verbose_name=_('تصویر'),
+    )
     
     objects = CategoryManager()
     

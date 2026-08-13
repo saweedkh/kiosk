@@ -11,6 +11,7 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ['is_active', 'created_at']
     search_fields = ['name']
     ordering = ['display_order', 'name']
+    fields = ['name', 'parent', 'display_order', 'is_active', 'image']
     
     def delete_model(self, request, obj):
         """

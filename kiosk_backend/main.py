@@ -12,6 +12,20 @@ import os
 import sys
 
 
+def _configure_stdio_utf8() -> None:
+    """Windows console defaults to cp1252; Persian log lines crash colorama/Django."""
+    if os.name != 'nt':
+        return
+    for name in ('stdout', 'stderr'):
+        stream = getattr(sys, name, None)
+        if stream is None:
+            continue
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
 def _bootstrap_django() -> None:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
 
@@ -37,6 +51,7 @@ def _run_migrations() -> None:
 
 
 def main() -> None:
+    _configure_stdio_utf8()
     _bootstrap_django()
     _run_migrations()
 

@@ -115,7 +115,10 @@ class Command(BaseCommand):
         self.stdout.write(
             f'Admin login: {admin.username} / {admin_password}'
         )
-        self.stdout.write(f'Site: {settings.site_name}')
+        try:
+            self.stdout.write(f'Site: {settings.site_name}')
+        except UnicodeEncodeError:
+            self.stdout.write('Site: demo cafe (name stored in database)')
 
     def _wipe_demo_catalog(self) -> None:
         OrderItem.objects.all().delete()

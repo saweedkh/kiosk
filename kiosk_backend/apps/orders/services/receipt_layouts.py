@@ -6,13 +6,17 @@ from typing import Any, Dict, List, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
-from apps.orders.services.persian_text import reshape_persian
+from apps.orders.services.persian_text import pillow_text_kwargs, reshape_persian
 from apps.orders.services.receipt_constants import ReceiptConstants
 
 
 def text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont) -> Tuple[int, int]:
-    bbox = draw.textbbox((0, 0), text, font=font)
+    bbox = draw.textbbox((0, 0), text, font=font, **pillow_text_kwargs())
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def _draw_text(draw: ImageDraw.ImageDraw, xy, text: str, **kwargs) -> None:
+    draw.text(xy, text, **pillow_text_kwargs(), **kwargs)
 
 
 def draw_centered(
@@ -25,7 +29,7 @@ def draw_centered(
 ) -> int:
     display = reshape_persian(text)
     tw, th = text_size(draw, display, font)
-    draw.text(((width - tw) // 2, y), display, fill=fill, font=font)
+    _draw_text(draw,((width - tw) // 2, y), display, fill=fill, font=font)
     return th
 
 
@@ -40,7 +44,7 @@ def draw_right(
 ) -> int:
     display = reshape_persian(text)
     tw, th = text_size(draw, display, font)
-    draw.text((width - margin - tw, y), display, fill=fill, font=font)
+    _draw_text(draw,(width - margin - tw, y), display, fill=fill, font=font)
     return th
 
 
@@ -54,7 +58,7 @@ def draw_left(
 ) -> int:
     display = reshape_persian(text)
     _, th = text_size(draw, display, font)
-    draw.text((margin, y), display, fill=fill, font=font)
+    _draw_text(draw,(margin, y), display, fill=fill, font=font)
     return th
 
 
@@ -210,7 +214,7 @@ def draw_right_wrapped(
     for i, line in enumerate(lines):
         display = reshape_persian(line)
         tw, th = text_size(draw, display, font)
-        draw.text((page_width - margin - tw, y + used), display, fill=fill, font=font)
+        _draw_text(draw,(page_width - margin - tw, y + used), display, fill=fill, font=font)
         used += th
         if i < len(lines) - 1:
             used += line_gap
@@ -289,12 +293,12 @@ def render_modern(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Imag
 
     ticket_label = reshape_persian('شماره فیش')
     tw, th = text_size(draw, ticket_label, fonts['small'])
-    draw.text(((width - tw) // 2, y), ticket_label, fill=(0, 0, 0), font=fonts['small'])
+    _draw_text(draw,((width - tw) // 2, y), ticket_label, fill=(0, 0, 0), font=fonts['small'])
     y += th + 8
 
     ticket_value = reshape_persian(str(data['receipt_number']))
     tw, th = text_size(draw, ticket_value, fonts['ticket'])
-    draw.text(((width - tw) // 2, y), ticket_value, fill=(0, 0, 0), font=fonts['ticket'])
+    _draw_text(draw,((width - tw) // 2, y), ticket_value, fill=(0, 0, 0), font=fonts['ticket'])
     y += th + 18
 
     th = draw_centered(draw, y, f"{data['date']}   |   {data['time']}", fonts['meta'], width)
@@ -307,11 +311,11 @@ def render_modern(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Imag
         display = reshape_persian(label)
         tw, th = text_size(draw, display, fonts['bold'])
         if align == 'left':
-            draw.text((margin, y), display, fill=(0, 0, 0), font=fonts['bold'])
+            _draw_text(draw,(margin, y), display, fill=(0, 0, 0), font=fonts['bold'])
         elif align == 'center':
-            draw.text((margin + content_width // 2 - tw // 2, y), display, fill=(0, 0, 0), font=fonts['bold'])
+            _draw_text(draw,(margin + content_width // 2 - tw // 2, y), display, fill=(0, 0, 0), font=fonts['bold'])
         else:
-            draw.text((width - margin - tw, y), display, fill=(0, 0, 0), font=fonts['bold'])
+            _draw_text(draw,(width - margin - tw, y), display, fill=(0, 0, 0), font=fonts['bold'])
     y += ReceiptConstants.HEADER_ROW_HEIGHT - 8
     draw_rule(draw, y, margin, width - margin, style='solid', thickness=2)
     y += 14
@@ -330,8 +334,8 @@ def render_modern(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Imag
                 draw, y, row['name'], fonts['normal'], width, margin,
                 max_width=name_max, max_lines=2,
             )
-            draw.text((margin, y), price_d, fill=(0, 0, 0), font=fonts['normal'])
-            draw.text((margin + content_width // 2 - qw // 2, y), qty_d, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,(margin, y), price_d, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,(margin + content_width // 2 - qw // 2, y), qty_d, fill=(0, 0, 0), font=fonts['normal'])
             y += max(name_h, qh, ph) + 18
             if idx < len(items) - 1:
                 draw_rule(draw, y - 8, margin + 8, width - margin - 8, style='dashed', thickness=1)
@@ -344,7 +348,7 @@ def render_modern(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Imag
     draw.rounded_rectangle([margin, y, width - margin, y + band_h], radius=14, fill=(0, 0, 0))
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text(((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
     y += band_h + ReceiptConstants.SECTION_GAP
 
     draw_rule(draw, y, margin + 40, width - margin - 40, style='dashed', thickness=2)
@@ -426,7 +430,7 @@ def render_classic(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
     for i, h in enumerate(headers):
         display = reshape_persian(h)
         tw, th = text_size(draw, display, fonts['bold'])
-        draw.text(
+        _draw_text(draw,
             (x + (col_w[i] - tw) // 2, table_y + (header_h - th) // 2),
             display,
             fill=(255, 255, 255),
@@ -452,13 +456,13 @@ def render_classic(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
             qh,
             text_size(draw, reshape_persian(row_lines[idx][0]), fonts['normal'])[1],
         )
-        draw.text(
+        _draw_text(draw,
             (table_x + (col_w[0] - pw) // 2, row_y + (first_line_h - ph) // 2 + 4),
             price_d,
             fill=(0, 0, 0),
             font=fonts['normal'],
         )
-        draw.text(
+        _draw_text(draw,
             (table_x + col_w[0] + (col_w[1] - qw) // 2, row_y + (first_line_h - qh) // 2 + 4),
             qty_d,
             fill=(0, 0, 0),
@@ -470,7 +474,7 @@ def render_classic(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
         for li, line in enumerate(row_lines[idx]):
             display = reshape_persian(line)
             tw, th = text_size(draw, display, fonts['normal'])
-            draw.text((name_x_right - tw, ny), display, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,(name_x_right - tw, ny), display, fill=(0, 0, 0), font=fonts['normal'])
             ny += th + (4 if li < len(row_lines[idx]) - 1 else 0)
 
         if idx < len(items) - 1:
@@ -486,7 +490,7 @@ def render_classic(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
     draw.rectangle([margin, y, width - margin, y + band_h], fill=(0, 0, 0))
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text(((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
     y += band_h + 20
 
     draw_ornament(draw, y, width, margin=70)
@@ -551,8 +555,8 @@ def render_minimal(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
             price_label = reshape_persian(f"مبلغ : {row['price']}")
             qw, qh = text_size(draw, qty_label, fonts['meta'])
             pw, ph = text_size(draw, price_label, fonts['meta'])
-            draw.text((width - margin - qw, y), qty_label, fill=(0, 0, 0), font=fonts['meta'])
-            draw.text((margin, y), price_label, fill=(0, 0, 0), font=fonts['meta'])
+            _draw_text(draw,(width - margin - qw, y), qty_label, fill=(0, 0, 0), font=fonts['meta'])
+            _draw_text(draw,(margin, y), price_label, fill=(0, 0, 0), font=fonts['meta'])
             y += max(qh, ph) + 14
             if idx < len(items) - 1:
                 draw_rule(draw, y, margin + 20, width - margin - 20, style='dashed', thickness=1)
@@ -571,7 +575,7 @@ def render_minimal(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
         y + th + pad_y // 2,
     ]
     draw.rounded_rectangle(box, radius=8, outline=(0, 0, 0), width=2)
-    draw.text(((width - tw) // 2, y), total_line, fill=(0, 0, 0), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y), total_line, fill=(0, 0, 0), font=fonts['bold'])
     y += th + pad_y + 22
 
     th = draw_centered(draw, y, data['thank_message'], fonts['normal'], width)
@@ -603,7 +607,7 @@ def render_elegant(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
     if data['store_name']:
         title = reshape_persian(data['store_name'])
         tw, th = text_size(draw, title, fonts['title'])
-        draw.text(((width - tw) // 2, (header_h - th) // 2), title, fill=(255, 255, 255), font=fonts['title'])
+        _draw_text(draw,((width - tw) // 2, (header_h - th) // 2), title, fill=(255, 255, 255), font=fonts['title'])
     y = header_h + 24
 
     th = draw_centered(draw, y, 'شماره فیش', fonts['small'], width)
@@ -636,8 +640,8 @@ def render_elegant(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
             price_d = reshape_persian(f"{row['price']} ریال")
             qw, qh = text_size(draw, qty_d, fonts['meta'])
             pw, ph = text_size(draw, price_d, fonts['meta'])
-            draw.text((width - margin - qw, y), qty_d, fill=(0, 0, 0), font=fonts['meta'])
-            draw.text((margin, y), price_d, fill=(0, 0, 0), font=fonts['meta'])
+            _draw_text(draw,(width - margin - qw, y), qty_d, fill=(0, 0, 0), font=fonts['meta'])
+            _draw_text(draw,(margin, y), price_d, fill=(0, 0, 0), font=fonts['meta'])
             y += max(qh, ph) + 12
 
             if idx < len(items) - 1:
@@ -660,7 +664,7 @@ def render_elegant(receipt_data: Dict[str, Any], fonts: Dict, width: int) -> Ima
     )
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text(((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(0, 0, 0), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(0, 0, 0), font=fonts['bold'])
     y += band_h + 20
 
     draw_ornament(draw, y, width, margin=80)
@@ -699,8 +703,8 @@ def render_bold(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -> 
 
     num = reshape_persian(str(data['receipt_number']))
     nw, nh = text_size(draw, num, fonts['ticket'])
-    draw.text(((width - nw) // 2 + 1, y + 1), num, fill=(0, 0, 0), font=fonts['ticket'])
-    draw.text(((width - nw) // 2, y), num, fill=(0, 0, 0), font=fonts['ticket'])
+    _draw_text(draw,((width - nw) // 2 + 1, y + 1), num, fill=(0, 0, 0), font=fonts['ticket'])
+    _draw_text(draw,((width - nw) // 2, y), num, fill=(0, 0, 0), font=fonts['ticket'])
     y += nh + 12
 
     th = draw_centered(draw, y, f"{data['date']}   |   {data['time']}", fonts['meta'], width)
@@ -719,7 +723,7 @@ def render_bold(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -> 
             y += name_h + 8
             line = reshape_persian(f"{row['quantity']} × {row['price']} ریال")
             lw, lh = text_size(draw, line, fonts['normal'])
-            draw.text((width - margin - lw, y), line, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,(width - margin - lw, y), line, fill=(0, 0, 0), font=fonts['normal'])
             y += lh + 10
             if idx < len(items) - 1:
                 draw_rule(draw, y, margin, width - margin, style='solid', thickness=3)
@@ -730,7 +734,7 @@ def render_bold(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -> 
     draw.rectangle([0, y, width, y + band_h], fill=(0, 0, 0))
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text(((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
     y += band_h + 18
 
     th = draw_centered(draw, y, data['thank_message'], fonts['normal'], width)
@@ -771,12 +775,12 @@ def render_ticket(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
 
     stub = reshape_persian('شماره نوبت / فیش')
     sw, sh = text_size(draw, stub, fonts['meta'])
-    draw.text(((width - sw) // 2, y), stub, fill=(0, 0, 0), font=fonts['meta'])
+    _draw_text(draw,((width - sw) // 2, y), stub, fill=(0, 0, 0), font=fonts['meta'])
     y += sh + 8
 
     num = reshape_persian(str(data['receipt_number']))
     nw, nh = text_size(draw, num, fonts['ticket'])
-    draw.text(((width - nw) // 2, y), num, fill=(0, 0, 0), font=fonts['ticket'])
+    _draw_text(draw,((width - nw) // 2, y), num, fill=(0, 0, 0), font=fonts['ticket'])
     y += nh + 14
 
     th = draw_centered(draw, y, f"{data['date']}   |   {data['time']}", fonts['meta'], width)
@@ -796,7 +800,7 @@ def render_ticket(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
             y += name_h + 6
             detail = reshape_persian(f"{row['quantity']} عدد  |  {row['price']} ریال")
             dw, dh = text_size(draw, detail, fonts['meta'])
-            draw.text((width - margin - dw, y), detail, fill=(0, 0, 0), font=fonts['meta'])
+            _draw_text(draw,(width - margin - dw, y), detail, fill=(0, 0, 0), font=fonts['meta'])
             y += dh + 14
 
     y += 4
@@ -804,7 +808,7 @@ def render_ticket(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
     y += 14
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text(((width - tw) // 2, y), total_line, fill=(0, 0, 0), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y), total_line, fill=(0, 0, 0), font=fonts['bold'])
     y += th + 16
 
     _draw_perforation(draw, y, width)
@@ -839,8 +843,8 @@ def render_market(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
     rn_d = reshape_persian(f"شماره فیش {data['receipt_number']}")
     dw, dh = text_size(draw, date_d, fonts['meta'])
     rw, rh = text_size(draw, rn_d, fonts['meta'])
-    draw.text((margin, y), date_d, fill=(0, 0, 0), font=fonts['meta'])
-    draw.text((width - margin - rw, y), rn_d, fill=(0, 0, 0), font=fonts['meta'])
+    _draw_text(draw,(margin, y), date_d, fill=(0, 0, 0), font=fonts['meta'])
+    _draw_text(draw,(width - margin - rw, y), rn_d, fill=(0, 0, 0), font=fonts['meta'])
     y += max(dh, rh) + 12
 
     draw_rule(draw, y, margin, width - margin, style='dashed', thickness=1)
@@ -852,9 +856,9 @@ def render_market(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
     hw, hh = text_size(draw, h_name, fonts['meta'])
     qw, qh = text_size(draw, h_qty, fonts['meta'])
     pw, ph = text_size(draw, h_price, fonts['meta'])
-    draw.text((width - margin - hw, y), h_name, fill=(0, 0, 0), font=fonts['meta'])
-    draw.text(((width - qw) // 2, y), h_qty, fill=(0, 0, 0), font=fonts['meta'])
-    draw.text((margin, y), h_price, fill=(0, 0, 0), font=fonts['meta'])
+    _draw_text(draw,(width - margin - hw, y), h_name, fill=(0, 0, 0), font=fonts['meta'])
+    _draw_text(draw,((width - qw) // 2, y), h_qty, fill=(0, 0, 0), font=fonts['meta'])
+    _draw_text(draw,(margin, y), h_price, fill=(0, 0, 0), font=fonts['meta'])
     y += max(hh, qh, ph) + 6
     draw_rule(draw, y, margin, width - margin, style='solid', thickness=1)
     y += 10
@@ -874,15 +878,15 @@ def render_market(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
                 draw, y, row['name'], fonts['normal'], width, margin,
                 max_width=name_max, max_lines=2,
             )
-            draw.text(((width - qw) // 2, y), qty_d, fill=(0, 0, 0), font=fonts['normal'])
-            draw.text((margin, y), price_d, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,((width - qw) // 2, y), qty_d, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,(margin, y), price_d, fill=(0, 0, 0), font=fonts['normal'])
             y += max(name_h, qh, ph) + 12
 
     draw_rule(draw, y, margin, width - margin, style='solid', thickness=2)
     y += 12
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text((width - margin - tw, y), total_line, fill=(0, 0, 0), font=fonts['bold'])
+    _draw_text(draw,(width - margin - tw, y), total_line, fill=(0, 0, 0), font=fonts['bold'])
     y += th + 16
     th = draw_centered(draw, y, data['thank_message'], fonts['meta'], width)
     y += th
@@ -905,13 +909,13 @@ def render_banner(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
     title_d = reshape_persian(title) if title else ''
     if title_d:
         tw, th = text_size(draw, title_d, fonts['title'])
-        draw.text(((width - tw) // 2, (banner_h - th) // 2), title_d, fill=(255, 255, 255), font=fonts['title'])
+        _draw_text(draw,((width - tw) // 2, (banner_h - th) // 2), title_d, fill=(255, 255, 255), font=fonts['title'])
     y = banner_h + 16
     strip_h = 56
     draw.rectangle([margin, y, width - margin, y + strip_h], fill=(0, 0, 0))
     rn = reshape_persian(f"شماره فیش {data['receipt_number']}")
     rw, rh = text_size(draw, rn, fonts['bold'])
-    draw.text(((width - rw) // 2, y + (strip_h - rh) // 2), rn, fill=(255, 255, 255), font=fonts['bold'])
+    _draw_text(draw,((width - rw) // 2, y + (strip_h - rh) // 2), rn, fill=(255, 255, 255), font=fonts['bold'])
     y += strip_h + 12
 
     th = draw_centered(draw, y, f"{data['date']}   |   {data['time']}", fonts['meta'], width)
@@ -939,7 +943,7 @@ def render_banner(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
                 draw, y, row['name'], fonts['bold'], width, margin, max_lines=2,
             )
             y += name_h + 6
-            draw.text((width - margin - dw, y), detail, fill=(0, 0, 0), font=fonts['normal'])
+            _draw_text(draw,(width - margin - dw, y), detail, fill=(0, 0, 0), font=fonts['normal'])
             y += dh + 14
 
     y += 6
@@ -947,7 +951,7 @@ def render_banner(receipt_data: Dict[str, Any], fonts: Dict, width: int = 576) -
     draw.rectangle([0, y, width, y + band_h], fill=(0, 0, 0))
     total_line = reshape_persian(f"{ReceiptConstants.TOTAL_LABEL} : {data['total']} ریال")
     tw, th = text_size(draw, total_line, fonts['bold'])
-    draw.text(((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
+    _draw_text(draw,((width - tw) // 2, y + (band_h - th) // 2), total_line, fill=(255, 255, 255), font=fonts['bold'])
     y += band_h + 16
 
     th = draw_centered(draw, y, data['thank_message'], fonts['normal'], width)
@@ -997,7 +1001,7 @@ def prepend_copy_and_fulfillment(
         draw.rectangle([0, y, width, y + banner_h], fill=(0, 0, 0))
         label = reshape_persian(copy_label)
         tw, th = text_size(draw, label, fonts['bold'])
-        draw.text(
+        _draw_text(draw,
             ((width - tw) // 2, y + (banner_h - th) // 2),
             label,
             fill=(255, 255, 255),
@@ -1020,7 +1024,7 @@ def prepend_copy_and_fulfillment(
         )
         label = reshape_persian(f'نوع سفارش: {fulfillment}')
         tw, th = text_size(draw, label, fonts['bold'])
-        draw.text(
+        _draw_text(draw,
             ((width - tw) // 2, y + (fulfill_h - th) // 2),
             label,
             fill=text_fill,

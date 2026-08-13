@@ -47,7 +47,7 @@ class PrintService:
 
         def _run() -> None:
             try:
-                order = Order.objects.select_related('user').prefetch_related(
+                order = Order.objects.prefetch_related(
                     'items__product'
                 ).get(pk=order_id)
                 PrintService.print_receipt(order)

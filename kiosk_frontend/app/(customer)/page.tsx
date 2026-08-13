@@ -51,6 +51,7 @@ import {
   type KioskSettingsSnapshot,
 } from "@/lib/kiosk-persist";
 import { withMediaCacheBust } from "@/lib/media-url";
+import { useDragScroll } from "@/lib/use-drag-scroll";
 import {
   CustomerMenuSkeleton,
   CategoryFilterSkeleton,
@@ -95,6 +96,7 @@ export default function CustomerPage() {
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastCatalogRevisionRef = useRef<number | null>(null);
   const landingThemeRef = useRef("cinema");
+  const productsScrollRef = useDragScroll<HTMLElement>("y");
   const router = useRouter();
   const queryClient = useQueryClient();
   const { getTotalItems, items, getTotalPrice, clearCart, couponCode } = useCartStore();
@@ -1071,7 +1073,10 @@ export default function CustomerPage() {
               : "w-2/3 border-l border-border dark:border-border-dark"
           )}
         >
-          <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-8">
+          <main
+            ref={productsScrollRef}
+            className="kiosk-scroll min-h-0 flex-1 cursor-grab overflow-y-auto px-6 py-8 active:cursor-grabbing"
+          >
             {productsPending && !hasMenuData ? (
               <ProductGridSkeleton count={6} />
             ) : visibleProducts.length > 0 ? (

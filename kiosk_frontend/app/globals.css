@@ -160,6 +160,15 @@
     -webkit-touch-callout: none;
   }
 
+  .kiosk-scroll.is-dragging {
+    cursor: grabbing;
+    scroll-behavior: auto;
+  }
+
+  .kiosk-scroll.is-dragging * {
+    pointer-events: none;
+  }
+
   .kiosk-scroll * {
     touch-action: pan-y;
   }
@@ -172,6 +181,15 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+  }
+
+  .kiosk-scroll-x.is-dragging {
+    cursor: grabbing;
+    scroll-behavior: auto;
+  }
+
+  .kiosk-scroll-x.is-dragging * {
+    pointer-events: none;
   }
 
   .kiosk-scroll-x * {
@@ -198,6 +216,23 @@
   .kiosk-scroll-x img {
     -webkit-user-drag: none;
     user-select: none;
+  }
+
+  /* Admin / shared drag-scroll: keep text selectable when not dragging */
+  .admin-drag-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .admin-drag-scroll.is-dragging {
+    cursor: grabbing;
+    scroll-behavior: auto;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .admin-drag-scroll.is-dragging * {
+    pointer-events: none;
   }
 }
 

@@ -8,6 +8,7 @@ import { ordersApi } from '@/lib/api/orders'
 import { Button } from '@/components/shared/Button'
 import { DatePicker } from '@/components/admin/DatePicker'
 import { OrderDetailsDialog } from '@/components/admin/OrderDetailsDialog'
+import { DragScrollArea } from '@/components/shared/DragScrollArea'
 import {
   AdminPageHeader,
   AdminSegmented,
@@ -400,7 +401,7 @@ export function ReportsManager() {
               {salesData.result.results && salesData.result.results.length > 0 && (
                 <>
                   <AdminSurface padded={false} className="overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <DragScrollArea axis="x">
                       <table className="w-full">
                         <thead>
                           <tr className="border-b border-border/80 bg-muted/40">
@@ -465,7 +466,7 @@ export function ReportsManager() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </DragScrollArea>
                   </AdminSurface>
                   {renderPagination(salesPage, setSalesPage, salesData.result.count, !!salesData.result.next)}
                 </>
@@ -498,7 +499,7 @@ export function ReportsManager() {
               {productsData.result.results && productsData.result.results.length > 0 && (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
-                    <div className="overflow-x-auto">
+                    <DragScrollArea axis="x">
                       <table className="w-full">
                         <thead className="bg-muted/40">
                           <tr>
@@ -523,7 +524,7 @@ export function ReportsManager() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </DragScrollArea>
                   </div>
                   {renderPagination(productsPage, setProductsPage, productsData.result.count, !!productsData.result.next)}
                 </>
@@ -556,7 +557,7 @@ export function ReportsManager() {
               {stockData.result.results && stockData.result.results.length > 0 && (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
-                    <div className="overflow-x-auto">
+                    <DragScrollArea axis="x">
                       <table className="w-full">
                         <thead className="bg-muted/40">
                           <tr>
@@ -593,7 +594,7 @@ export function ReportsManager() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </DragScrollArea>
                   </div>
                   {renderPagination(stockPage, setStockPage, stockData.result.count, !!stockData.result.next)}
                 </>
@@ -632,7 +633,7 @@ export function ReportsManager() {
               {dailyData.result.results && dailyData.result.results.length > 0 && (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/[0.02]">
-                    <div className="overflow-x-auto">
+                    <DragScrollArea axis="x">
                       <table className="w-full">
                         <thead className="bg-muted/40">
                           <tr>
@@ -701,7 +702,7 @@ export function ReportsManager() {
                           })}
                         </tbody>
                       </table>
-                    </div>
+                    </DragScrollArea>
                   </div>
                   {renderPagination(dailyPage, setDailyPage, dailyData.result.count, !!dailyData.result.next)}
                 </>

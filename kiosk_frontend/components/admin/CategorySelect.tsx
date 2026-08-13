@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { DragScrollArea } from '@/components/shared/DragScrollArea'
 import type { Category } from '@/types'
 
 interface CategorySelectProps {
@@ -130,7 +131,7 @@ export function CategorySelect({
               </div>
 
               {/* Options List */}
-              <div className="max-h-48 overflow-y-auto">
+              <DragScrollArea className="max-h-48">
                 <button
                   type="button"
                   onClick={() => handleSelect(null)}
@@ -162,7 +163,7 @@ export function CategorySelect({
                     دسته‌بندی یافت نشد
                   </div>
                 )}
-              </div>
+              </DragScrollArea>
             </motion.div>
           </>
         )}

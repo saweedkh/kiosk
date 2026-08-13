@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
 import { FullscreenToggle } from '@/components/shared/FullscreenToggle'
+import { DragScrollArea } from '@/components/shared/DragScrollArea'
 
 export type AdminNavId =
   | 'dashboard'
@@ -132,7 +133,7 @@ export function AdminShell({
   const activeLabel = navItems.find((n) => n.id === activeId)?.label
 
   return (
-    <div className="min-h-dvh bg-[hsl(30_40%_97%)] text-foreground dark:bg-[hsl(0_0%_7%)]">
+    <div className="h-dvh overflow-hidden bg-[hsl(30_40%_97%)] text-foreground dark:bg-[hsl(0_0%_7%)]">
       {/* subtle atmosphere */}
       <div
         aria-hidden
@@ -145,9 +146,9 @@ export function AdminShell({
         }}
       />
 
-      <div className="mx-auto flex min-h-dvh max-w-[1600px]">
+      <div className="mx-auto flex h-full max-w-[1600px]">
         {/* Sidebar — RTL: sits on the right visually via flex order */}
-        <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col border-s border-border/70 bg-card/80 px-3 py-5 backdrop-blur-xl lg:flex dark:bg-card/60">
+        <aside className="hidden h-full w-[248px] shrink-0 flex-col border-s border-border/70 bg-card/80 px-3 py-5 backdrop-blur-xl lg:flex dark:bg-card/60">
           <div className="mb-8 px-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-sm font-black text-white shadow-lg shadow-primary/25">
@@ -160,28 +161,30 @@ export function AdminShell({
             </div>
           </div>
 
-          <nav className="flex flex-1 flex-col gap-1 px-1">
-            {navItems.map((item) => {
-              const selected = activeId === item.id
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onNavigate(item.id)}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all',
-                    selected
-                      ? 'bg-primary text-white shadow-md shadow-primary/20'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  <span className={cn(selected ? 'opacity-100' : 'opacity-70')}>
-                    {NAV_ICONS[item.id]}
-                  </span>
-                  {item.label}
-                </button>
-              )
-            })}
+          <nav className="min-h-0 flex-1 px-1">
+            <DragScrollArea className="flex h-full flex-col gap-1">
+              {navItems.map((item) => {
+                const selected = activeId === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onNavigate(item.id)}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all',
+                      selected
+                        ? 'bg-primary text-white shadow-md shadow-primary/20'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <span className={cn(selected ? 'opacity-100' : 'opacity-70')}>
+                      {NAV_ICONS[item.id]}
+                    </span>
+                    {item.label}
+                  </button>
+                )
+              })}
+            </DragScrollArea>
           </nav>
 
           <div className="mt-auto space-y-3 border-t border-border/70 px-2 pt-4">
@@ -208,9 +211,9 @@ export function AdminShell({
         </aside>
 
         {/* Main column */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Mobile / tablet top bar */}
-          <header className="sticky top-0 z-30 border-b border-border/70 bg-card/85 backdrop-blur-xl">
+          <header className="z-30 shrink-0 border-b border-border/70 bg-card/85 backdrop-blur-xl">
             <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:hidden">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-xs font-black text-white">
@@ -231,7 +234,10 @@ export function AdminShell({
             </div>
 
             {/* Mobile nav chips */}
-            <div className="kiosk-scroll-x flex gap-1.5 overflow-x-auto px-4 pb-3 lg:hidden">
+            <DragScrollArea
+              axis="x"
+              className="flex gap-1.5 px-4 pb-3 lg:hidden"
+            >
               {navItems.map((item) => {
                 const selected = activeId === item.id
                 return (
@@ -250,7 +256,7 @@ export function AdminShell({
                   </button>
                 )
               })}
-            </div>
+            </DragScrollArea>
 
             {/* Desktop top context bar */}
             <div className="hidden items-center justify-between px-8 py-4 lg:flex">
@@ -264,7 +270,9 @@ export function AdminShell({
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+          <DragScrollArea className="min-h-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            {children}
+          </DragScrollArea>
         </div>
       </div>
     </div>

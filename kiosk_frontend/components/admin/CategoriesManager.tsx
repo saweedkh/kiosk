@@ -7,6 +7,7 @@ import { adminApi } from '@/lib/api/admin'
 import { CategoryForm } from './CategoryForm'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
+import { DragScrollArea } from '@/components/shared/DragScrollArea'
 import {
   AdminAlert,
   AdminEmpty,
@@ -273,7 +274,7 @@ export function CategoriesManager() {
         </AdminSurface>
       ) : (
         <AdminSurface padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <DragScrollArea axis="x">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border/80 bg-muted/40">
@@ -353,7 +354,7 @@ export function CategoriesManager() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </DragScrollArea>
         </AdminSurface>
       )}
 

@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { resolveMediaUrl } from '@/lib/media-url'
+import { useDragScroll } from '@/lib/use-drag-scroll'
 import type { Category } from '@/types'
 
 interface CategoryFilterProps {
@@ -28,10 +29,13 @@ export function CategoryFilter({
   onSelectCategory,
 }: CategoryFilterProps) {
   const categoriesArray = Array.isArray(categories) ? categories : []
+  const scrollRef = useDragScroll<HTMLDivElement>('x')
 
   return (
-    <div className="kiosk-scroll-x -mx-1 flex items-center gap-3 overflow-x-auto px-1 py-1">
-      <button
+    <div
+      ref={scrollRef}
+      className="kiosk-scroll-x -mx-1 flex cursor-grab items-center gap-3 overflow-x-auto px-1 py-1 active:cursor-grabbing"
+    >      <button
         type="button"
         onClick={() => onSelectCategory(null)}
         className={tileClass(selectedCategory === null)}

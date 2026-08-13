@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { DragScrollArea } from '@/components/shared/DragScrollArea'
 import { formatCurrency, formatNumber, cn } from '@/lib/utils'
 import { formatJalaliDateTime } from '@/lib/utils/date'
 import type { Order } from '@/types'
@@ -99,7 +100,8 @@ export function OrderDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DragScrollArea className="max-h-[90vh] space-y-4 p-6">
         <DialogHeader>
           <DialogTitle className="text-right text-xl font-black">
             جزئیات سفارش
@@ -274,6 +276,7 @@ export function OrderDetailsDialog({
             ) : null}
           </div>
         ) : null}
+        </DragScrollArea>
       </DialogContent>
     </Dialog>
   )

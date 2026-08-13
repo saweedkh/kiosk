@@ -6,6 +6,7 @@ import { accountsApi, type AdminGroup, type AdminManagedUser } from '@/lib/api/a
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 import { Switch } from '@/components/shared/Switch'
+import { DragScrollArea } from '@/components/shared/DragScrollArea'
 import {
   AdminPageHeader,
   AdminSegmented,
@@ -354,7 +355,10 @@ export function UsersManager() {
           {usersLoading ? (
             <p>در حال بارگذاری...</p>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-border dark:border-border-dark">
+            <DragScrollArea
+              axis="x"
+              className="rounded-2xl border border-border dark:border-border-dark"
+            >
               <table className="w-full text-sm">
                 <thead className="bg-muted/40">
                   <tr>
@@ -412,7 +416,7 @@ export function UsersManager() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </DragScrollArea>
           )}
         </div>
       )}

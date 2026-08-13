@@ -67,7 +67,17 @@ def _looks_cancelled(message: str, gateway_response: Dict[str, Any]) -> bool:
 
 
 def _looks_timeout(message: str) -> bool:
-    tokens = ('timeout', 'timed out', 'time out', 'زمان', 'no response')
+    tokens = (
+        'timeout',
+        'timed out',
+        'time out',
+        'زمان',
+        'no response',
+        'connect',
+        'tcp',
+        'network error',
+        'اتصال',
+    )
     return any(token in message for token in tokens)
 
 

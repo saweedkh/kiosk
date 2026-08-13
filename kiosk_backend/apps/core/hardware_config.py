@@ -3,9 +3,47 @@ Resolve POS and printer settings from SiteSettings (DB), with env fallbacks.
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Dict
 
 from django.conf import settings as django_settings
+
+_REAL_GATEWAY_ALIASES = {
+    'bridge': 'bridge',
+    'pos_bridge': 'bridge',
+    'dll_bridge': 'bridge',
+    'dll': 'dll',
+    'pos_dll': 'dll',
+    'pcpos': 'dll',
+    'pos': 'pos',
+}
+
+
+def _env_bool(key: str, default: bool = False) -> bool:
+    raw = (os.environ.get(key) or '').strip().lower()
+    if not raw:
+        return default
+    return raw in ('1', 'true', 'yes', 'on')
+
+
+def _resolve_real_gateway_name() -> str:
+    """
+    Real POS gateway when admin pos_payment_mode is "real".
+    Ignores PAYMENT_GATEWAY_NAME=mock from dev startup — DB setting wins.
+    """
+    raw = (os.environ.get('PAYMENT_GATEWAY_NAME') or '').strip().lower()
+    if raw in _REAL_GATEWAY_ALIASES:
+        return _REAL_GATEWAY_ALIASES[raw]
+    if raw and raw != 'mock':
+        return raw
+
+    if _env_bool('POS_USE_BRIDGE'):
+        return 'bridge'
+
+    if os.name == 'nt':
+        return 'dll'
+
+    return 'pos'
 
 
 def get_pos_config() -> Dict[str, Any]:
@@ -58,5 +96,7 @@ def merge_payment_gateway_config(config: Dict[str, Any] | None = None) -> Dict[s
             rate_int = max(0, min(100, int(rate)))
             cfg['mock_payment_success_rate'] = rate_int
             cfg['mock_payment_success'] = rate_int >= 100
+    else:
+        cfg['gateway_name'] = _resolve_real_gateway_name()
 
     return cfg

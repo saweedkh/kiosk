@@ -2,13 +2,17 @@ import { apiClient } from './client'
 import type { ApiResponse, Order, OrderCreateRequest } from '@/types'
 
 export const ordersApi = {
-  createOrder: async (data: OrderCreateRequest): Promise<ApiResponse<Order>> => {
-    // Set timeout to 5 minutes (300000ms) since the API waits for card payment
+  createOrder: async (
+    data: OrderCreateRequest,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<Order>> => {
+    // Long timeout while customer completes card payment on POS
     const response = await apiClient.post<ApiResponse<Order>>(
       '/kiosk/orders/orders/create/',
       data,
       {
-        timeout: 300000, // 5 minutes timeout
+        timeout: 300000,
+        signal,
       }
     )
     return response.data

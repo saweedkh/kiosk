@@ -49,8 +49,8 @@ class POSConnection:
             self._connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # Set socket options to keep connection alive
             self._connection.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            # Set timeout for connection (but keep it long for transaction waiting)
-            self._connection.settimeout(30)  # 30 seconds for initial connection
+            connect_timeout = min(10, max(3, int(self.timeout)))
+            self._connection.settimeout(connect_timeout)
             self._connection.connect((self.tcp_host, self.tcp_port))
             LogService.log_info(
                 'payment',

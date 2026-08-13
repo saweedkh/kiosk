@@ -51,7 +51,7 @@ import {
 /** Return to attract screen after this much idle time on the menu */
 const KIOSK_IDLE_MS = 90_000;
 /** Clear cart if customer does not complete POS payment in this window */
-const PAYMENT_DEVICE_IDLE_MS = 120_000;
+const PAYMENT_DEVICE_IDLE_MS = 90_000;
 /** Menu stays cached until catalog_revision bumps (admin product/category change). */
 const MENU_STALE_MS = Infinity;
 const MENU_GC_MS = 24 * 60 * 60 * 1000;
@@ -81,6 +81,7 @@ export default function CustomerPage() {
   const cartClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentModalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentWaitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const paymentAbortRef = useRef<AbortController | null>(null);
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastCatalogRevisionRef = useRef<number | null>(null);
   const landingThemeRef = useRef("cinema");
@@ -168,6 +169,7 @@ export default function CustomerPage() {
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
       }
+      paymentAbortRef.current?.abort();
     };
   }, []);
 
@@ -184,6 +186,11 @@ export default function CustomerPage() {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
+  };
+
+  const abortPaymentRequest = () => {
+    paymentAbortRef.current?.abort();
+    paymentAbortRef.current = null;
   };
 
   const finishPaymentFlow = (kind: PaymentFailureKind | null) => {
@@ -283,6 +290,7 @@ export default function CustomerPage() {
     }
 
     paymentWaitTimeoutRef.current = setTimeout(() => {
+      abortPaymentRequest();
       setPaymentFailureKind("timeout");
       setPaymentStatus("failed");
       paymentWaitTimeoutRef.current = null;
@@ -632,6 +640,10 @@ export default function CustomerPage() {
 
   const createOrderMutation = useMutation({
     mutationFn: async (selectedFulfillment: "dine_in" | "takeaway") => {
+      abortPaymentRequest();
+      const controller = new AbortController();
+      paymentAbortRef.current = controller;
+
       const orderData = {
         items: items.map((item) => ({
           product_id: item.product.id,
@@ -645,9 +657,10 @@ export default function CustomerPage() {
             : undefined,
         landing_theme: landingThemeRef.current || undefined,
       };
-      return await ordersApi.createOrder(orderData);
+      return await ordersApi.createOrder(orderData, controller.signal);
     },
     onSuccess: (response) => {
+      paymentAbortRef.current = null;
       // پاک کردن timeout قبلی اگر وجود داشته باشد
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
@@ -708,7 +721,20 @@ export default function CustomerPage() {
       }
     },
     onError: (error: any) => {
+      paymentAbortRef.current = null;
       console.error("Error creating order:", error);
+
+      const isUserAbort =
+        error.code === "ERR_CANCELED" ||
+        error.name === "CanceledError" ||
+        error.message === "canceled";
+
+      if (isUserAbort) {
+        clearPaymentTimers();
+        setPaymentFailureKind("cancelled");
+        setPaymentStatus("cancelled");
+        return;
+      }
       
       // پاک کردن timeout قبلی اگر وجود داشته باشد
       if (paymentModalTimeoutRef.current) {
@@ -804,8 +830,11 @@ export default function CustomerPage() {
   };
 
   const handlePaymentCancel = () => {
-    // While waiting for POS, do not abort — request is still in flight
     if (createOrderMutation.isPending || paymentStatus === "waiting") {
+      abortPaymentRequest();
+      clearPaymentTimers();
+      setPaymentFailureKind("cancelled");
+      setPaymentStatus("cancelled");
       return;
     }
 

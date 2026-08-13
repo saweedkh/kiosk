@@ -77,8 +77,9 @@ export function PaymentModal({
                 </svg>
               </div>
             ),
-            title: 'زمان پرداخت تمام شد',
-            message: 'پرداختی انجام نشد. سبد خرید خالی می‌شود.',
+            title: 'پرداخت انجام نشد',
+            message:
+              'اتصال به کارتخوان برقرار نشد یا زمان تمام شد. سبد خرید خالی می‌شود.',
             gradient: 'from-amber-500 to-orange-600',
             bgGradient: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10',
           }
@@ -156,7 +157,7 @@ export function PaymentModal({
             </motion.div>
           ),
           title: 'پرداخت لغو شد',
-          message: 'پرداخت از روی کارتخوان لغو شد. سبد خرید خالی می‌شود.',
+          message: 'پرداخت لغو شد. سبد خرید خالی می‌شود.',
           gradient: 'from-orange-500 to-amber-600',
           bgGradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10',
         }
@@ -261,12 +262,17 @@ export function PaymentModal({
                   )}
 
                   {status === 'waiting' && (
-                    <div className="text-center mb-6">
+                    <div className="text-center mb-6 space-y-1">
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {isLoading
-                          ? 'در حال ارسال درخواست...'
+                          ? 'در حال اتصال به کارتخوان...'
                           : 'منتظر پرداخت از طریق کارتخوان...'}
                       </p>
+                      {isLoading && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          در صورت مشکل اتصال، «لغو پرداخت» را بزنید
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -283,11 +289,10 @@ export function PaymentModal({
                       <Button
                         variant="outline"
                         size="lg"
-                        className="w-full border-2 border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 opacity-50 cursor-not-allowed"
-                        onClick={() => {}}
-                        disabled={true}
+                        className="w-full border-2 border-gray-300 dark:border-gray-700 hover:border-red-400 hover:text-red-600 dark:hover:border-red-600 dark:hover:text-red-400"
+                        onClick={onCancel}
                       >
-                        {isLoading ? 'در حال پردازش...' : 'در انتظار پرداخت...'}
+                        لغو پرداخت
                       </Button>
                     ) : status === 'failed' || status === 'cancelled' ? (
                       <Button

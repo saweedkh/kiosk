@@ -55,7 +55,11 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
     message.includes('timeout') ||
     message.includes('timed out') ||
     message.includes('no response') ||
-    message.includes('زمان')
+    message.includes('زمان') ||
+    message.includes('connect') ||
+    message.includes('tcp') ||
+    message.includes('network error') ||
+    message.includes('اتصال')
   ) {
     return 'timeout'
   }

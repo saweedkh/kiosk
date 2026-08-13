@@ -103,6 +103,17 @@ The window opens on `boot.html` (Persian loading screen) while Django migrates/s
 When `http://127.0.0.1:8000/health/` is OK it redirects into the app (`index.html`).
 On failure it shows an error and points to the `logs/` folder (MessageBox backup too).
 
+### Why first launch can take ~30–60s
+
+Most of the wait is usually **PyInstaller onefile** unpacking the Django sidecar into `%TEMP%` on every start.
+After that, an empty SQLite DB still pays for `migrate` (+ optional demo seed once).
+
+Warm starts skip migrate/seed when the DB is already current (see timings in `logs/django.log`:
+`[kiosk-backend] migrate: skipped…`).
+
+Biggest next win: rebuild the sidecar as **PyInstaller onedir** (folder next to `kiosk.exe`)
+so Windows does not re-extract a huge EXE every launch.
+
 Note: `freezePrototype` is off — enabling it freezes JS prototypes and blanks Next/React in WebView.
 
 ## Logs (beside the EXE)

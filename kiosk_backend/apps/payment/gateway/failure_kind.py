@@ -5,8 +5,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-INSUFFICIENT_FUNDS_CODES = frozenset({'02'})
-WRONG_PIN_CODES = frozenset({'03'})
+INSUFFICIENT_FUNDS_CODES = frozenset({
+    '02',  # legacy / some terminals
+    '51',  # ISO 8583 — not sufficient funds (PNA DLL)
+})
+WRONG_PIN_CODES = frozenset({
+    '03',  # legacy / some terminals
+    '55',  # ISO 8583 — incorrect PIN (PNA DLL)
+})
 CANCEL_CODES = frozenset({'81', '99'})
 
 PAYMENT_FAILURE_INSUFFICIENT_FUNDS = 'insufficient_funds'

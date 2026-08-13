@@ -465,6 +465,38 @@ export default function CustomerPage() {
     return allProducts.filter((p) => p.category === selectedCategory);
   }, [allProducts, selectedCategory]);
 
+  const productsById = useMemo(() => {
+    const map = new Map<number, (typeof allProducts)[number]>();
+    for (const product of allProducts) {
+      map.set(product.id, product);
+    }
+    return map;
+  }, [allProducts]);
+
+  // Keep cart product fee flags in sync with the live catalog (cached cart
+  // snapshots often miss service_fee_applicable, so fees vanished from the UI
+  // while the backend still charged them on the POS).
+  useEffect(() => {
+    if (productsById.size === 0) return;
+    const { items: cartItems } = useCartStore.getState();
+    if (cartItems.length === 0) return;
+    let changed = false;
+    const nextItems = cartItems.map((item) => {
+      const live = productsById.get(item.product.id);
+      if (!live) return item;
+      const applicable = Boolean(live.service_fee_applicable);
+      if (Boolean(item.product.service_fee_applicable) === applicable) return item;
+      changed = true;
+      return {
+        ...item,
+        product: { ...item.product, service_fee_applicable: applicable },
+      };
+    });
+    if (changed) {
+      useCartStore.setState({ items: nextItems });
+    }
+  }, [productsById]);
+
   const { data: settingsData, isLoading: settingsLoading, isFetched: settingsFetched } = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
@@ -564,6 +596,7 @@ export default function CustomerPage() {
     preloadImages(allProducts.map((p) => p.image).filter(Boolean));
   }, [allProducts]);
 
+  // Prefer live settings over stale localStorage (packaging fields were added later).
   const settings = (settingsData?.result || cachedSettings || {}) as Settings;
   const siteName = resolveSiteName(settings);
   const siteDescription = resolveSiteDescription(settings);
@@ -607,9 +640,12 @@ export default function CustomerPage() {
     };
   }, [queryClient]);
 
-  const cartHasFeeProduct = items.some(
-    (item) => Boolean(item.product?.service_fee_applicable)
-  );
+  const cartHasFeeProduct = items.some((item) => {
+    const live = productsById.get(item.product.id);
+    return Boolean(
+      live?.service_fee_applicable ?? item.product?.service_fee_applicable
+    );
+  });
   const serviceFeeDineIn = cartHasFeeProduct
     ? resolveServiceFeeAmount(settings, "dine_in")
     : 0;

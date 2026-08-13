@@ -18,7 +18,18 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger('payment.pos_dll')
 
 CANCEL_CODES = {'81', '99'}
+INSUFFICIENT_FUNDS_CODES = {'02', '51'}
+WRONG_PIN_CODES = {'03', '55'}
 _RS_RE = re.compile(r'RS(\d{2,5})')
+
+_ERROR_MESSAGES = {
+    '02': 'تراکنش ناموفق - موجودی کافی نیست',
+    '03': 'تراکنش ناموفق - رمز اشتباه',
+    '51': 'تراکنش ناموفق - موجودی کافی نیست',
+    '55': 'تراکنش ناموفق - رمز اشتباه',
+    '81': 'تراکنش توسط کاربر لغو شد',
+    '99': 'تراکنش توسط کاربر لغو شد',
+}
 
 
 @dataclass
@@ -284,7 +295,9 @@ class PosDllClient:
             success=False,
             status='failed',
             response_code=code,
-            response_message=f'تراکنش ناموفق (کد {code})',
+            response_message=_ERROR_MESSAGES.get(
+                code, f'تراکنش ناموفق (کد {code})'
+            ),
             reference_number=rrn,
             card_number=self._mask_pan(pan),
             raw=raw,

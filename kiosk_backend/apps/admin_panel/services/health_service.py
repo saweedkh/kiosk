@@ -2,6 +2,8 @@ from typing import Any, Dict
 import socket
 import time
 
+from django.utils import timezone
+
 
 class HealthMonitorService:
     """Probe POS, network printer, and Bale bot health."""
@@ -161,6 +163,6 @@ class HealthMonitorService:
 
         return {
             'overall': overall,
-            'checked_at': __import__('django.utils.timezone', fromlist=['timezone']).timezone.now().isoformat(),
+            'checked_at': timezone.now().isoformat(),
             'components': components,
         }

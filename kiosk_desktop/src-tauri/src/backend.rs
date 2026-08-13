@@ -249,7 +249,7 @@ fn kill_stale_backend_processes() {
                 .stderr(Stdio::null())
                 .status();
         }
-        std::thread::sleep(Duration::from_millis(400));
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 

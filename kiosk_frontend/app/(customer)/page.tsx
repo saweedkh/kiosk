@@ -22,6 +22,8 @@ import {
   resolveServiceTitle,
   resolvePackagingFeeAmount,
   resolvePackagingTitle,
+  mergeSettings,
+  isCouponsEnabled,
   type Settings,
 } from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
@@ -30,6 +32,7 @@ import { analyticsApi } from "@/lib/api/dashboard";
 import {
   resolvePaymentFailureKind,
   shouldKeepCartOnPaymentFailure,
+  extractPaymentErrorPayload,
   type PaymentFailureKind,
 } from "@/lib/payment-failure";
 import { formatNumber, cn } from "@/lib/utils";
@@ -43,9 +46,11 @@ import {
   clearCachedMenu,
   preloadImage,
   preloadImages,
+  migrateSettingsCache,
+  getSettingsUpdatedEventName,
   type KioskSettingsSnapshot,
 } from "@/lib/kiosk-persist";
-import { resolveMediaUrl } from "@/lib/media-url";
+import { withMediaCacheBust } from "@/lib/media-url";
 import {
   CustomerMenuSkeleton,
   CategoryFilterSkeleton,
@@ -72,6 +77,7 @@ export default function CustomerPage() {
   >("waiting");
   const [paymentFailureKind, setPaymentFailureKind] =
     useState<PaymentFailureKind | null>(null);
+  const paymentFailureKindRef = useRef<PaymentFailureKind | null>(null);
   const [currentOrder, setCurrentOrder] = useState<{
     id: number;
     orderNumber: string;
@@ -92,6 +98,11 @@ export default function CustomerPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { getTotalItems, items, getTotalPrice, clearCart, couponCode } = useCartStore();
+
+  const updatePaymentFailureKind = (kind: PaymentFailureKind | null) => {
+    paymentFailureKindRef.current = kind;
+    setPaymentFailureKind(kind);
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -215,7 +226,7 @@ export default function CustomerPage() {
     setIsPaymentModalOpen(false);
     setCurrentOrder(null);
     setPaymentStatus("waiting");
-    setPaymentFailureKind(null);
+    updatePaymentFailureKind(null);
     setPendingFulfillment(null);
     setSelectedCategory(null);
     clearCart();
@@ -226,7 +237,7 @@ export default function CustomerPage() {
     setIsPaymentModalOpen(false);
     setCurrentOrder(null);
     setPaymentStatus("waiting");
-    setPaymentFailureKind(null);
+    updatePaymentFailureKind(null);
     // keep pendingFulfillment / cart items for retry
   };
 
@@ -261,7 +272,8 @@ export default function CustomerPage() {
             if (paymentStatus === "success") {
               goToAttract();
             } else {
-              finishPaymentFlow(paymentFailureKind);
+              // Use ref — timeout closure can lag behind the latest kind.
+              finishPaymentFlow(paymentFailureKindRef.current);
             }
             return false;
           }
@@ -296,7 +308,7 @@ export default function CustomerPage() {
 
     paymentWaitTimeoutRef.current = setTimeout(() => {
       abortPaymentRequest();
-      setPaymentFailureKind("timeout");
+      updatePaymentFailureKind("timeout");
       setPaymentStatus("failed");
       paymentWaitTimeoutRef.current = null;
     }, PAYMENT_DEVICE_IDLE_MS);
@@ -380,24 +392,36 @@ export default function CustomerPage() {
   >(null);
 
   useEffect(() => {
+    migrateSettingsCache();
     setCachedSettings(readCachedSettings());
     setCachedCategories(readCachedCategories());
     setCachedProducts(readCachedProducts());
   }, []);
 
   useEffect(() => {
-    const syncCache = () => setCachedSettings(readCachedSettings());
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "kiosk-settings-cache-v1") syncCache();
+    const syncCache = () => {
+      const snap = readCachedSettings();
+      setCachedSettings(snap);
+      if (snap) {
+        // Instant UI update in the same WebView (admin → customer) without waiting on fetch
+        queryClient.setQueryData(["settings"], {
+          result: snap,
+          status: 200,
+          success: true,
+          messages: {},
+        });
+      }
     };
-    // Do not sync on every window focus — that fought with settings invalidate/focus handlers
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "kiosk-settings-cache-v3" && e.newValue) syncCache();
+    };
     window.addEventListener("storage", onStorage);
-    window.addEventListener("kiosk-settings-cache-updated", syncCache);
+    window.addEventListener(getSettingsUpdatedEventName(), syncCache);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("kiosk-settings-cache-updated", syncCache);
+      window.removeEventListener(getSettingsUpdatedEventName(), syncCache);
     };
-  }, []);
+  }, [queryClient]);
 
   const { data: categoriesData, isPending: categoriesPending } = useQuery({
     queryKey: ["categories"],
@@ -497,11 +521,17 @@ export default function CustomerPage() {
     }
   }, [productsById]);
 
-  const { data: settingsData, isLoading: settingsLoading, isFetched: settingsFetched } = useQuery({
+  const {
+    data: settingsData,
+    isLoading: settingsLoading,
+    isFetched: settingsFetched,
+    isPlaceholderData: settingsIsPlaceholder,
+    dataUpdatedAt: settingsUpdatedAt,
+  } = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
       const data = await settingsApi.getSettings();
-      if (data?.result) {
+      if (data?.result && Object.keys(data.result).length > 0) {
         writeCachedSettings(data.result);
         setCachedSettings(readCachedSettings());
         if (data.result.logo_url) {
@@ -521,12 +551,11 @@ export default function CustomerPage() {
           messages: {},
         }
       : undefined,
-    // Poll slowly for admin branding / catalog_revision — not every render
-    staleTime: 30_000,
+    staleTime: 0,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchInterval: 30_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: 5_000,
     retry: 2,
   });
 
@@ -554,10 +583,10 @@ export default function CustomerPage() {
     }
   }, [settingsData?.result?.catalog_revision, cachedSettings?.catalog_revision, queryClient]);
 
-  // Admin tab writes localStorage — sync instantly without waiting for poll
+  // Admin publish / other tab — apply instantly
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== "kiosk-settings-cache-v1" || !e.newValue) return;
+      if (e.key !== "kiosk-settings-cache-v3" || !e.newValue) return;
       void queryClient.invalidateQueries({ queryKey: ["settings"] });
     };
     window.addEventListener("storage", onStorage);
@@ -596,24 +625,31 @@ export default function CustomerPage() {
     preloadImages(allProducts.map((p) => p.image).filter(Boolean));
   }, [allProducts]);
 
-  // Prefer live settings over stale localStorage (packaging fields were added later).
-  const settings = (settingsData?.result || cachedSettings || {}) as Settings;
+  // Prefer live API once fetched; cache only while placeholder / empty.
+  const liveSettings = settingsData?.result;
+  const settings =
+    !settingsIsPlaceholder &&
+    liveSettings &&
+    Object.keys(liveSettings).length > 0
+      ? mergeSettings(null, liveSettings)
+      : mergeSettings(cachedSettings, liveSettings);
+  const settingsCacheBust =
+    (settings as { cached_at?: number }).cached_at ||
+    cachedSettings?.cached_at ||
+    settingsUpdatedAt ||
+    0;
   const siteName = resolveSiteName(settings);
   const siteDescription = resolveSiteDescription(settings);
   const copyrightText = resolveCopyright(settings);
-  const landingTheme = (
-    settings.landing_theme ||
-    cachedSettings?.landing_theme ||
-    "cinema"
-  ).toLowerCase();
+  const landingTheme = (settings.landing_theme || "cinema").toLowerCase();
   landingThemeRef.current = landingTheme;
 
   const resolvedLogoUrl =
-    resolveMediaUrl(
-      settings.logo_url?.trim() ? settings.logo_url : cachedSettings?.logo_url
-    ) || (logoError ? undefined : "/logo.png");
-  const resolvedBackgroundUrl = resolveMediaUrl(
-    settings.landing_background_url || cachedSettings?.landing_background_url
+    withMediaCacheBust(settings.logo_url, settingsCacheBust) ||
+    (logoError ? undefined : "/logo.png");
+  const resolvedBackgroundUrl = withMediaCacheBust(
+    settings.landing_background_url,
+    settingsCacheBust
   );
 
   useEffect(() => {
@@ -685,10 +721,8 @@ export default function CustomerPage() {
   
   // Reset logo error when settings change
   useEffect(() => {
-    if (settingsData) {
-      setLogoError(false)
-    }
-  }, [settingsData])
+    setLogoError(false)
+  }, [settings.logo_url, settingsCacheBust])
 
   const createOrderMutation = useMutation({
     mutationFn: async (selectedFulfillment: "dine_in" | "takeaway") => {
@@ -704,7 +738,7 @@ export default function CustomerPage() {
         })),
         fulfillment_type: selectedFulfillment,
         coupon_code:
-          settings.coupons_enabled !== false && couponCode
+          isCouponsEnabled(settings) && couponCode
             ? couponCode
             : undefined,
         landing_theme: landingThemeRef.current || undefined,
@@ -747,13 +781,14 @@ export default function CustomerPage() {
           order.payment_status === "cancelled" ||
           order.status === "cancelled"
         ) {
-          setPaymentFailureKind("cancelled");
+          updatePaymentFailureKind("cancelled");
           setPaymentStatus("cancelled");
         } else if (order.payment_status === "failed") {
-          setPaymentFailureKind(
+          updatePaymentFailureKind(
             resolvePaymentFailureKind({
               paymentStatus: order.payment_status,
               order,
+              message: (order as { error_message?: string }).error_message,
             })
           );
           setPaymentStatus("failed");
@@ -766,7 +801,7 @@ export default function CustomerPage() {
             setPaymentStatus("waiting");
           } else {
             // اگر وضعیت نامشخص است، به عنوان failed در نظر بگیریم
-            setPaymentFailureKind("other");
+            updatePaymentFailureKind("other");
             setPaymentStatus("failed");
           }
         }
@@ -783,7 +818,7 @@ export default function CustomerPage() {
 
       if (isUserAbort) {
         clearPaymentTimers();
-        setPaymentFailureKind("cancelled");
+        updatePaymentFailureKind("cancelled");
         setPaymentStatus("cancelled");
         return;
       }
@@ -794,40 +829,20 @@ export default function CustomerPage() {
         paymentModalTimeoutRef.current = null;
       }
       
-      const responseData = error.response?.data;
-      const messages = responseData?.messages as Record<string, unknown> | undefined;
-      const orderFromError =
-        (messages?.order as { id?: number; order_number?: string; payment_status?: string; status?: string } | undefined) ||
-        (Array.isArray(responseData?.result) ? null : responseData?.result);
-      const gatewayFromError = messages?.gateway as
-        | {
-            response_code?: string;
-            response_message?: string;
-            status?: string;
-          }
-        | undefined;
-      const paymentMessage = String(
-        messages?.message ||
-          messages?.error ||
-          error.message ||
-          ""
-      );
+      const payload = extractPaymentErrorPayload(error.response?.data);
       const failureKind = resolvePaymentFailureKind({
-        paymentFailureKind:
-          typeof messages?.payment_failure_kind === "string"
-            ? messages.payment_failure_kind
-            : null,
-        paymentStatus: orderFromError?.payment_status || orderFromError?.status,
-        order: orderFromError,
-        message: paymentMessage,
-        gateway: gatewayFromError,
+        paymentFailureKind: payload.paymentFailureKind,
+        paymentStatus: payload.order?.payment_status || payload.order?.status,
+        order: payload.order,
+        message: payload.message || error.message || "",
+        gateway: payload.gateway,
       });
-      setPaymentFailureKind(failureKind);
+      updatePaymentFailureKind(failureKind);
 
-      if (orderFromError?.id) {
+      if (payload.order?.id) {
         setCurrentOrder({
-          id: orderFromError.id,
-          orderNumber: orderFromError.order_number || `#${orderFromError.id}`,
+          id: payload.order.id,
+          orderNumber: payload.order.order_number || `#${payload.order.id}`,
         });
       }
 
@@ -838,7 +853,7 @@ export default function CustomerPage() {
 
       if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
         console.warn("Request timeout - payment may still be processing");
-        setPaymentFailureKind("timeout");
+        updatePaymentFailureKind("timeout");
         setPaymentStatus("failed");
         return;
       }
@@ -868,7 +883,7 @@ export default function CustomerPage() {
     
     // Reset state
     setPaymentStatus("waiting");
-    setPaymentFailureKind(null);
+    updatePaymentFailureKind(null);
     setCurrentOrder(null);
     setPendingFulfillment(selectedFulfillment);
     
@@ -885,7 +900,7 @@ export default function CustomerPage() {
     if (createOrderMutation.isPending || paymentStatus === "waiting") {
       abortPaymentRequest();
       clearPaymentTimers();
-      setPaymentFailureKind("cancelled");
+      updatePaymentFailureKind("cancelled");
       setPaymentStatus("cancelled");
       return;
     }
@@ -896,7 +911,7 @@ export default function CustomerPage() {
       goToAttract();
       return;
     }
-    finishPaymentFlow(paymentFailureKind);
+    finishPaymentFlow(paymentFailureKindRef.current);
   };
 
   const handlePaymentConfirm = () => {
@@ -928,7 +943,7 @@ export default function CustomerPage() {
     packagingFeeTakeaway,
     packagingTitleDineIn,
     packagingTitleTakeaway,
-    couponsEnabled: settings.coupons_enabled !== false,
+    couponsEnabled: isCouponsEnabled(settings),
     fulfillmentChoiceEnabled: settings.fulfillment_choice_enabled !== false,
     dineInEnabled: settings.dine_in_enabled !== false,
     takeawayEnabled: settings.takeaway_enabled !== false,
@@ -945,43 +960,25 @@ export default function CustomerPage() {
         <KioskAttractScreen
           key={[
             landingTheme,
+            siteName,
             settings.landing_cta_text || "",
             settings.landing_accent_color || "",
             settings.landing_bg_color || "",
             settings.landing_text_color || "",
             settings.landing_muted_color || "",
             settings.landing_background_url || "",
-            siteName,
+            settings.logo_url || "",
+            String(settingsCacheBust),
           ].join("|")}
           theme={landingTheme}
-          siteName={siteName || cachedSettings?.site_name || "کیوسک"}
+          siteName={siteName || "کیوسک"}
           logoUrl={resolvedLogoUrl}
-          tagline={siteDescription || cachedSettings?.description}
-          ctaText={
-            settings.landing_cta_text ||
-            cachedSettings?.landing_cta_text ||
-            undefined
-          }
-          accentColor={
-            settings.landing_accent_color ||
-            cachedSettings?.landing_accent_color ||
-            undefined
-          }
-          bgColor={
-            settings.landing_bg_color ||
-            cachedSettings?.landing_bg_color ||
-            undefined
-          }
-          textColor={
-            settings.landing_text_color ||
-            cachedSettings?.landing_text_color ||
-            undefined
-          }
-          mutedColor={
-            settings.landing_muted_color ||
-            cachedSettings?.landing_muted_color ||
-            undefined
-          }
+          tagline={siteDescription || undefined}
+          ctaText={settings.landing_cta_text || undefined}
+          accentColor={settings.landing_accent_color || undefined}
+          bgColor={settings.landing_bg_color || undefined}
+          textColor={settings.landing_text_color || undefined}
+          mutedColor={settings.landing_muted_color || undefined}
           backgroundUrl={resolvedBackgroundUrl}
           onStart={startOrdering}
           onSecretAdmin={() => {

@@ -16,7 +16,7 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn from_env() -> Self {
         Self {
-            api_host: std::env::var("KIOSK_API_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
+            api_host: std::env::var("KIOSK_API_HOST").unwrap_or_else(|_| "0.0.0.0".into()),
             api_port: std::env::var("KIOSK_API_PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())

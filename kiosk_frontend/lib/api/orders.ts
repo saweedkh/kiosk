@@ -31,5 +31,12 @@ export const ordersApi = {
     )
     return response.data
   },
+
+  getAdminOrder: async (orderId: number): Promise<ApiResponse<Order>> => {
+    const response = await apiClient.get<ApiResponse<Order>>(
+      `/kiosk/admin/orders/${orderId}/`
+    )
+    return response.data
+  },
 }
 

@@ -1,7 +1,8 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import { useAuthStore } from '@/lib/store/auth-store'
+import { getBrowserApiBaseUrl } from './base-url'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000/api'
+const API_BASE_URL = getBrowserApiBaseUrl()
 
 class ApiClient {
   private client: AxiosInstance
@@ -47,8 +48,7 @@ class ApiClient {
 
           if (refreshToken) {
             try {
-              // Try to refresh token
-              const refreshUrl = API_BASE_URL.startsWith('http') 
+              const refreshUrl = API_BASE_URL.startsWith('http')
                 ? `${API_BASE_URL}/kiosk/admin/auth/refresh/`
                 : `/kiosk/admin/auth/refresh/`
               const response = await axios.post(refreshUrl, {

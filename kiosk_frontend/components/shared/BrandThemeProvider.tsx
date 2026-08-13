@@ -2,8 +2,11 @@
 
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { settingsApi } from '@/lib/api/settings'
-import { readCachedSettings } from '@/lib/kiosk-persist'
+import { settingsApi, coerceSettingsBooleans } from '@/lib/api/settings'
+import {
+  readCachedSettings,
+  getSettingsUpdatedEventName,
+} from '@/lib/kiosk-persist'
 import { useThemeStore } from '@/lib/store/theme-store'
 import {
   applyBrandTheme,
@@ -17,25 +20,40 @@ import {
 export function BrandThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme } = useThemeStore()
 
-  const { data } = useQuery({
+  const { data, dataUpdatedAt } = useQuery({
     // Share cache with customer page — one network fetch for branding + kiosk settings
     queryKey: ['settings'],
     queryFn: async () => {
       const res = await settingsApi.getSettings()
       return res
     },
-    select: (res) => res?.result || {},
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    refetchInterval: 60_000,
+    select: (res) => coerceSettingsBooleans(res?.result || {}),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 5_000,
   })
 
   useEffect(() => {
-    const source = data || readCachedSettings()
-    applyBrandTheme(paletteFromSettings(source), {
+    const sync = () => {
+      const snap = readCachedSettings()
+      if (snap) {
+        applyBrandTheme(paletteFromSettings(snap), {
+          mode: theme === 'dark' ? 'dark' : 'light',
+        })
+      }
+    }
+    window.addEventListener(getSettingsUpdatedEventName(), sync)
+    return () => window.removeEventListener(getSettingsUpdatedEventName(), sync)
+  }, [theme])
+
+  useEffect(() => {
+    const source =
+      data && Object.keys(data).length > 0 ? data : readCachedSettings()
+    applyBrandTheme(paletteFromSettings(source || {}), {
       mode: theme === 'dark' ? 'dark' : 'light',
     })
-  }, [data, theme])
+  }, [data, dataUpdatedAt, theme])
 
   return <>{children}</>
 }

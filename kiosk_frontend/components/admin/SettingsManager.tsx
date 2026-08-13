@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { writeCachedSettings } from '@/lib/kiosk-persist'
+import { publishSettingsToCustomer } from '@/lib/publish-settings'
+import { withMediaCacheBust } from '@/lib/media-url'
 import { adminApi } from '@/lib/api/admin'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
@@ -466,19 +468,26 @@ function UploadTile({
   onFile: (file: File) => void
   error?: string
 }) {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => {
+    setBroken(false)
+  }, [previewUrl])
+
   return (
     <div>
       <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
       <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-background/60 px-4 py-6 transition-colors hover:border-primary/50 dark:border-border-dark dark:bg-background-dark/40">
-        {previewUrl ? (
+        {previewUrl && !broken ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            key={previewUrl}
             src={previewUrl}
             alt={label}
             className={cn(
               'rounded-xl border border-border object-cover dark:border-border-dark',
               previewClassName || 'h-24 w-24 object-contain bg-white'
             )}
+            onError={() => setBroken(true)}
           />
         ) : (
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -493,6 +502,11 @@ function UploadTile({
             </svg>
           </div>
         )}
+        {previewUrl && broken ? (
+          <p className="text-center text-xs text-amber-600 dark:text-amber-400">
+            پیش‌نمایش لود نشد — صفحه را رفرش کنید یا دوباره آپلود کنید
+          </p>
+        ) : null}
         <div className="text-center">
           <p className="text-sm font-semibold text-foreground">
             انتخاب فایل
@@ -533,7 +547,7 @@ export function SettingsManager() {
   })
 
   const applyServerSettings = (result: Settings, opts?: { keepLocalFiles?: boolean }) => {
-    writeCachedSettings(result)
+    publishSettingsToCustomer(queryClient, result)
     setBaseline(stripLocalFiles(result))
     setSettings((prev) => {
       if (opts?.keepLocalFiles) {
@@ -553,7 +567,6 @@ export function SettingsManager() {
     mutationFn: (data: Settings) => adminApi.updateSettings(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['brand-theme-settings'] })
       if (response?.result) applyServerSettings(response.result)
       setApiErrors({})
@@ -581,10 +594,9 @@ export function SettingsManager() {
     mutationFn: (data: Settings) => adminApi.patchSettings(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['brand-theme-settings'] })
       if (response?.result) {
-        writeCachedSettings(response.result)
+        publishSettingsToCustomer(queryClient, response.result)
         setBaseline((prev) =>
           prev ? { ...prev, ...stripLocalFiles(response.result) } : stripLocalFiles(response.result)
         )
@@ -629,6 +641,8 @@ export function SettingsManager() {
 
   useEffect(() => {
     if (!settingsData?.result) return
+    // Don't force-publish while admin is editing (would fight dirty form);
+    // still seed localStorage for the customer kiosk.
     writeCachedSettings(settingsData.result)
     if (!baseline) {
       applyServerSettings(settingsData.result)
@@ -884,16 +898,34 @@ export function SettingsManager() {
     colorMode,
   ])
 
-  const logoPreview =
-    settings.logo_preview ||
-    settings.logo_url ||
-    (typeof settings.logo === 'string' ? settings.logo : '') ||
-    null
+  const logoPreview = (() => {
+    // Fresh local pick (data URL) — keep as-is
+    if (settings.logo_preview) return settings.logo_preview
+    const raw =
+      settings.logo_url ||
+      (typeof settings.logo === 'string' ? settings.logo : '') ||
+      ''
+    if (!raw) return null
+    // Absolute media URL for Tauri/desktop (relative /media breaks after remount)
+    return (
+      withMediaCacheBust(
+        raw,
+        settings.updated_at || settings.catalog_revision || settings.logo_url
+      ) || raw
+    )
+  })()
 
-  const bgPreview =
-    settings.landing_background_preview ||
-    settings.landing_background_url ||
-    null
+  const bgPreview = (() => {
+    if (settings.landing_background_preview) return settings.landing_background_preview
+    const raw = settings.landing_background_url || ''
+    if (!raw) return null
+    return (
+      withMediaCacheBust(
+        raw,
+        settings.updated_at || settings.catalog_revision || settings.landing_background_url
+      ) || raw
+    )
+  })()
 
   const toast = useMemo(() => {
     if (successMessage) {

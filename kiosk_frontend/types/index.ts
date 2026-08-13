@@ -110,6 +110,10 @@ export interface Order {
   coupon_code?: string
   landing_theme?: string
   fulfillment_type?: FulfillmentType
+  receipt_number?: number
+  transaction_id?: string
+  payment_method?: string
+  gateway_name?: string
   items: OrderItem[]
   created_at: string
   updated_at: string

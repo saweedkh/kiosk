@@ -107,8 +107,14 @@ pub fn wait_until_ready() -> Result<(), String> {
     let config = AppConfig::from_env();
     wait_for_health(&config)?;
     logutil::info(&format!(
-        "Django ready http://{}:{}/",
-        config.api_host, config.api_port
+        "Django ready http://{}:{}/ (bound {})",
+        if config.api_host == "0.0.0.0" {
+            "127.0.0.1"
+        } else {
+            config.api_host.as_str()
+        },
+        config.api_port,
+        config.api_host
     ));
     Ok(())
 }
@@ -360,11 +366,17 @@ mod winjob {
 }
 
 fn wait_for_health(config: &AppConfig) -> Result<(), String> {
-    let url = format!(
-        "http://{}:{}/health/",
+    // Binding 0.0.0.0 is for listen; health probes must hit loopback.
+    let probe_host = if config.api_host == "0.0.0.0" {
+        "127.0.0.1"
+    } else {
+        config.api_host.as_str()
+    };
+    let url = format!("http://{}:{}/health/", probe_host, config.api_port);
+    logutil::info(&format!(
+        "waiting for {url} (listen {}:{}, up to 3 min for first migrate)",
         config.api_host, config.api_port
-    );
-    logutil::info(&format!("waiting for {url} (up to 3 min for first migrate)"));
+    ));
     let deadline = Instant::now() + Duration::from_secs(180);
     let mut attempts = 0u32;
 

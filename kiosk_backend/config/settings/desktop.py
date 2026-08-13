@@ -11,7 +11,12 @@ from pathlib import Path
 from apps.core.desktop_paths import ensure_data_dirs, get_package_root
 
 DEBUG = _env('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'tauri.localhost']
+# Bind is 0.0.0.0 so LAN clients can hit the API; allow any Host header on desktop.
+_allowed = _env('ALLOWED_HOSTS', '')
+if _allowed.strip():
+    ALLOWED_HOSTS = [h.strip() for h in _allowed.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['*']
 
 DATA_DIR = ensure_data_dirs()
 PACKAGE_ROOT = get_package_root()
@@ -73,3 +78,4 @@ CORS_ALLOWED_ORIGINS = list(
 )
 
 STATIC_ROOT = DATA_DIR / 'staticfiles'
+

@@ -19,6 +19,9 @@ import { Button } from '@/components/shared/Button'
 import { Switch } from '@/components/shared/Switch'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { hasPermission } from '@/lib/auth/permissions'
+import { readCachedSettings } from '@/lib/kiosk-persist'
+import { publishSettingsToCustomer } from '@/lib/publish-settings'
+import type { Settings } from '@/lib/api/settings'
 
 const emptyForm = {
   code: '',
@@ -77,9 +80,13 @@ export function CouponsManager() {
     onMutate: async (enabled) => {
       setFeatureEnabled(enabled)
     },
-    onSuccess: () => {
+    onSuccess: (_data, enabled) => {
+      publishSettingsToCustomer(queryClient, {
+        ...(readCachedSettings() || {}),
+        coupons_enabled: enabled,
+      } as Settings)
       queryClient.invalidateQueries({ queryKey: ['admin-settings-coupons'] })
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
     },
     onError: () => {
       setFeatureEnabled(settingsQuery.data?.coupons_enabled !== false)

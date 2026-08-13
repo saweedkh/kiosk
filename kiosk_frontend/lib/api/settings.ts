@@ -45,33 +45,96 @@ export interface Settings {
 
 function normalizeSettings(raw: unknown): Settings {
   if (!raw || typeof raw !== 'object') return {}
-  return raw as Settings
+  return coerceSettingsBooleans(raw as Settings)
+}
+
+/** FormData / JSON quirks sometimes yield "false"/"true" strings — normalize. */
+function coerceBool(value: unknown): boolean | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase()
+    if (['true', '1', 'yes', 'on'].includes(v)) return true
+    if (['false', '0', 'no', 'off'].includes(v)) return false
+  }
+  return Boolean(value)
+}
+
+const BOOLEAN_SETTING_KEYS = [
+  'service_enabled',
+  'coupons_enabled',
+  'service_fee_dine_in',
+  'service_fee_takeaway',
+  'packaging_enabled',
+  'packaging_fee_dine_in',
+  'packaging_fee_takeaway',
+  'fulfillment_choice_enabled',
+  'dine_in_enabled',
+  'takeaway_enabled',
+] as const
+
+export function coerceSettingsBooleans(settings: Settings): Settings {
+  const next: Settings = { ...settings }
+  for (const key of BOOLEAN_SETTING_KEYS) {
+    const coerced = coerceBool(next[key])
+    if (coerced !== undefined) next[key] = coerced
+  }
+  return next
+}
+
+/**
+ * Merge localStorage snapshot with live API settings.
+ * Live defined fields win; empty/failed live payloads must not wipe the cache.
+ */
+export function mergeSettings(
+  cached?: Settings | null,
+  live?: Settings | null
+): Settings {
+  const base: Settings = { ...(cached || {}) }
+  if (!live || typeof live !== 'object') return coerceSettingsBooleans(base)
+  const liveKeys = Object.keys(live)
+  if (liveKeys.length === 0) return coerceSettingsBooleans(base)
+  for (const key of liveKeys) {
+    const value = live[key]
+    if (value !== undefined) base[key] = value
+  }
+  return coerceSettingsBooleans(base)
+}
+
+/** Master switches: only show when explicitly enabled. */
+export function isServiceFeesEnabled(settings?: Settings | null): boolean {
+  return coerceBool(settings?.service_enabled) === true
+}
+
+export function isPackagingFeesEnabled(settings?: Settings | null): boolean {
+  return coerceBool(settings?.packaging_enabled) === true
+}
+
+/** Coupons default ON in DB; hide only when explicitly false. */
+export function isCouponsEnabled(settings?: Settings | null): boolean {
+  return coerceBool(settings?.coupons_enabled) !== false
 }
 
 export const settingsApi = {
   /** Client-side / browser fetch via axios (relative `/api` works behind nginx). */
   getSettings: async (): Promise<ApiResponse<Settings>> => {
-    try {
-      const response = await apiClient.get('/kiosk/settings/public/', {
-        headers: {
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
-      })
-      const data = response.data as ApiResponse<Settings>
-      if (data?.result) {
+    const response = await apiClient.get('/kiosk/settings/public/', {
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+      // Avoid axios/browser serving a stale 200 for kiosk settings
+      params: { _ts: Date.now() },
+    })
+    const data = response.data as ApiResponse<Settings>
+    if (data?.result && typeof data.result === 'object') {
+      data.result = coerceSettingsBooleans(data.result)
+      if (Object.keys(data.result).length > 0) {
         writeCachedSettings(data.result)
       }
-      return data
-    } catch (error: any) {
-      console.error('Failed to fetch settings:', error)
-      return {
-        result: {},
-        status: 200,
-        success: true,
-        messages: {},
-      }
     }
+    return data
   },
 
   /**
@@ -146,13 +209,13 @@ export function resolveServiceFeeAmount(
   settings: Settings | null | undefined,
   fulfillment: 'dine_in' | 'takeaway'
 ): number {
-  if (!settings?.service_enabled) return 0
+  if (!isServiceFeesEnabled(settings)) return 0
   if (fulfillment === 'takeaway') {
-    if (settings.service_fee_takeaway === false) return 0
-    return readServiceAmount(settings.service_fee_takeaway_amount, settings.service_fee)
+    if (settings?.service_fee_takeaway === false) return 0
+    return readServiceAmount(settings?.service_fee_takeaway_amount, settings?.service_fee)
   }
-  if (settings.service_fee_dine_in === false) return 0
-  return readServiceAmount(settings.service_fee_dine_in_amount, settings.service_fee)
+  if (settings?.service_fee_dine_in === false) return 0
+  return readServiceAmount(settings?.service_fee_dine_in_amount, settings?.service_fee)
 }
 
 export function resolvePackagingTitle(
@@ -171,11 +234,11 @@ export function resolvePackagingFeeAmount(
   settings: Settings | null | undefined,
   fulfillment: 'dine_in' | 'takeaway'
 ): number {
-  if (!settings?.packaging_enabled) return 0
+  if (!isPackagingFeesEnabled(settings)) return 0
   if (fulfillment === 'takeaway') {
-    if (settings.packaging_fee_takeaway === false) return 0
-    return readServiceAmount(settings.packaging_fee_takeaway_amount, 0)
+    if (settings?.packaging_fee_takeaway === false) return 0
+    return readServiceAmount(settings?.packaging_fee_takeaway_amount, 0)
   }
-  if (settings.packaging_fee_dine_in === false) return 0
-  return readServiceAmount(settings.packaging_fee_dine_in_amount, 0)
+  if (settings?.packaging_fee_dine_in === false) return 0
+  return readServiceAmount(settings?.packaging_fee_dine_in_amount, 0)
 }

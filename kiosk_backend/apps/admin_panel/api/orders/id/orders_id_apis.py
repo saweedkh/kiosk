@@ -5,7 +5,7 @@ from apps.admin_panel.api.orders.orders_serializers import (
     AdminOrderSerializer,
     UpdateOrderStatusSerializer
 )
-from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission
+from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission, HasAnyAppPermission
 from apps.orders.services.order_service import OrderService
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
@@ -19,8 +19,8 @@ class AdminOrderRetrieveAPIView(generics.RetrieveAPIView):
     """
     queryset = Order.objects.prefetch_related('items__product').all()
     serializer_class = AdminOrderSerializer
-    permission_classes = [IsAdminUser, HasAppPermission]
-    required_permission = 'view_orders'
+    permission_classes = [IsAdminUser, HasAnyAppPermission]
+    required_any_permissions = ['view_orders', 'view_reports']
     
     @custom_extend_schema(
         resource_name="AdminOrderRetrieve",

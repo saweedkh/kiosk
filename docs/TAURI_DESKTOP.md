@@ -93,7 +93,10 @@ Contains `kiosk.db`, `media/`, `logs/`.
 
 All `/api/kiosk/*` routes from Django — products, orders, payment, admin auth, settings, coupons, reports, accounts, bale, analytics.
 
-Frontend `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api` at build time.
+Frontend `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api` at build time
+(WebView talks to loopback). The Django sidecar **listens on `0.0.0.0:8000`**
+so other devices on the LAN can call `http://<pc-ip>:8000/api` if needed.
+Override with `KIOSK_API_HOST` / `KIOSK_API_PORT` if you must.
 
 Relative `/media/` URLs are resolved via `lib/media-url.ts` in the WebView.
 

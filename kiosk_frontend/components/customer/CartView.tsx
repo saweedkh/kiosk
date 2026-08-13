@@ -414,10 +414,10 @@ function SideCart(props: CartSharedProps) {
                           <button
                             type="button"
                             onClick={() => props.onRemove(item.key)}
-                            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-destructive hover:bg-destructive/10"
+                            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-destructive hover:bg-destructive/10"
                             aria-label="حذف"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-6 w-6" strokeWidth={2.25} />
                           </button>
                         </div>
                         {item.selectedOptions?.length ? (
@@ -746,9 +746,10 @@ function BottomCart(
                         <button
                           type="button"
                           onClick={() => props.onRemove(item.key)}
-                          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 portrait:h-9 portrait:w-9"
+                          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 portrait:h-11 portrait:w-11"
+                          aria-label="حذف"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-6 w-6" strokeWidth={2.25} />
                         </button>
                       </div>
                       <p className="mt-auto text-xs font-black text-primary portrait:text-sm">

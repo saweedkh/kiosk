@@ -89,7 +89,7 @@ export interface DailyReport {
   current_page?: number
   total_pages?: number
   results: Array<{
-    id?: number
+    id: number
     order_number: string
     total_amount: number
     status?: string

@@ -141,7 +141,8 @@ class ReportSelector:
         
         # لیست سفارشات با فیلدهای ضروری برای گزارش روزانه
         orders_list = list(orders.values(
-            'order_number', 'total_amount', 'payment_status', 'created_at'
+            'id', 'order_number', 'total_amount', 'status',
+            'payment_status', 'created_at',
         ))
         
         return {

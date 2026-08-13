@@ -52,3 +52,4 @@ def resolve_pos_dll_path() -> Path:
         if path.is_file():
             return path
     return root / 'pna.pcpos.dll'
+

@@ -107,26 +107,49 @@ class OrderCreateAPIView(generics.GenericAPIView):
             )
             
         except GatewayException as e:
-            # Payment failed - return error with order details if order was created
-            error_response = {
-                'error': 'Payment failed',
-                'message': str(e),
-            }
+            # Payment failed - return error with order details if order was created.
+            # Note: when create_order_from_items raises, local `order` stays None;
+            # recover the instance attached to the exception.
+            failed_order = order if order is not None else getattr(e, 'order', None)
+            error_message = str(e)
+            gateway_payload = {}
+            payment_status = None
 
-            if order is not None:
-                error_response['order'] = OrderSerializer(order).data
-                error_response['payment_failure_kind'] = classify_payment_failure(
-                    payment_status=order.payment_status,
-                    gateway_response=order.gateway_response_data,
-                    error_message=order.error_message or str(e),
-                )
-                if order.gateway_response_data:
-                    gr = order.gateway_response_data
-                    error_response['gateway'] = {
+            if failed_order is not None:
+                try:
+                    failed_order.refresh_from_db()
+                except Exception:
+                    pass
+                payment_status = failed_order.payment_status
+                error_message = failed_order.error_message or error_message
+                if failed_order.gateway_response_data:
+                    gr = failed_order.gateway_response_data
+                    gateway_payload = {
                         'status': gr.get('status'),
                         'response_code': gr.get('response_code'),
                         'response_message': gr.get('response_message'),
                     }
+
+            failure_kind = classify_payment_failure(
+                payment_status=payment_status,
+                gateway_response=(
+                    (failed_order.gateway_response_data if failed_order is not None else None)
+                    or gateway_payload
+                    or None
+                ),
+                error_message=error_message,
+            )
+
+            # Keep at least one nested dict so CustomJSONRenderer preserves keys
+            # (string-only payloads get flattened into non_field_errors).
+            error_response = {
+                'error': 'Payment failed',
+                'message': error_message,
+                'payment_failure_kind': failure_kind,
+                'gateway': gateway_payload,
+            }
+            if failed_order is not None:
+                error_response['order'] = OrderSerializer(failed_order).data
 
             return Response(
                 data=error_response,

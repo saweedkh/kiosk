@@ -4,32 +4,42 @@ from apps.orders.models import Order, OrderItem
 
 
 class AdminOrderItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True, label=_('نام محصول'))
-    
+    product_name = serializers.SerializerMethodField(label=_('نام محصول'))
+    subtotal = serializers.IntegerField(read_only=True, label=_('جمع'))
+
     class Meta:
         model = OrderItem
         fields = [
             'id', 'product', 'product_name', 'quantity',
-            'unit_price', 'subtotal'
+            'unit_price', 'subtotal', 'selected_options',
         ]
-        read_only_fields = ['id', 'subtotal']
+        read_only_fields = [
+            'id', 'subtotal', 'product_name', 'selected_options',
+        ]
+
+    def get_product_name(self, obj):
+        if obj.product_id and obj.product:
+            return obj.product.name
+        return obj.product_name or _('محصول حذف‌شده')
 
 
 class AdminOrderSerializer(serializers.ModelSerializer):
     items = AdminOrderItemSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = Order
         fields = [
             'id', 'order_number', 'session_key', 'status',
             'payment_status', 'total_amount', 'service_fee', 'packaging_fee',
-            'transaction_id', 'fulfillment_type',
-            'items', 'created_at', 'updated_at'
+            'discount_amount', 'coupon_code', 'receipt_number',
+            'transaction_id', 'payment_method', 'gateway_name',
+            'fulfillment_type', 'items', 'created_at', 'updated_at',
         ]
         read_only_fields = [
             'id', 'order_number', 'session_key', 'total_amount',
-            'service_fee', 'packaging_fee',
-            'transaction_id', 'fulfillment_type', 'items', 'created_at', 'updated_at'
+            'service_fee', 'packaging_fee', 'discount_amount', 'coupon_code',
+            'receipt_number', 'transaction_id', 'payment_method', 'gateway_name',
+            'fulfillment_type', 'items', 'created_at', 'updated_at',
         ]
 
 
@@ -45,4 +55,3 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
 
 class UpdateOrderStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES, label=_('وضعیت'))
-

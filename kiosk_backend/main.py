@@ -133,7 +133,7 @@ def main() -> None:
 
     _run_bootstrap_commands()
 
-    host = os.environ.get('KIOSK_API_HOST', '127.0.0.1')
+    host = os.environ.get('KIOSK_API_HOST', '0.0.0.0')
     port = int(os.environ.get('KIOSK_API_PORT', '8000'))
 
     from waitress import serve

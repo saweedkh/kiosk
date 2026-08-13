@@ -6,7 +6,9 @@
 import type { Settings } from '@/lib/api/settings'
 import type { ApiResponse, Category, PaginatedResponse, Product } from '@/types'
 
-const SETTINGS_KEY = 'kiosk-settings-cache-v1'
+/** Bump when settings shape / semantics change so stale exe WebView caches drop. */
+const SETTINGS_KEY = 'kiosk-settings-cache-v3'
+const SETTINGS_UPDATED_EVENT = 'kiosk-settings-cache-updated'
 const CATEGORIES_KEY = 'kiosk-categories-cache-v1'
 const PRODUCTS_KEY = 'kiosk-products-cache-v1'
 const PRELOADED = new Set<string>()
@@ -88,7 +90,21 @@ export function readCachedSettings(): KioskSettingsSnapshot | null {
   return parsed
 }
 
-export function writeCachedSettings(settings?: Settings | null): void {
+/** Drop legacy cache keys from older builds (Tauri WebView keeps localStorage). */
+export function migrateSettingsCache(): void {
+  if (!canUseStorage()) return
+  try {
+    localStorage.removeItem('kiosk-settings-cache-v1')
+    localStorage.removeItem('kiosk-settings-cache-v2')
+  } catch {
+    // ignore
+  }
+}
+
+export function writeCachedSettings(
+  settings?: Settings | null,
+  options?: { force?: boolean }
+): void {
   if (!settings) return
   const snapshot: KioskSettingsSnapshot = {
     site_name: settings.site_name || '',
@@ -126,18 +142,20 @@ export function writeCachedSettings(settings?: Settings | null): void {
     landing_background_url: settings.landing_background_url || '',
     cached_at: Date.now(),
   }
-  // Skip write+event when content unchanged — prevents fetch→cache→render storms
-  const prev = readCachedSettings()
-  if (prev) {
-    const { cached_at: _a, ...prevBody } = prev
-    const { cached_at: _b, ...nextBody } = snapshot
-    if (JSON.stringify(prevBody) === JSON.stringify(nextBody)) {
-      return
+  // Skip write when content unchanged — unless admin forced a publish
+  if (!options?.force) {
+    const prev = readCachedSettings()
+    if (prev) {
+      const { cached_at: _a, ...prevBody } = prev
+      const { cached_at: _b, ...nextBody } = snapshot
+      if (JSON.stringify(prevBody) === JSON.stringify(nextBody)) {
+        return
+      }
     }
   }
   writeJson(SETTINGS_KEY, snapshot)
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('kiosk-settings-cache-updated'))
+    window.dispatchEvent(new Event(SETTINGS_UPDATED_EVENT))
   }
   if (snapshot.logo_url) {
     void preloadImage(snapshot.logo_url)
@@ -145,6 +163,10 @@ export function writeCachedSettings(settings?: Settings | null): void {
   if (snapshot.landing_background_url) {
     void preloadImage(snapshot.landing_background_url)
   }
+}
+
+export function getSettingsUpdatedEventName(): string {
+  return SETTINGS_UPDATED_EVENT
 }
 
 export function clearCachedSettings(): void {

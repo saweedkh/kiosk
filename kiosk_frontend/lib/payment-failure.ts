@@ -35,6 +35,14 @@ function normalizeCode(code?: string | null): string {
   return text.length >= 2 ? text.slice(-2) : text
 }
 
+function collectMessageText(input: ResolveInput): string {
+  const parts = [
+    input.message,
+    input.gateway?.response_message,
+  ]
+  return parts.filter(Boolean).join(' ').toLowerCase()
+}
+
 export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKind {
   const code = normalizeCode(input.gateway?.response_code)
   const status = (
@@ -44,9 +52,7 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
     input.gateway?.status ||
     ''
   ).toLowerCase()
-  const message = String(
-    input.message || input.gateway?.response_message || ''
-  ).toLowerCase()
+  const message = collectMessageText(input)
 
   // Prefer POS response codes over a generic backend "other" hint — PNA uses
   // ISO 8583 51/55 which older classifiers mishandled.
@@ -83,7 +89,8 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
     message.includes('رمز اشتباه') ||
     message.includes('wrong pin') ||
     message.includes('incorrect pin') ||
-    message.includes('invalid pin')
+    message.includes('invalid pin') ||
+    message.includes('pin error')
   ) {
     return 'wrong_pin'
   }
@@ -106,4 +113,79 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
 /** Soft failures where the customer can retry without losing the cart. */
 export function shouldKeepCartOnPaymentFailure(kind: PaymentFailureKind): boolean {
   return kind === 'insufficient_funds' || kind === 'wrong_pin'
+}
+
+/** Flatten DRF CustomJSONRenderer error envelopes into usable fields. */
+export function extractPaymentErrorPayload(responseData: unknown): {
+  paymentFailureKind: string | null
+  message: string
+  order: {
+    id?: number
+    order_number?: string
+    payment_status?: string
+    status?: string
+  } | null
+  gateway: {
+    response_code?: string
+    response_message?: string
+    status?: string
+  } | null
+} {
+  const data = (responseData || {}) as Record<string, any>
+  const messages = (data.messages || {}) as Record<string, any>
+  const result =
+    data.result && !Array.isArray(data.result) ? (data.result as Record<string, any>) : null
+
+  const order =
+    (messages.order as any) ||
+    (result?.order as any) ||
+    (data.order as any) ||
+    null
+
+  const gateway =
+    (messages.gateway as any) ||
+    (result?.gateway as any) ||
+    (data.gateway as any) ||
+    null
+
+  let paymentFailureKind: string | null =
+    (typeof messages.payment_failure_kind === 'string' && messages.payment_failure_kind) ||
+    (typeof result?.payment_failure_kind === 'string' && result.payment_failure_kind) ||
+    (typeof data.payment_failure_kind === 'string' && data.payment_failure_kind) ||
+    null
+
+  const messageParts: string[] = []
+  const pushText = (value: unknown) => {
+    if (typeof value === 'string' && value.trim()) messageParts.push(value)
+  }
+
+  pushText(messages.message)
+  pushText(messages.error)
+  pushText(result?.message)
+  pushText(result?.error)
+  pushText(data.message)
+  pushText(data.error)
+  pushText(gateway?.response_message)
+
+  const nonField = messages.non_field_errors
+  if (Array.isArray(nonField)) {
+    for (const item of nonField) {
+      if (typeof item === 'string') {
+        pushText(item)
+        if (
+          !paymentFailureKind &&
+          VALID_KINDS.includes(item as PaymentFailureKind)
+        ) {
+          paymentFailureKind = item
+        }
+      }
+    }
+  }
+
+  return {
+    paymentFailureKind,
+    message: messageParts.join(' '),
+    order,
+    gateway,
+  }
 }

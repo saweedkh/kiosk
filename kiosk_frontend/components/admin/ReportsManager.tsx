@@ -7,6 +7,7 @@ import { reportsApi } from '@/lib/api/reports'
 import { ordersApi } from '@/lib/api/orders'
 import { Button } from '@/components/shared/Button'
 import { DatePicker } from '@/components/admin/DatePicker'
+import { OrderDetailsDialog } from '@/components/admin/OrderDetailsDialog'
 import {
   AdminPageHeader,
   AdminSegmented,
@@ -22,10 +23,14 @@ import { hasPermission } from '@/lib/auth/permissions'
 export function ReportsManager() {
   const { user } = useAuthStore()
   const canReprint = hasPermission(user, 'view_orders')
+  const canViewDetails =
+    hasPermission(user, 'view_orders') || hasPermission(user, 'view_reports')
   const [activeReport, setActiveReport] = useState<'sales' | 'products' | 'stock' | 'daily'>('sales')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [dailyDate, setDailyDate] = useState(getTodayJalali())
+  const [detailsOrderId, setDetailsOrderId] = useState<number | null>(null)
+  const [detailsOrderNumber, setDetailsOrderNumber] = useState('')
   
   // Pagination states for each report
   const [salesPage, setSalesPage] = useState(1)
@@ -243,6 +248,12 @@ export function ReportsManager() {
     }
   }
 
+  const openOrderDetails = (order: { id?: number; order_number: string }) => {
+    if (!order.id) return
+    setDetailsOrderId(order.id)
+    setDetailsOrderNumber(order.order_number)
+  }
+
   return (
     <div className="space-y-5">
       <AdminPageHeader
@@ -419,7 +430,17 @@ export function ReportsManager() {
                                 {formatJalaliDateTime(order.created_at)}
                               </td>
                               <td className="px-6 py-4 text-sm">
-                                <div className="flex items-center justify-center">
+                                <div className="flex flex-wrap items-center justify-center gap-2">
+                                  {canViewDetails && order.id ? (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openOrderDetails(order)}
+                                      className="text-xs"
+                                    >
+                                      جزئیات
+                                    </Button>
+                                  ) : null}
                                   {canReprint &&
                                   (order.status === 'paid' || order.payment_status === 'paid') ? (
                                     <Button
@@ -430,9 +451,14 @@ export function ReportsManager() {
                                     >
                                       چاپ مجدد
                                     </Button>
-                                  ) : (
+                                  ) : null}
+                                  {!canViewDetails &&
+                                  !(
+                                    canReprint &&
+                                    (order.status === 'paid' || order.payment_status === 'paid')
+                                  ) ? (
                                     <span className="text-lg text-muted-foreground">-</span>
-                                  )}
+                                  ) : null}
                                 </div>
                               </td>
                             </tr>
@@ -639,7 +665,17 @@ export function ReportsManager() {
                                   {formatJalaliDateTime(order.created_at)}
                                 </td>
                                 <td className="px-6 py-4 text-sm">
-                                  <div className="flex items-center justify-center">
+                                  <div className="flex flex-wrap items-center justify-center gap-2">
+                                    {canViewDetails && order.id ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openOrderDetails(order)}
+                                        className="text-xs"
+                                      >
+                                        جزئیات
+                                      </Button>
+                                    ) : null}
                                     {canReprint &&
                                     (status === 'paid' || order.payment_status === 'paid') ? (
                                       <Button
@@ -650,9 +686,14 @@ export function ReportsManager() {
                                       >
                                         چاپ مجدد
                                       </Button>
-                                    ) : (
+                                    ) : null}
+                                    {!canViewDetails &&
+                                    !(
+                                      canReprint &&
+                                      (status === 'paid' || order.payment_status === 'paid')
+                                    ) ? (
                                       <span className="text-lg text-muted-foreground">-</span>
-                                    )}
+                                    ) : null}
                                   </div>
                                 </td>
                               </tr>
@@ -669,6 +710,20 @@ export function ReportsManager() {
           )}
         </>
       )}
+
+      <OrderDetailsDialog
+        orderId={detailsOrderId}
+        orderNumber={detailsOrderNumber}
+        open={detailsOrderId != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailsOrderId(null)
+            setDetailsOrderNumber('')
+          }
+        }}
+        canReprint={canReprint}
+        onReprint={(orderNumber) => void handleReprintReceipt(orderNumber)}
+      />
     </div>
   )
 }

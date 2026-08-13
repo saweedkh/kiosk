@@ -315,7 +315,10 @@ class OrderService:
                     OrderService._mark_order_as_failed(
                         order, order_number, total_amount, transaction_id, error_message
                     )
-                raise GatewayException(f'Payment failed: {error_message}')
+                raise GatewayException(
+                    f'Payment failed: {error_message}',
+                    order=order,
+                )
                 
         except GatewayException:
             raise
@@ -333,7 +336,10 @@ class OrderService:
                 }
             )
             OrderService._mark_order_as_failed(order, order_number, total_amount, None, f'Network error: {str(e)}')
-            raise GatewayException(f'Failed to process payment: Network error - {str(e)}')
+            raise GatewayException(
+                f'Failed to process payment: Network error - {str(e)}',
+                order=order,
+            )
         except Exception as e:
             # Unexpected errors
             LogService.log_error(
@@ -348,7 +354,10 @@ class OrderService:
                 }
             )
             OrderService._mark_order_as_failed(order, order_number, total_amount, None, str(e))
-            raise GatewayException(f'Failed to process payment: {str(e)}')
+            raise GatewayException(
+                f'Failed to process payment: {str(e)}',
+                order=order,
+            )
     
     @staticmethod
     def _determine_payment_success(gateway_response: Dict) -> bool:

@@ -158,23 +158,23 @@ jobs:
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"
           }
 
-            @(
+          @(
             "Kiosk Windows build",
             "===================",
             "1. Keep ALL files in the same folder.",
             "2. Run kiosk.exe (not the backend alone).",
             "3. First screen is a loading page (boot) while Django starts.",
             "4. First start may take 1-2 minutes (database migrate).",
-            "5. Logs are written to the logs\\ folder next to kiosk.exe",
+            "5. Logs are written to the logs folder next to kiosk.exe",
             "   (kiosk.log, django.log, django-app.log).",
             "",
             "Required (same folder):",
             "- kiosk.exe",
             "- kiosk-backend-x86_64-pc-windows-msvc.exe (32-bit Python sidecar for POS DLL)",
-            "- pna.pcpos.dll (official PNA card reader — PE32)",
+            "- pna.pcpos.dll (official PNA card reader, PE32)",
             "",
             "POS: in-process DLL (PAYMENT_GATEWAY_NAME=dll). No PosBridge, no raw TCP.",
-            "Configure POS/printer IP in Admin → Settings → Hardware.",
+            "Configure POS/printer IP in Admin > Settings > Hardware."
           ) | Set-Content -Encoding utf8 "release/README.txt"
 
           Get-ChildItem release | Format-Table Name, Length

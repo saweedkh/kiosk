@@ -60,7 +60,7 @@ class Product(TimeStampedModel):
     service_fee_applicable = models.BooleanField(
         default=False,
         verbose_name=_('اعمال هزینه سرویس'),
-        help_text=_('اگر فعال باشد، هزینه سرویس تنظیمات یک‌بار روی فاکتوری که این محصول در آن باشد اعمال می‌شود'),
+        help_text=_('اگر فعال باشد و حداقل یک محصول از این نوع در سفارش باشد، هزینه سرویس و بسته‌بندی همان نوع سفارش یک‌بار به فاکتور اضافه می‌شود'),
     )
     
     objects = ProductManager()

@@ -3,7 +3,11 @@ from pathlib import Path
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
-from ._sqlite_postgres_utils import DUMPDATA_EXCLUDE, require_postgres_default
+from ._sqlite_postgres_utils import (
+    DUMPDATA_EXCLUDE,
+    disable_postgres_server_side_cursors,
+    require_postgres_default,
+)
 
 
 class Command(BaseCommand):
@@ -18,13 +22,20 @@ class Command(BaseCommand):
             required=True,
             help='Output JSON path (e.g. /tmp/kiosk_postgres_export.json)',
         )
+        parser.add_argument(
+            '--skip-migrate',
+            action='store_true',
+            help='Do not run migrate before dump (safer if the live DB has a different migration history).',
+        )
 
     def handle(self, *args, **options):
         require_postgres_default()
+        disable_postgres_server_side_cursors('default')
         output = Path(options['output'])
 
-        self.stdout.write('Ensuring PostgreSQL migrations are applied...')
-        call_command('migrate', database='default', interactive=False, verbosity=1)
+        if not options['skip_migrate']:
+            self.stdout.write('Ensuring PostgreSQL migrations are applied...')
+            call_command('migrate', database='default', interactive=False, verbosity=1)
 
         output.parent.mkdir(parents=True, exist_ok=True)
         self.stdout.write(f'Writing export to {output} ...')

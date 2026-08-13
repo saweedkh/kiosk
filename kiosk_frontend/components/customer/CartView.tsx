@@ -9,6 +9,8 @@ import { couponsApi } from '@/lib/api/dashboard'
 import { formatCurrency, formatNumber, cn } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
 import {
+  DEFAULT_PACKAGING_TITLE_DINE_IN,
+  DEFAULT_PACKAGING_TITLE_TAKEAWAY,
   DEFAULT_SERVICE_TITLE_DINE_IN,
   DEFAULT_SERVICE_TITLE_TAKEAWAY,
 } from '@/lib/api/settings'
@@ -22,6 +24,10 @@ interface CartViewProps {
   serviceFeeTakeaway?: number
   serviceTitleDineIn?: string
   serviceTitleTakeaway?: string
+  packagingFeeDineIn?: number
+  packagingFeeTakeaway?: number
+  packagingTitleDineIn?: string
+  packagingTitleTakeaway?: string
   /** When false, hide coupon field and clear any applied discount. */
   couponsEnabled?: boolean
   /** Master: show dine-in / takeaway choice on kiosk at all. */
@@ -37,6 +43,10 @@ export function CartView({
   serviceFeeTakeaway = 0,
   serviceTitleDineIn = DEFAULT_SERVICE_TITLE_DINE_IN,
   serviceTitleTakeaway = DEFAULT_SERVICE_TITLE_TAKEAWAY,
+  packagingFeeDineIn = 0,
+  packagingFeeTakeaway = 0,
+  packagingTitleDineIn = DEFAULT_PACKAGING_TITLE_DINE_IN,
+  packagingTitleTakeaway = DEFAULT_PACKAGING_TITLE_TAKEAWAY,
   couponsEnabled = true,
   fulfillmentChoiceEnabled = true,
   dineInEnabled = true,
@@ -71,6 +81,16 @@ export function CartView({
         : 0
   const serviceTitle =
     fulfillmentType === 'takeaway' ? serviceTitleTakeaway : serviceTitleDineIn
+  const dineInPackaging = Math.max(0, Math.round(Number(packagingFeeDineIn) || 0))
+  const takeawayPackaging = Math.max(0, Math.round(Number(packagingFeeTakeaway) || 0))
+  const packagingFee =
+    fulfillmentType === 'takeaway'
+      ? takeawayPackaging
+      : fulfillmentType === 'dine_in'
+        ? dineInPackaging
+        : 0
+  const packagingTitle =
+    fulfillmentType === 'takeaway' ? packagingTitleTakeaway : packagingTitleDineIn
   const itemsTotal = getTotalPrice()
   const itemCount = getTotalItems()
 
@@ -119,6 +139,7 @@ export function CartView({
         code,
         items_total: itemsTotal,
         service_fee: fee,
+        packaging_fee: packagingFee,
       })
       setCoupon(preview.code, preview.discount_amount)
       setCouponMsg(`تخفیف ${formatCurrency(preview.discount_amount)} اعمال شد`)
@@ -135,7 +156,10 @@ export function CartView({
   }
 
   const effectiveDiscount = couponsEnabled ? discountAmount : 0
-  const effectiveGrandTotal = Math.max(itemsTotal + fee - effectiveDiscount, 0)
+  const effectiveGrandTotal = Math.max(
+    itemsTotal + fee + packagingFee - effectiveDiscount,
+    0
+  )
 
   if (!isMounted) {
     return (
@@ -156,6 +180,8 @@ export function CartView({
         grandTotal={effectiveGrandTotal}
         fee={fee}
         serviceTitle={serviceTitle}
+        packagingFee={packagingFee}
+        packagingTitle={packagingTitle}
         discountAmount={effectiveDiscount}
         couponsEnabled={couponsEnabled}
         couponCode={couponCode}
@@ -192,6 +218,8 @@ export function CartView({
       grandTotal={effectiveGrandTotal}
       fee={fee}
       serviceTitle={serviceTitle}
+      packagingFee={packagingFee}
+      packagingTitle={packagingTitle}
       discountAmount={effectiveDiscount}
       couponsEnabled={couponsEnabled}
       couponCode={couponCode}
@@ -224,6 +252,8 @@ type CartSharedProps = {
   grandTotal: number
   fee: number
   serviceTitle: string
+  packagingFee: number
+  packagingTitle: string
   discountAmount: number
   couponsEnabled: boolean
   couponCode: string
@@ -481,6 +511,12 @@ function SideCart(props: CartSharedProps) {
                 <span>{formatCurrency(props.fee)}</span>
               </div>
             ) : null}
+            {props.packagingFee > 0 ? (
+              <div className="flex justify-between text-muted-foreground">
+                <span>{props.packagingTitle}</span>
+                <span>{formatCurrency(props.packagingFee)}</span>
+              </div>
+            ) : null}
             {props.discountAmount > 0 ? (
               <div className="flex justify-between text-emerald-600">
                 <span>تخفیف{props.couponCode ? ` (${props.couponCode})` : ''}</span>
@@ -595,6 +631,11 @@ function BottomCart(
                 {props.fee > 0 ? (
                   <span className="text-muted-foreground">
                     {props.serviceTitle}: {formatCurrency(props.fee)}
+                  </span>
+                ) : null}
+                {props.packagingFee > 0 ? (
+                  <span className="text-muted-foreground">
+                    {props.packagingTitle}: {formatCurrency(props.packagingFee)}
                   </span>
                 ) : null}
                 {props.discountAmount > 0 ? (

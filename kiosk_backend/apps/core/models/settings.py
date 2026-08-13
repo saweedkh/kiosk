@@ -214,14 +214,16 @@ class SiteSettings(models.Model):
         help_text='تک فیش: یک برگ بعد از پرداخت. دو فیش: فاکتور مشتری و فاکتور فروشنده.'
     )
 
-    SERVICE_TITLE_DINE_IN_DEFAULT = 'سرویس داخل سالن'
-    SERVICE_TITLE_TAKEAWAY_DEFAULT = 'سرویس بیرون‌بر'
+    SERVICE_TITLE_DINE_IN_DEFAULT = 'هزینه سرویس'
+    SERVICE_TITLE_TAKEAWAY_DEFAULT = 'هزینه سرویس'
+    PACKAGING_TITLE_DINE_IN_DEFAULT = 'هزینه بسته‌بندی'
+    PACKAGING_TITLE_TAKEAWAY_DEFAULT = 'هزینه بسته‌بندی'
 
-    # هزینه سرویس: مبلغ در تنظیمات؛ اعمال روی فاکتور فقط اگر حداقل یک محصول سفارش تیک داشته باشد
+    # هزینه سرویس: مبلغ و عنوان جدا برای داخل سالن / بیرون‌بر
     service_enabled = models.BooleanField(
         default=False,
         verbose_name='فعال‌سازی سرویس',
-        help_text='اگر روشن باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار مبلغ همان نوع سفارش اعمال می‌شود'
+        help_text='اگر روشن باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار مبلغ همان نوع سفارش اعمال می‌شود',
     )
 
     coupons_enabled = models.BooleanField(
@@ -267,6 +269,40 @@ class SiteSettings(models.Model):
         default=True,
         verbose_name='اعمال سرویس روی بیرون‌بر',
         help_text='اگر روشن باشد، هزینه سرویس برای سفارش‌های بیرون‌بر اعمال می‌شود'
+    )
+
+    packaging_enabled = models.BooleanField(
+        default=False,
+        verbose_name='فعال‌سازی بسته‌بندی',
+        help_text='اگر روشن باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار مبلغ بسته‌بندی همان نوع سفارش اعمال می‌شود',
+    )
+    packaging_title_dine_in = models.CharField(
+        max_length=80,
+        blank=True,
+        default=PACKAGING_TITLE_DINE_IN_DEFAULT,
+        verbose_name='عنوان بسته‌بندی داخل سالن',
+    )
+    packaging_title_takeaway = models.CharField(
+        max_length=80,
+        blank=True,
+        default=PACKAGING_TITLE_TAKEAWAY_DEFAULT,
+        verbose_name='عنوان بسته‌بندی بیرون‌بر',
+    )
+    packaging_fee_dine_in_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name='مبلغ بسته‌بندی داخل سالن (ریال)',
+    )
+    packaging_fee_takeaway_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name='مبلغ بسته‌بندی بیرون‌بر (ریال)',
+    )
+    packaging_fee_dine_in = models.BooleanField(
+        default=True,
+        verbose_name='اعمال بسته‌بندی روی داخل سالن',
+    )
+    packaging_fee_takeaway = models.BooleanField(
+        default=True,
+        verbose_name='اعمال بسته‌بندی روی بیرون‌بر',
     )
 
     # نوع سفارش قابل انتخاب در کیوسک
@@ -438,6 +474,13 @@ class SiteSettings(models.Model):
                 'service_fee_takeaway_amount': 0,
                 'service_fee_dine_in': True,
                 'service_fee_takeaway': True,
+                'packaging_enabled': False,
+                'packaging_title_dine_in': cls.PACKAGING_TITLE_DINE_IN_DEFAULT,
+                'packaging_title_takeaway': cls.PACKAGING_TITLE_TAKEAWAY_DEFAULT,
+                'packaging_fee_dine_in_amount': 0,
+                'packaging_fee_takeaway_amount': 0,
+                'packaging_fee_dine_in': True,
+                'packaging_fee_takeaway': True,
                 'dine_in_enabled': True,
                 'takeaway_enabled': True,
                 'fulfillment_choice_enabled': True,
@@ -483,6 +526,13 @@ class SiteSettings(models.Model):
         title = (self.service_title_dine_in or '').strip()
         return title or self.SERVICE_TITLE_DINE_IN_DEFAULT
 
+    def get_packaging_title(self, fulfillment_type: str = 'dine_in') -> str:
+        if fulfillment_type == 'takeaway':
+            title = (self.packaging_title_takeaway or '').strip()
+            return title or self.PACKAGING_TITLE_TAKEAWAY_DEFAULT
+        title = (self.packaging_title_dine_in or '').strip()
+        return title or self.PACKAGING_TITLE_DINE_IN_DEFAULT
+
     def get_active_service_fee(self, fulfillment_type: str = 'dine_in') -> int:
         """Configured service fee in rials for a fulfillment type (0 when off)."""
         if not self.service_enabled:
@@ -491,11 +541,50 @@ class SiteSettings(models.Model):
             return max(int(self.service_fee_takeaway_amount or 0), 0)
         return max(int(self.service_fee_dine_in_amount or 0), 0)
 
+    def get_active_packaging_fee(self, fulfillment_type: str = 'dine_in') -> int:
+        if not self.packaging_enabled:
+            return 0
+        if fulfillment_type == 'takeaway':
+            return max(int(self.packaging_fee_takeaway_amount or 0), 0)
+        return max(int(self.packaging_fee_dine_in_amount or 0), 0)
+
     def service_applies_to_fulfillment(self, fulfillment_type: str) -> bool:
         """Whether service fee is enabled for dine_in / takeaway."""
         if fulfillment_type == 'takeaway':
             return bool(self.service_fee_takeaway)
         return bool(self.service_fee_dine_in)
+
+    def packaging_applies_to_fulfillment(self, fulfillment_type: str) -> bool:
+        if fulfillment_type == 'takeaway':
+            return bool(self.packaging_fee_takeaway)
+        return bool(self.packaging_fee_dine_in)
+
+    def _any_product_fee_applicable(self, products) -> bool:
+        """True if at least one product has the admin tick (fee still applied once)."""
+        for product in products or []:
+            if getattr(product, 'service_fee_applicable', False):
+                return True
+        return False
+
+    def resolve_order_service_fee(self, products=None, fulfillment_type: str = 'dine_in') -> int:
+        """Apply configured service fee once if any cart product has the tick."""
+        kind = fulfillment_type or 'dine_in'
+        fee = self.get_active_service_fee(kind)
+        if fee <= 0 or not self.service_applies_to_fulfillment(kind):
+            return 0
+        if not self._any_product_fee_applicable(products):
+            return 0
+        return fee
+
+    def resolve_order_packaging_fee(self, products=None, fulfillment_type: str = 'dine_in') -> int:
+        """Apply configured packaging fee once if any cart product has the tick."""
+        kind = fulfillment_type or 'dine_in'
+        fee = self.get_active_packaging_fee(kind)
+        if fee <= 0 or not self.packaging_applies_to_fulfillment(kind):
+            return 0
+        if not self._any_product_fee_applicable(products):
+            return 0
+        return fee
 
     def is_fulfillment_enabled(self, fulfillment_type: str) -> bool:
         """Whether customers may select this fulfillment type on the kiosk."""
@@ -518,23 +607,6 @@ class SiteSettings(models.Model):
         if self.takeaway_enabled:
             types.append('takeaway')
         return types
-
-    def resolve_order_service_fee(self, products, fulfillment_type: str = 'dine_in') -> int:
-        """
-        Apply configured fee once if fulfillment allows it and any product
-        has service_fee_applicable=True.
-        `products` is an iterable of Product instances (or objects with the flag).
-        """
-        kind = fulfillment_type or 'dine_in'
-        fee = self.get_active_service_fee(kind)
-        if fee <= 0:
-            return 0
-        if not self.service_applies_to_fulfillment(kind):
-            return 0
-        for product in products:
-            if getattr(product, 'service_fee_applicable', False):
-                return fee
-        return 0
 
     @classmethod
     def bump_catalog_revision(cls) -> int:

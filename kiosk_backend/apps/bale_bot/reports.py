@@ -64,6 +64,12 @@ def _service_fee_sum(queryset) -> int:
     return int(queryset.aggregate(t=Sum('service_fee'))['t'] or 0)
 
 
+def _packaging_fee_sum(queryset) -> int:
+    if not hasattr(Order, 'packaging_fee'):
+        return 0
+    return int(queryset.aggregate(t=Sum('packaging_fee'))['t'] or 0)
+
+
 def _top_products(start, end, limit: int = 5) -> List[Dict[str, Any]]:
     qs = (
         OrderItem.objects.filter(order__created_at__gte=start, order__created_at__lte=end)
@@ -123,6 +129,7 @@ def build_daily_report_text(user=None) -> str:
     total_sales = report.get('total_sales', 0) or 0
     avg = (total_sales / total_orders) if total_orders else 0
     fee = _service_fee_sum(qs)
+    packaging = _packaging_fee_sum(qs)
     statuses = _status_breakdown(qs)
     payments = _payment_breakdown(qs)
     fulfillments = _fulfillment_breakdown(qs)
@@ -140,6 +147,8 @@ def build_daily_report_text(user=None) -> str:
     ]
     if fee:
         lines.append(f'🛎 جمع سرویس: {fmt_money(fee)}')
+    if packaging:
+        lines.append(f'📦 جمع بسته‌بندی: {fmt_money(packaging)}')
 
     if statuses:
         lines.extend(['', '📊 وضعیت سفارش'])
@@ -172,6 +181,7 @@ def build_sales7_report_text(user=None) -> str:
     total_sales = report.get('total_sales', 0) or 0
     avg = report.get('average_order_value') or ((total_sales / total_orders) if total_orders else 0)
     fee = _service_fee_sum(qs)
+    packaging = _packaging_fee_sum(qs)
     statuses = _status_breakdown(qs)
     tops = _top_products(start, end, limit=5)
 
@@ -202,6 +212,8 @@ def build_sales7_report_text(user=None) -> str:
     ]
     if fee:
         lines.append(f'🛎 جمع سرویس: {fmt_money(fee)}')
+    if packaging:
+        lines.append(f'📦 جمع بسته‌بندی: {fmt_money(packaging)}')
 
     if statuses:
         lines.extend(['', '📊 وضعیت سفارش'])

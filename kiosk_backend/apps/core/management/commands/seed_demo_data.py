@@ -152,6 +152,13 @@ class Command(BaseCommand):
         settings.service_fee_takeaway_amount = 80_000
         settings.service_fee_dine_in = True
         settings.service_fee_takeaway = True
+        settings.packaging_enabled = True
+        settings.packaging_title_dine_in = SiteSettings.PACKAGING_TITLE_DINE_IN_DEFAULT
+        settings.packaging_title_takeaway = SiteSettings.PACKAGING_TITLE_TAKEAWAY_DEFAULT
+        settings.packaging_fee_dine_in_amount = 30_000
+        settings.packaging_fee_takeaway_amount = 50_000
+        settings.packaging_fee_dine_in = True
+        settings.packaging_fee_takeaway = True
         settings.coupons_enabled = True
         settings.cart_layout = SiteSettings.CART_LAYOUT_SIDE
         settings.save()
@@ -341,6 +348,7 @@ class Command(BaseCommand):
                 'theme': 'fresh',
                 'items': [('لاته', 2), ('براونی', 1)],
                 'service_fee': 150_000,
+                'packaging_fee': 30_000,
             },
             {
                 'suffix': '002',
@@ -348,7 +356,8 @@ class Command(BaseCommand):
                 'fulfillment': Order.FULFILLMENT_TAKEAWAY,
                 'theme': 'cinema',
                 'items': [('برگر کلاسیک', 1), ('سیب‌زمینی سرخ‌کرده', 1), ('لیموناد', 1)],
-                'service_fee': 0,
+                'service_fee': 80_000,
+                'packaging_fee': 50_000,
             },
             {
                 'suffix': '003',
@@ -357,6 +366,7 @@ class Command(BaseCommand):
                 'theme': 'neon',
                 'items': [('اسپرسو', 1), ('چیزکیک', 1)],
                 'service_fee': 150_000,
+                'packaging_fee': 30_000,
             },
             {
                 'suffix': '004',
@@ -364,7 +374,8 @@ class Command(BaseCommand):
                 'fulfillment': Order.FULFILLMENT_TAKEAWAY,
                 'theme': 'fresh',
                 'items': [('پاستا آلفردو', 1), ('موهیتو', 2)],
-                'service_fee': 0,
+                'service_fee': 80_000,
+                'packaging_fee': 50_000,
             },
         ]
 
@@ -381,13 +392,14 @@ class Command(BaseCommand):
                 line_total += unit * qty
                 built_items.append((product, qty, unit))
 
-            total = line_total + int(spec['service_fee'])
+            total = line_total + int(spec['service_fee']) + int(spec['packaging_fee'])
             order = Order.objects.create(
                 order_number=order_number,
                 session_key=f'demo-session-{spec["suffix"]}',
                 status='completed',
                 total_amount=total,
                 service_fee=spec['service_fee'],
+                packaging_fee=spec['packaging_fee'],
                 payment_status='paid',
                 transaction_id=f'DEMO-TXN-{spec["suffix"]}',
                 receipt_number=int(spec['suffix']),

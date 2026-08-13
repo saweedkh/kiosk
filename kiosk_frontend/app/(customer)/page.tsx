@@ -20,6 +20,8 @@ import {
   resolveSiteDescription,
   resolveServiceFeeAmount,
   resolveServiceTitle,
+  resolvePackagingFeeAmount,
+  resolvePackagingTitle,
   type Settings,
 } from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
@@ -604,25 +606,40 @@ export default function CustomerPage() {
     };
   }, [queryClient]);
 
-  const cartHasServiceProduct = items.some(
+  const cartHasFeeProduct = items.some(
     (item) => Boolean(item.product?.service_fee_applicable)
   );
-  const serviceFeeDineIn = cartHasServiceProduct
+  const serviceFeeDineIn = cartHasFeeProduct
     ? resolveServiceFeeAmount(settings, "dine_in")
     : 0;
-  const serviceFeeTakeaway = cartHasServiceProduct
+  const serviceFeeTakeaway = cartHasFeeProduct
     ? resolveServiceFeeAmount(settings, "takeaway")
     : 0;
   const serviceTitleDineIn = resolveServiceTitle(settings, "dine_in");
   const serviceTitleTakeaway = resolveServiceTitle(settings, "takeaway");
+  const packagingFeeDineIn = cartHasFeeProduct
+    ? resolvePackagingFeeAmount(settings, "dine_in")
+    : 0;
+  const packagingFeeTakeaway = cartHasFeeProduct
+    ? resolvePackagingFeeAmount(settings, "takeaway")
+    : 0;
+  const packagingTitleDineIn = resolvePackagingTitle(settings, "dine_in");
+  const packagingTitleTakeaway = resolvePackagingTitle(settings, "takeaway");
   const pendingServiceFee =
     pendingFulfillment === "takeaway"
       ? serviceFeeTakeaway
       : pendingFulfillment === "dine_in"
         ? serviceFeeDineIn
         : 0;
+  const pendingPackagingFee =
+    pendingFulfillment === "takeaway"
+      ? packagingFeeTakeaway
+      : pendingFulfillment === "dine_in"
+        ? packagingFeeDineIn
+        : 0;
   const checkoutTotal =
-    currentOrder?.totalAmount ?? getTotalPrice() + pendingServiceFee;
+    currentOrder?.totalAmount ??
+    getTotalPrice() + pendingServiceFee + pendingPackagingFee;
   const cartLayout =
     (settings.cart_layout || cachedSettings?.cart_layout || 'side') === 'bottom'
       ? 'bottom'
@@ -870,6 +887,10 @@ export default function CustomerPage() {
     serviceFeeTakeaway,
     serviceTitleDineIn,
     serviceTitleTakeaway,
+    packagingFeeDineIn,
+    packagingFeeTakeaway,
+    packagingTitleDineIn,
+    packagingTitleTakeaway,
     couponsEnabled: settings.coupons_enabled !== false,
     fulfillmentChoiceEnabled: settings.fulfillment_choice_enabled !== false,
     dineInEnabled: settings.dine_in_enabled !== false,

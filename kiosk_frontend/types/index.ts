@@ -105,6 +105,7 @@ export interface Order {
   payment_status: string
   total_amount: number
   service_fee?: number
+  packaging_fee?: number
   discount_amount?: number
   coupon_code?: string
   landing_theme?: string
@@ -152,6 +153,7 @@ export interface CouponPreview {
   discount_amount: number
   items_total: number
   service_fee: number
+  packaging_fee?: number
   payable: number
 }
 
@@ -310,6 +312,13 @@ export interface Settings {
   service_fee_takeaway_amount?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
+  packaging_enabled?: boolean
+  packaging_title_dine_in?: string
+  packaging_title_takeaway?: string
+  packaging_fee_dine_in_amount?: number
+  packaging_fee_takeaway_amount?: number
+  packaging_fee_dine_in?: boolean
+  packaging_fee_takeaway?: boolean
   fulfillment_choice_enabled?: boolean
   dine_in_enabled?: boolean
   takeaway_enabled?: boolean

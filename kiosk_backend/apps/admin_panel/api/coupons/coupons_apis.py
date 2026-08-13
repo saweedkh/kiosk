@@ -67,6 +67,7 @@ class CouponValidateAPIView(APIView):
                 data['code'],
                 data['items_total'],
                 data.get('service_fee') or 0,
+                data.get('packaging_fee') or 0,
             )
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)

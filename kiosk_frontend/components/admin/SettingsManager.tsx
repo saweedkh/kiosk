@@ -29,6 +29,8 @@ import type { CartLayout } from '@/components/customer/CartView'
 import { useThemeStore } from '@/lib/store/theme-store'
 import { applyBrandTheme } from '@/lib/theme/brand-palette'
 import {
+  DEFAULT_PACKAGING_TITLE_DINE_IN,
+  DEFAULT_PACKAGING_TITLE_TAKEAWAY,
   DEFAULT_SERVICE_TITLE_DINE_IN,
   DEFAULT_SERVICE_TITLE_TAKEAWAY,
 } from '@/lib/api/settings'
@@ -70,6 +72,13 @@ const DIRTY_FIELDS = [
   'service_fee_takeaway_amount',
   'service_fee_dine_in',
   'service_fee_takeaway',
+  'packaging_enabled',
+  'packaging_title_dine_in',
+  'packaging_title_takeaway',
+  'packaging_fee_dine_in_amount',
+  'packaging_fee_takeaway_amount',
+  'packaging_fee_dine_in',
+  'packaging_fee_takeaway',
   'fulfillment_choice_enabled',
   'dine_in_enabled',
   'takeaway_enabled',
@@ -105,6 +114,13 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   service_fee_takeaway_amount: 'مبلغ سرویس بیرون‌بر',
   service_fee_dine_in: 'هزینه سرویس حضوری',
   service_fee_takeaway: 'هزینه سرویس بیرون‌بر',
+  packaging_enabled: 'بسته‌بندی',
+  packaging_title_dine_in: 'عنوان بسته‌بندی داخل سالن',
+  packaging_title_takeaway: 'عنوان بسته‌بندی بیرون‌بر',
+  packaging_fee_dine_in_amount: 'مبلغ بسته‌بندی داخل سالن',
+  packaging_fee_takeaway_amount: 'مبلغ بسته‌بندی بیرون‌بر',
+  packaging_fee_dine_in: 'بسته‌بندی حضوری',
+  packaging_fee_takeaway: 'بسته‌بندی بیرون‌بر',
   fulfillment_choice_enabled: 'انتخاب نوع سفارش',
   dine_in_enabled: 'داخل سالن',
   takeaway_enabled: 'بیرون‌بر',
@@ -148,7 +164,23 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       a = String(a || '').trim() || DEFAULT_SERVICE_TITLE_TAKEAWAY
       b = String(b || '').trim() || DEFAULT_SERVICE_TITLE_TAKEAWAY
     }
+    if (key === 'packaging_title_dine_in') {
+      a = String(a || '').trim() || DEFAULT_PACKAGING_TITLE_DINE_IN
+      b = String(b || '').trim() || DEFAULT_PACKAGING_TITLE_DINE_IN
+    }
+    if (key === 'packaging_title_takeaway') {
+      a = String(a || '').trim() || DEFAULT_PACKAGING_TITLE_TAKEAWAY
+      b = String(b || '').trim() || DEFAULT_PACKAGING_TITLE_TAKEAWAY
+    }
+    if (key === 'packaging_fee_dine_in_amount' || key === 'packaging_fee_takeaway_amount') {
+      a = Number(a ?? 0)
+      b = Number(b ?? 0)
+    }
     if (key === 'service_fee_dine_in' || key === 'service_fee_takeaway') {
+      a = a !== false
+      b = b !== false
+    }
+    if (key === 'packaging_fee_dine_in' || key === 'packaging_fee_takeaway') {
       a = a !== false
       b = b !== false
     }
@@ -160,7 +192,7 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       a = a !== false
       b = b !== false
     }
-    if (key === 'service_enabled') {
+    if (key === 'service_enabled' || key === 'packaging_enabled') {
       a = Boolean(a)
       b = Boolean(b)
     }
@@ -202,7 +234,7 @@ const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'brand', label: 'برند', hint: 'نام، لوگو، رنگ‌ها' },
   { id: 'landing', label: 'لندینگ', hint: 'تم صفحه خوش‌آمد' },
   { id: 'cart', label: 'سبد', hint: 'چیدمان و نوع سفارش' },
-  { id: 'service', label: 'سرویس', hint: 'عنوان و مبلغ جدا' },
+  { id: 'service', label: 'سرویس', hint: 'سرویس و بسته‌بندی' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
   { id: 'hardware', label: 'سخت‌افزار', hint: 'POS و پرینتر' },
 ]
@@ -729,6 +761,15 @@ export function SettingsManager() {
       service_fee: Number(settings.service_fee_dine_in_amount ?? settings.service_fee ?? 0),
       service_fee_dine_in: settings.service_fee_dine_in !== false,
       service_fee_takeaway: settings.service_fee_takeaway !== false,
+      packaging_enabled: Boolean(settings.packaging_enabled),
+      packaging_title_dine_in:
+        (settings.packaging_title_dine_in || '').trim() || DEFAULT_PACKAGING_TITLE_DINE_IN,
+      packaging_title_takeaway:
+        (settings.packaging_title_takeaway || '').trim() || DEFAULT_PACKAGING_TITLE_TAKEAWAY,
+      packaging_fee_dine_in_amount: Number(settings.packaging_fee_dine_in_amount ?? 0),
+      packaging_fee_takeaway_amount: Number(settings.packaging_fee_takeaway_amount ?? 0),
+      packaging_fee_dine_in: settings.packaging_fee_dine_in !== false,
+      packaging_fee_takeaway: settings.packaging_fee_takeaway !== false,
       fulfillment_choice_enabled: settings.fulfillment_choice_enabled !== false,
       dine_in_enabled: settings.dine_in_enabled !== false,
       takeaway_enabled: settings.takeaway_enabled !== false,
@@ -777,6 +818,28 @@ export function SettingsManager() {
   const dineApplies = serviceDineInOn && dineInAmount > 0
   const takeawayApplies = serviceTakeawayOn && takeawayAmount > 0
   const serviceAppliesNowhere = serviceOn && !dineApplies && !takeawayApplies
+  const packagingOn = Boolean(settings.packaging_enabled)
+  const packagingDineInTitle =
+    settings.packaging_title_dine_in === undefined
+      ? DEFAULT_PACKAGING_TITLE_DINE_IN
+      : String(settings.packaging_title_dine_in)
+  const packagingTakeawayTitle =
+    settings.packaging_title_takeaway === undefined
+      ? DEFAULT_PACKAGING_TITLE_TAKEAWAY
+      : String(settings.packaging_title_takeaway)
+  const packagingDineInAmount = Math.max(
+    0,
+    Math.floor(Number(settings.packaging_fee_dine_in_amount) || 0)
+  )
+  const packagingTakeawayAmount = Math.max(
+    0,
+    Math.floor(Number(settings.packaging_fee_takeaway_amount) || 0)
+  )
+  const packagingDineInOn = settings.packaging_fee_dine_in !== false
+  const packagingTakeawayOn = settings.packaging_fee_takeaway !== false
+  const packagingDineApplies = packagingDineInOn && packagingDineInAmount > 0
+  const packagingTakeawayApplies = packagingTakeawayOn && packagingTakeawayAmount > 0
+  const packagingAppliesNowhere = packagingOn && !packagingDineApplies && !packagingTakeawayApplies
   const printerOn = settings.printer_enabled !== false
   const posMockMode = settings.pos_payment_mode === 'mock'
 
@@ -1337,8 +1400,8 @@ export function SettingsManager() {
           {tab === 'service' && (
             <div>
               <SectionHeader
-                title="هزینه سرویس"
-                description="عنوان و مبلغ جدا برای داخل سالن و بیرون‌بر — فقط اگر حداقل یک محصول سفارش تیک سرویس داشته باشد، یک‌بار اضافه می‌شود."
+                title="هزینه سرویس و بسته‌بندی"
+                description="عنوان و مبلغ جدا برای داخل سالن و بیرون‌بر — فقط اگر حداقل یک محصول سفارش تیک «اعمال هزینه سرویس و بسته‌بندی» داشته باشد، هر کدام یک‌بار اضافه می‌شود."
               />
 
               <div className="space-y-5">
@@ -1515,7 +1578,191 @@ export function SettingsManager() {
                               '؛ در صورت داشتن محصول مشمول یک‌بار به فاکتور اضافه می‌شود.'}
                       </p>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        برای هر محصول در بخش محصولات می‌توانید تیک «مشمول سرویس» را جداگانه بزنید.
+                        برای هر محصول در بخش محصولات می‌توانید تیک «اعمال هزینه سرویس و بسته‌بندی» را جداگانه بزنید.
+                      </p>
+                    </div>
+                  </div>
+                </AdminSurface>
+
+                <AdminSurface
+                  className={cn(
+                    'overflow-hidden',
+                    packagingOn
+                      ? 'border-primary/25 bg-gradient-to-l from-primary/[0.07] via-card to-card'
+                      : 'bg-muted/20'
+                  )}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className={cn(
+                          'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl',
+                          packagingOn
+                            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                            : 'bg-muted text-muted-foreground'
+                        )}
+                      >
+                        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
+                          <path
+                            d="M4 8.5L12 4l8 4.5v7L12 20l-8-4.5v-7z"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M12 20V12M4 8.5L12 12l8-3.5"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-base font-black text-foreground">
+                            فعال‌سازی بسته‌بندی
+                          </p>
+                          <AdminStatusBadge tone={packagingOn ? 'success' : 'neutral'}>
+                            {packagingOn ? 'فعال' : 'غیرفعال'}
+                          </AdminStatusBadge>
+                        </div>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                          {packagingOn
+                            ? 'عنوان و مبلغ را جداگانه برای داخل سالن و بیرون‌بر تنظیم کنید.'
+                            : 'هیچ هزینه بسته‌بندی به فاکتور اضافه نمی‌شود.'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={packagingOn}
+                      onChange={(v) => handleChange('packaging_enabled', v)}
+                      label={packagingOn ? 'روشن' : 'خاموش'}
+                    />
+                  </div>
+                  {apiErrors.packaging_enabled?.[0] ? (
+                    <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                      {apiErrors.packaging_enabled[0]}
+                    </p>
+                  ) : null}
+                </AdminSurface>
+
+                <div
+                  className={cn(
+                    'grid gap-4 transition-opacity lg:grid-cols-2',
+                    !packagingOn && 'pointer-events-none opacity-45'
+                  )}
+                >
+                  <ServiceChannelCard
+                    heading="داخل سالن"
+                    hint="عنوان و مبلغ بسته‌بندی روی فاکتور حضوری"
+                    enabled={packagingDineInOn}
+                    onEnabled={(v) => handleChange('packaging_fee_dine_in', v)}
+                    title={packagingDineInTitle}
+                    onTitle={(v) => handleChange('packaging_title_dine_in', v)}
+                    amount={packagingDineInAmount}
+                    onAmount={(v) => handleChange('packaging_fee_dine_in_amount', v)}
+                    disabled={!packagingOn}
+                    titleError={apiErrors.packaging_title_dine_in?.[0]}
+                    amountError={apiErrors.packaging_fee_dine_in_amount?.[0]}
+                    icon={
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                        <path
+                          d="M4 10h16v9a2 2 0 01-2 2H6a2 2 0 01-2-2v-9z"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                        />
+                        <path
+                          d="M8 10V7a4 4 0 018 0v3"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    }
+                  />
+                  <ServiceChannelCard
+                    heading="بیرون‌بر"
+                    hint="عنوان و مبلغ بسته‌بندی روی فاکتور بیرون‌بر"
+                    enabled={packagingTakeawayOn}
+                    onEnabled={(v) => handleChange('packaging_fee_takeaway', v)}
+                    title={packagingTakeawayTitle}
+                    onTitle={(v) => handleChange('packaging_title_takeaway', v)}
+                    amount={packagingTakeawayAmount}
+                    onAmount={(v) => handleChange('packaging_fee_takeaway_amount', v)}
+                    disabled={!packagingOn}
+                    titleError={apiErrors.packaging_title_takeaway?.[0]}
+                    amountError={apiErrors.packaging_fee_takeaway_amount?.[0]}
+                    icon={
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                        <path
+                          d="M5 8h14l-1.2 10.2A2 2 0 0115.81 20H8.19a2 2 0 01-1.99-1.8L5 8z"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M9 8V6.5A3 3 0 0112 3.5 3 3 0 0115 6.5V8"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    }
+                  />
+                </div>
+                {(apiErrors.packaging_fee_dine_in?.[0] ||
+                  apiErrors.packaging_fee_takeaway?.[0]) && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.packaging_fee_dine_in?.[0] ||
+                      apiErrors.packaging_fee_takeaway?.[0]}
+                  </p>
+                )}
+
+                <AdminSurface
+                  className={cn(
+                    '!shadow-none',
+                    packagingAppliesNowhere
+                      ? 'border-amber-500/30 bg-amber-500/[0.06]'
+                      : 'bg-muted/20'
+                  )}
+                >
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div
+                      className={cn(
+                        'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+                        packagingAppliesNowhere
+                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                          : 'bg-background text-muted-foreground'
+                      )}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
+                        <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+                        <path
+                          d="M12 8v4.5M12 16.2h.01"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">خلاصه بسته‌بندی</p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {!packagingOn
+                          ? 'بسته‌بندی خاموش است؛ روی هیچ سفارشی اعمال نمی‌شود.'
+                          : packagingAppliesNowhere
+                            ? 'هشدار: برای هیچ نوع سفارشی مبلغ فعالی تنظیم نشده — بسته‌بندی عملاً اعمال نمی‌شود.'
+                            : [
+                                packagingDineApplies
+                                  ? `داخل سالن «${(packagingDineInTitle || '').trim() || DEFAULT_PACKAGING_TITLE_DINE_IN}» ${formatCurrency(packagingDineInAmount)}`
+                                  : null,
+                                packagingTakeawayApplies
+                                  ? `بیرون‌بر «${(packagingTakeawayTitle || '').trim() || DEFAULT_PACKAGING_TITLE_TAKEAWAY}» ${formatCurrency(packagingTakeawayAmount)}`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' — ') +
+                              '؛ در صورت داشتن محصول مشمول یک‌بار به فاکتور اضافه می‌شود.'}
                       </p>
                     </div>
                   </div>

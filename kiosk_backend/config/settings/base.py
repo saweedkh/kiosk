@@ -95,6 +95,9 @@ DATABASES = {
         'HOST': _env('POSTGRES_HOST', 'db'),
         'PORT': _env('POSTGRES_PORT', '5432'),
         'CONN_MAX_AGE': int(_env('POSTGRES_CONN_MAX_AGE', '60') or '60'),
+        # dumpdata uses queryset.iterator(); Postgres server-side cursors then
+        # raise "cursor does not exist" mid-export. Fine for this small DB.
+        'DISABLE_SERVER_SIDE_CURSORS': True,
         'OPTIONS': {
             'connect_timeout': 10,
         },

@@ -27,6 +27,13 @@ export interface Settings {
   service_fee_takeaway_amount?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
+  packaging_enabled?: boolean
+  packaging_title_dine_in?: string
+  packaging_title_takeaway?: string
+  packaging_fee_dine_in_amount?: number
+  packaging_fee_takeaway_amount?: number
+  packaging_fee_dine_in?: boolean
+  packaging_fee_takeaway?: boolean
   fulfillment_choice_enabled?: boolean
   dine_in_enabled?: boolean
   takeaway_enabled?: boolean
@@ -110,8 +117,10 @@ export function resolveCopyright(settings?: Settings | null): string {
   return text
 }
 
-export const DEFAULT_SERVICE_TITLE_DINE_IN = 'سرویس داخل سالن'
-export const DEFAULT_SERVICE_TITLE_TAKEAWAY = 'سرویس بیرون‌بر'
+export const DEFAULT_SERVICE_TITLE_DINE_IN = 'هزینه سرویس'
+export const DEFAULT_SERVICE_TITLE_TAKEAWAY = 'هزینه سرویس'
+export const DEFAULT_PACKAGING_TITLE_DINE_IN = 'هزینه بسته‌بندی'
+export const DEFAULT_PACKAGING_TITLE_TAKEAWAY = 'هزینه بسته‌بندی'
 
 function readServiceAmount(value: unknown, fallback: unknown): number {
   if (value !== undefined && value !== null && value !== '') {
@@ -132,7 +141,7 @@ export function resolveServiceTitle(
   return title || DEFAULT_SERVICE_TITLE_DINE_IN
 }
 
-/** Amount for a fulfillment type, ignoring the product-applicable check. */
+/** Amount for a fulfillment type from settings (no product tick required). */
 export function resolveServiceFeeAmount(
   settings: Settings | null | undefined,
   fulfillment: 'dine_in' | 'takeaway'
@@ -144,4 +153,29 @@ export function resolveServiceFeeAmount(
   }
   if (settings.service_fee_dine_in === false) return 0
   return readServiceAmount(settings.service_fee_dine_in_amount, settings.service_fee)
+}
+
+export function resolvePackagingTitle(
+  settings: Settings | null | undefined,
+  fulfillment: 'dine_in' | 'takeaway'
+): string {
+  if (fulfillment === 'takeaway') {
+    const title = (settings?.packaging_title_takeaway || '').trim()
+    return title || DEFAULT_PACKAGING_TITLE_TAKEAWAY
+  }
+  const title = (settings?.packaging_title_dine_in || '').trim()
+  return title || DEFAULT_PACKAGING_TITLE_DINE_IN
+}
+
+export function resolvePackagingFeeAmount(
+  settings: Settings | null | undefined,
+  fulfillment: 'dine_in' | 'takeaway'
+): number {
+  if (!settings?.packaging_enabled) return 0
+  if (fulfillment === 'takeaway') {
+    if (settings.packaging_fee_takeaway === false) return 0
+    return readServiceAmount(settings.packaging_fee_takeaway_amount, 0)
+  }
+  if (settings.packaging_fee_dine_in === false) return 0
+  return readServiceAmount(settings.packaging_fee_dine_in_amount, 0)
 }

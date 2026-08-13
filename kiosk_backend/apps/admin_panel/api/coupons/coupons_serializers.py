@@ -49,3 +49,4 @@ class CouponValidateSerializer(serializers.Serializer):
     code = serializers.CharField()
     items_total = serializers.IntegerField(min_value=0)
     service_fee = serializers.IntegerField(min_value=0, required=False, default=0)
+    packaging_fee = serializers.IntegerField(min_value=0, required=False, default=0)

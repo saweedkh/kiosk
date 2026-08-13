@@ -22,11 +22,13 @@ class AdminOrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'transaction_id', 'fulfillment_type',
+            'payment_status', 'total_amount', 'service_fee', 'packaging_fee',
+            'transaction_id', 'fulfillment_type',
             'items', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_number', 'session_key', 'total_amount',
+            'service_fee', 'packaging_fee',
             'transaction_id', 'fulfillment_type', 'items', 'created_at', 'updated_at'
         ]
 

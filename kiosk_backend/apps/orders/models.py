@@ -71,6 +71,11 @@ class Order(TimeStampedModel):
         verbose_name=_('مبلغ سرویس'),
         help_text=_('مبلغ سرویس اضافه‌شده به این سفارش (ریال)')
     )
+    packaging_fee = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('مبلغ بسته‌بندی'),
+        help_text=_('مبلغ بسته‌بندی اضافه‌شده به این سفارش (ریال)')
+    )
     discount_amount = models.PositiveIntegerField(
         default=0,
         verbose_name=_('مبلغ تخفیف'),

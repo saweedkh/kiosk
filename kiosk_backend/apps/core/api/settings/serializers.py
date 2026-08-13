@@ -75,6 +75,13 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'service_fee_takeaway_amount',
             'service_fee_dine_in',
             'service_fee_takeaway',
+            'packaging_enabled',
+            'packaging_title_dine_in',
+            'packaging_title_takeaway',
+            'packaging_fee_dine_in_amount',
+            'packaging_fee_takeaway_amount',
+            'packaging_fee_dine_in',
+            'packaging_fee_takeaway',
             'fulfillment_choice_enabled',
             'dine_in_enabled',
             'takeaway_enabled',
@@ -148,6 +155,12 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
     def validate_service_title_takeaway(self, value):
         return (value or '').strip()
 
+    def validate_packaging_title_dine_in(self, value):
+        return (value or '').strip()
+
+    def validate_packaging_title_takeaway(self, value):
+        return (value or '').strip()
+
     def get_logo_url(self, obj):
         return _media_url(obj.logo)
 
@@ -201,6 +214,13 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             'service_fee_takeaway_amount',
             'service_fee_dine_in',
             'service_fee_takeaway',
+            'packaging_enabled',
+            'packaging_title_dine_in',
+            'packaging_title_takeaway',
+            'packaging_fee_dine_in_amount',
+            'packaging_fee_takeaway_amount',
+            'packaging_fee_dine_in',
+            'packaging_fee_takeaway',
             'fulfillment_choice_enabled',
             'dine_in_enabled',
             'takeaway_enabled',

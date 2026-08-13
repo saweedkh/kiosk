@@ -53,6 +53,7 @@ export const couponsApi = {
     code: string
     items_total: number
     service_fee?: number
+    packaging_fee?: number
   }): Promise<CouponPreview> => {
     const response = await apiClient.post('/kiosk/admin/coupons/validate/', payload)
     const data = response.data

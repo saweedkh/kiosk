@@ -4,7 +4,11 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
-from ._sqlite_postgres_utils import register_sqlite_database, require_sqlite_engine
+from ._sqlite_postgres_utils import (
+    require_sqlite_engine,
+    retarget_default_sqlite,
+    sanitize_dumpdata_fixture,
+)
 
 
 class Command(BaseCommand):
@@ -41,13 +45,10 @@ class Command(BaseCommand):
 
         sqlite_path = (options.get('sqlite_path') or '').strip()
         if sqlite_path:
-            register_sqlite_database(sqlite_path, alias='sqlite_target')
-            database = 'sqlite_target'
-            engine = settings.DATABASES[database]['ENGINE']
-        else:
-            database = 'default'
-            engine = settings.DATABASES['default'].get('ENGINE', '')
-            sqlite_path = str(settings.DATABASES['default'].get('NAME', ''))
+            retarget_default_sqlite(sqlite_path)
+        database = 'default'
+        engine = settings.DATABASES['default'].get('ENGINE', '')
+        sqlite_path = str(settings.DATABASES['default'].get('NAME', ''))
 
         require_sqlite_engine(engine)
 
@@ -59,8 +60,10 @@ class Command(BaseCommand):
             self.stdout.write('Flushing existing SQLite data (schema kept)...')
             call_command('flush', interactive=False, database=database, verbosity=1)
 
-        self.stdout.write(f'Loading fixture ({size} bytes)...')
-        call_command('loaddata', str(input_path), database=database, verbosity=1)
+        sanitized = sanitize_dumpdata_fixture(input_path)
+        load_size = sanitized.stat().st_size
+        self.stdout.write(f'Loading fixture ({load_size} bytes, sanitized from {size})...')
+        call_command('loaddata', str(sanitized), database=database, verbosity=1)
         call_command('setup_permission_groups', verbosity=0)
 
         self.stdout.write(self.style.SUCCESS(

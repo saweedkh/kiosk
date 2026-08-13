@@ -127,10 +127,11 @@ class ReceiptService:
                 'price': f"{item.unit_price:,} ریال"
             })
 
-        # Prefer fee stored on the order; for older orders (fee=0) recompute from products + settings.
+        # Prefer fees stored on the order; for older orders (service_fee=0) recompute service only.
         fulfillment = getattr(order, 'fulfillment_type', None) or 'dine_in'
         site_settings = SiteSettings.get_settings()
         stored_fee = int(getattr(order, 'service_fee', 0) or 0)
+        packaging_fee = int(getattr(order, 'packaging_fee', 0) or 0)
         if stored_fee > 0:
             service_fee = stored_fee
             total_amount = int(order.total_amount or 0)
@@ -140,14 +141,23 @@ class ReceiptService:
                 products,
                 fulfillment_type=fulfillment,
             )
-            total_amount = items_subtotal + service_fee
+            total_amount = items_subtotal + service_fee + packaging_fee
 
         service_title = site_settings.get_service_title(fulfillment) if service_fee > 0 else ''
+        packaging_title = (
+            site_settings.get_packaging_title(fulfillment) if packaging_fee > 0 else ''
+        )
         if service_fee > 0:
             items_data.append({
                 'name': service_title,
                 'quantity': 1,
                 'price': f"{service_fee:,} ریال"
+            })
+        if packaging_fee > 0:
+            items_data.append({
+                'name': packaging_title,
+                'quantity': 1,
+                'price': f"{packaging_fee:,} ریال"
             })
         
         branding = ReceiptService.get_receipt_branding()
@@ -166,6 +176,8 @@ class ReceiptService:
             'items': items_data,
             'service_fee': service_fee,
             'service_title': service_title,
+            'packaging_fee': packaging_fee,
+            'packaging_title': packaging_title,
             'items_subtotal': items_subtotal,
             'total_amount': f"{total_amount:,} ریال",
             'fulfillment_type': fulfillment,

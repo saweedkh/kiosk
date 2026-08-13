@@ -44,7 +44,12 @@ class CouponService:
             raise ValueError('سقف استفاده از این کد تکمیل شده است')
 
     @staticmethod
-    def calculate_discount(coupon: Coupon, items_total: int, service_fee: int = 0) -> int:
+    def calculate_discount(
+        coupon: Coupon,
+        items_total: int,
+        service_fee: int = 0,
+        packaging_fee: int = 0,
+    ) -> int:
         base = max(int(items_total or 0), 0)
         if base < int(coupon.min_order_amount or 0):
             raise ValueError(
@@ -58,13 +63,20 @@ class CouponService:
         else:
             discount = int(coupon.value or 0)
 
-        # Discount applies to items only (not service fee); never exceed items total
+        # Discount applies to items only (not service/packaging); never exceed items total
         return max(0, min(discount, base))
 
     @staticmethod
-    def preview(code: str, items_total: int, service_fee: int = 0) -> Dict[str, Any]:
+    def preview(
+        code: str,
+        items_total: int,
+        service_fee: int = 0,
+        packaging_fee: int = 0,
+    ) -> Dict[str, Any]:
         coupon = CouponService.get_active_coupon(code)
-        discount = CouponService.calculate_discount(coupon, items_total, service_fee)
+        discount = CouponService.calculate_discount(
+            coupon, items_total, service_fee, packaging_fee
+        )
         return {
             'code': coupon.code,
             'discount_type': coupon.discount_type,
@@ -72,7 +84,8 @@ class CouponService:
             'discount_amount': discount,
             'items_total': items_total,
             'service_fee': service_fee,
-            'payable': max(items_total + service_fee - discount, 0),
+            'packaging_fee': packaging_fee,
+            'payable': max(items_total + service_fee + packaging_fee - discount, 0),
         }
 
     @staticmethod

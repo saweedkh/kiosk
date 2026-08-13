@@ -183,15 +183,20 @@ class UpdateHandler:
     def _order_card(self, order: Order) -> str:
         created = timezone.localtime(order.created_at).strftime('%H:%M') if order.created_at else '—'
         fee = int(getattr(order, 'service_fee', 0) or 0)
+        packaging = int(getattr(order, 'packaging_fee', 0) or 0)
         lines = [
             f'🧾 سفارش {order.order_number}',
             f'ساعت: {created}',
             f'مبلغ: {fmt_money(order.total_amount)}',
         ]
+        fulfillment = getattr(order, 'fulfillment_type', '') or 'dine_in'
+        site_settings = SiteSettings.get_settings()
         if fee > 0:
-            fulfillment = getattr(order, 'fulfillment_type', '') or 'dine_in'
-            title = SiteSettings.get_settings().get_service_title(fulfillment)
+            title = site_settings.get_service_title(fulfillment)
             lines.append(f'{title}: {fmt_money(fee)}')
+        if packaging > 0:
+            title = site_settings.get_packaging_title(fulfillment)
+            lines.append(f'{title}: {fmt_money(packaging)}')
         lines.extend([
             f'وضعیت: {order_status_label(order.status)}',
             f'پرداخت: {PAYMENT_STATUS_LABELS.get(order.payment_status, order.payment_status or "—")}',

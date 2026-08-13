@@ -34,13 +34,15 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'service_fee', 'discount_amount',
+            'payment_status', 'total_amount', 'service_fee', 'packaging_fee',
+            'discount_amount',
             'coupon_code', 'landing_theme', 'fulfillment_type', 'items',
             'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'order_number', 'session_key', 'status',
-            'payment_status', 'total_amount', 'service_fee', 'discount_amount',
+            'payment_status', 'total_amount', 'service_fee', 'packaging_fee',
+            'discount_amount',
             'coupon_code', 'landing_theme', 'fulfillment_type',
             'created_at', 'updated_at'
         ]

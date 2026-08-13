@@ -65,16 +65,20 @@ class OrderService:
             products,
             fulfillment_type=fulfillment_type,
         )
+        packaging_fee = settings.resolve_order_packaging_fee(
+            products,
+            fulfillment_type=fulfillment_type,
+        )
 
         coupon = None
         discount_amount = 0
         if coupon_code:
             coupon = CouponService.get_active_coupon(coupon_code)
             discount_amount = CouponService.calculate_discount(
-                coupon, items_total, service_fee
+                coupon, items_total, service_fee, packaging_fee
             )
 
-        total_amount = max(items_total + service_fee - discount_amount, 0)
+        total_amount = max(items_total + service_fee + packaging_fee - discount_amount, 0)
         
         order = OrderService._create_order_with_items(
             order_number,
@@ -82,6 +86,7 @@ class OrderService:
             total_amount,
             order_items_data,
             service_fee=service_fee,
+            packaging_fee=packaging_fee,
             fulfillment_type=fulfillment_type,
             discount_amount=discount_amount,
             coupon=coupon,
@@ -194,6 +199,7 @@ class OrderService:
         total_amount: int,
         order_items_data: List[Dict],
         service_fee: int = 0,
+        packaging_fee: int = 0,
         fulfillment_type: str = 'dine_in',
         discount_amount: int = 0,
         coupon=None,
@@ -206,6 +212,7 @@ class OrderService:
                 status='pending',
                 total_amount=total_amount,
                 service_fee=max(int(service_fee or 0), 0),
+                packaging_fee=max(int(packaging_fee or 0), 0),
                 discount_amount=max(int(discount_amount or 0), 0),
                 coupon=coupon,
                 coupon_code=(coupon.code if coupon else ''),

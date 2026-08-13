@@ -24,6 +24,10 @@ export type KioskSettingsSnapshot = Pick<
   | 'service_enabled'
   | 'coupons_enabled'
   | 'service_fee'
+  | 'service_title_dine_in'
+  | 'service_title_takeaway'
+  | 'service_fee_dine_in_amount'
+  | 'service_fee_takeaway_amount'
   | 'service_fee_dine_in'
   | 'service_fee_takeaway'
   | 'fulfillment_choice_enabled'
@@ -88,6 +92,10 @@ export function writeCachedSettings(settings?: Settings | null): void {
     service_enabled: settings.service_enabled,
     coupons_enabled: settings.coupons_enabled,
     service_fee: settings.service_fee,
+    service_title_dine_in: settings.service_title_dine_in,
+    service_title_takeaway: settings.service_title_takeaway,
+    service_fee_dine_in_amount: settings.service_fee_dine_in_amount,
+    service_fee_takeaway_amount: settings.service_fee_takeaway_amount,
     service_fee_dine_in: settings.service_fee_dine_in,
     service_fee_takeaway: settings.service_fee_takeaway,
     fulfillment_choice_enabled: settings.fulfillment_choice_enabled,

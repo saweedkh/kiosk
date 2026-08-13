@@ -146,9 +146,12 @@ class Command(BaseCommand):
         settings.receipt_header = 'کافه نمونه'
         settings.receipt_footer = 'نوش جان — دوباره ببینمتون'
         settings.service_enabled = True
-        settings.service_fee = 150_000
+        settings.service_title_dine_in = SiteSettings.SERVICE_TITLE_DINE_IN_DEFAULT
+        settings.service_title_takeaway = SiteSettings.SERVICE_TITLE_TAKEAWAY_DEFAULT
+        settings.service_fee_dine_in_amount = 150_000
+        settings.service_fee_takeaway_amount = 80_000
         settings.service_fee_dine_in = True
-        settings.service_fee_takeaway = False
+        settings.service_fee_takeaway = True
         settings.coupons_enabled = True
         settings.cart_layout = SiteSettings.CART_LAYOUT_SIDE
         settings.save()

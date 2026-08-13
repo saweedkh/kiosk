@@ -57,6 +57,7 @@ from apps.orders.models import Order
 from apps.products.models import Category, Product
 from apps.products.services.product_service import ProductService
 from apps.products.services.stock_service import StockService
+from apps.core.models.settings import SiteSettings
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -188,7 +189,9 @@ class UpdateHandler:
             f'مبلغ: {fmt_money(order.total_amount)}',
         ]
         if fee > 0:
-            lines.append(f'سرویس: {fmt_money(fee)}')
+            fulfillment = getattr(order, 'fulfillment_type', '') or 'dine_in'
+            title = SiteSettings.get_settings().get_service_title(fulfillment)
+            lines.append(f'{title}: {fmt_money(fee)}')
         lines.extend([
             f'وضعیت: {order_status_label(order.status)}',
             f'پرداخت: {PAYMENT_STATUS_LABELS.get(order.payment_status, order.payment_status or "—")}',

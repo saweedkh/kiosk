@@ -18,6 +18,8 @@ import {
   resolveCopyright,
   resolveSiteName,
   resolveSiteDescription,
+  resolveServiceFeeAmount,
+  resolveServiceTitle,
   type Settings,
 } from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
@@ -602,26 +604,22 @@ export default function CustomerPage() {
     };
   }, [queryClient]);
 
-  const configuredServiceFee =
-    settings.service_enabled
-      ? Math.max(0, Math.round(Number(settings.service_fee) || 0))
-      : 0;
   const cartHasServiceProduct = items.some(
     (item) => Boolean(item.product?.service_fee_applicable)
   );
-  const baseServiceFee =
-    configuredServiceFee > 0 && cartHasServiceProduct ? configuredServiceFee : 0;
-  const serviceFeeOnDineIn = settings.service_fee_dine_in !== false;
-  const serviceFeeOnTakeaway = settings.service_fee_takeaway !== false;
+  const serviceFeeDineIn = cartHasServiceProduct
+    ? resolveServiceFeeAmount(settings, "dine_in")
+    : 0;
+  const serviceFeeTakeaway = cartHasServiceProduct
+    ? resolveServiceFeeAmount(settings, "takeaway")
+    : 0;
+  const serviceTitleDineIn = resolveServiceTitle(settings, "dine_in");
+  const serviceTitleTakeaway = resolveServiceTitle(settings, "takeaway");
   const pendingServiceFee =
     pendingFulfillment === "takeaway"
-      ? serviceFeeOnTakeaway
-        ? baseServiceFee
-        : 0
+      ? serviceFeeTakeaway
       : pendingFulfillment === "dine_in"
-        ? serviceFeeOnDineIn
-          ? baseServiceFee
-          : 0
+        ? serviceFeeDineIn
         : 0;
   const checkoutTotal =
     currentOrder?.totalAmount ?? getTotalPrice() + pendingServiceFee;
@@ -868,9 +866,10 @@ export default function CustomerPage() {
   const cartProps = {
     onCheckout: handleCheckout,
     layout: cartLayout,
-    serviceFee: baseServiceFee,
-    serviceFeeOnDineIn,
-    serviceFeeOnTakeaway,
+    serviceFeeDineIn,
+    serviceFeeTakeaway,
+    serviceTitleDineIn,
+    serviceTitleTakeaway,
     couponsEnabled: settings.coupons_enabled !== false,
     fulfillmentChoiceEnabled: settings.fulfillment_choice_enabled !== false,
     dineInEnabled: settings.dine_in_enabled !== false,

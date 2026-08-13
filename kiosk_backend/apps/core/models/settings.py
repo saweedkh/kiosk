@@ -214,11 +214,14 @@ class SiteSettings(models.Model):
         help_text='تک فیش: یک برگ بعد از پرداخت. دو فیش: فاکتور مشتری و فاکتور فروشنده.'
     )
 
+    SERVICE_TITLE_DINE_IN_DEFAULT = 'سرویس داخل سالن'
+    SERVICE_TITLE_TAKEAWAY_DEFAULT = 'سرویس بیرون‌بر'
+
     # هزینه سرویس: مبلغ در تنظیمات؛ اعمال روی فاکتور فقط اگر حداقل یک محصول سفارش تیک داشته باشد
     service_enabled = models.BooleanField(
         default=False,
         verbose_name='فعال‌سازی سرویس',
-        help_text='اگر روشن باشد و مبلغ بیشتر از صفر باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار اعمال می‌شود'
+        help_text='اگر روشن باشد، برای سفارش‌هایی که حداقل یک محصول با تیک سرویس دارند یک‌بار مبلغ همان نوع سفارش اعمال می‌شود'
     )
 
     coupons_enabled = models.BooleanField(
@@ -229,7 +232,31 @@ class SiteSettings(models.Model):
     service_fee = models.PositiveIntegerField(
         default=0,
         verbose_name='مبلغ سرویس (ریال)',
-        help_text='مبلغ ثابت سرویس (ریال). روی کل فاکتور فقط یک‌بار اضافه می‌شود'
+        help_text='سازگاری قدیمی: با مبلغ سرویس داخل سالن همگام می‌شود'
+    )
+    service_title_dine_in = models.CharField(
+        max_length=80,
+        blank=True,
+        default=SERVICE_TITLE_DINE_IN_DEFAULT,
+        verbose_name='عنوان سرویس داخل سالن',
+        help_text='عنوان نمایشی روی سبد و فیش برای سفارش داخل سالن',
+    )
+    service_title_takeaway = models.CharField(
+        max_length=80,
+        blank=True,
+        default=SERVICE_TITLE_TAKEAWAY_DEFAULT,
+        verbose_name='عنوان سرویس بیرون‌بر',
+        help_text='عنوان نمایشی روی سبد و فیش برای سفارش بیرون‌بر',
+    )
+    service_fee_dine_in_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name='مبلغ سرویس داخل سالن (ریال)',
+        help_text='مبلغ ثابت سرویس برای سفارش داخل سالن (ریال). روی کل فاکتور فقط یک‌بار اضافه می‌شود',
+    )
+    service_fee_takeaway_amount = models.PositiveIntegerField(
+        default=0,
+        verbose_name='مبلغ سرویس بیرون‌بر (ریال)',
+        help_text='مبلغ ثابت سرویس برای سفارش بیرون‌بر (ریال). روی کل فاکتور فقط یک‌بار اضافه می‌شود',
     )
     service_fee_dine_in = models.BooleanField(
         default=True,
@@ -383,6 +410,8 @@ class SiteSettings(models.Model):
             and self.receipt_number_date is None
         ):
             self.receipt_number_date = self._local_today()
+        # Keep legacy service_fee aligned with dine-in amount for older clients.
+        self.service_fee = max(int(self.service_fee_dine_in_amount or 0), 0)
         super().save(*args, **kwargs)
     
     @classmethod
@@ -403,6 +432,10 @@ class SiteSettings(models.Model):
                 'service_enabled': False,
                 'coupons_enabled': True,
                 'service_fee': 0,
+                'service_title_dine_in': cls.SERVICE_TITLE_DINE_IN_DEFAULT,
+                'service_title_takeaway': cls.SERVICE_TITLE_TAKEAWAY_DEFAULT,
+                'service_fee_dine_in_amount': 0,
+                'service_fee_takeaway_amount': 0,
                 'service_fee_dine_in': True,
                 'service_fee_takeaway': True,
                 'dine_in_enabled': True,
@@ -442,11 +475,21 @@ class SiteSettings(models.Model):
             return chosen
         return self.RECEIPT_TEMPLATE_MODERN
 
-    def get_active_service_fee(self) -> int:
-        """Configured service fee in rials (0 when feature off or amount is 0)."""
+    def get_service_title(self, fulfillment_type: str = 'dine_in') -> str:
+        """Display title for the service line on cart and receipt."""
+        if fulfillment_type == 'takeaway':
+            title = (self.service_title_takeaway or '').strip()
+            return title or self.SERVICE_TITLE_TAKEAWAY_DEFAULT
+        title = (self.service_title_dine_in or '').strip()
+        return title or self.SERVICE_TITLE_DINE_IN_DEFAULT
+
+    def get_active_service_fee(self, fulfillment_type: str = 'dine_in') -> int:
+        """Configured service fee in rials for a fulfillment type (0 when off)."""
         if not self.service_enabled:
             return 0
-        return max(int(self.service_fee or 0), 0)
+        if fulfillment_type == 'takeaway':
+            return max(int(self.service_fee_takeaway_amount or 0), 0)
+        return max(int(self.service_fee_dine_in_amount or 0), 0)
 
     def service_applies_to_fulfillment(self, fulfillment_type: str) -> bool:
         """Whether service fee is enabled for dine_in / takeaway."""
@@ -482,10 +525,11 @@ class SiteSettings(models.Model):
         has service_fee_applicable=True.
         `products` is an iterable of Product instances (or objects with the flag).
         """
-        fee = self.get_active_service_fee()
+        kind = fulfillment_type or 'dine_in'
+        fee = self.get_active_service_fee(kind)
         if fee <= 0:
             return 0
-        if not self.service_applies_to_fulfillment(fulfillment_type or 'dine_in'):
+        if not self.service_applies_to_fulfillment(kind):
             return 0
         for product in products:
             if getattr(product, 'service_fee_applicable', False):

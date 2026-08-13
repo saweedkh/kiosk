@@ -29,6 +29,10 @@ import type { CartLayout } from '@/components/customer/CartView'
 import { useThemeStore } from '@/lib/store/theme-store'
 import { applyBrandTheme } from '@/lib/theme/brand-palette'
 import {
+  DEFAULT_SERVICE_TITLE_DINE_IN,
+  DEFAULT_SERVICE_TITLE_TAKEAWAY,
+} from '@/lib/api/settings'
+import {
   DEFAULT_ACCENT,
   DEFAULT_BG,
   DEFAULT_LANDING_CTA,
@@ -60,7 +64,10 @@ const DIRTY_FIELDS = [
   'receipt_template_mode',
   'receipt_number_mode',
   'service_enabled',
-  'service_fee',
+  'service_title_dine_in',
+  'service_title_takeaway',
+  'service_fee_dine_in_amount',
+  'service_fee_takeaway_amount',
   'service_fee_dine_in',
   'service_fee_takeaway',
   'fulfillment_choice_enabled',
@@ -92,7 +99,10 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   receipt_template_mode: 'حالت قالب',
   receipt_number_mode: 'شماره‌گذاری',
   service_enabled: 'سرویس',
-  service_fee: 'هزینه سرویس',
+  service_title_dine_in: 'عنوان سرویس داخل سالن',
+  service_title_takeaway: 'عنوان سرویس بیرون‌بر',
+  service_fee_dine_in_amount: 'مبلغ سرویس داخل سالن',
+  service_fee_takeaway_amount: 'مبلغ سرویس بیرون‌بر',
   service_fee_dine_in: 'هزینه سرویس حضوری',
   service_fee_takeaway: 'هزینه سرویس بیرون‌بر',
   fulfillment_choice_enabled: 'انتخاب نوع سفارش',
@@ -122,9 +132,21 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
   for (const key of DIRTY_FIELDS) {
     let a: unknown = current[key]
     let b: unknown = baseline[key]
-    if (key === 'service_fee') {
-      a = Number(a || 0)
-      b = Number(b || 0)
+    if (key === 'service_fee_dine_in_amount') {
+      a = Number(a ?? current.service_fee ?? 0)
+      b = Number(b ?? baseline.service_fee ?? 0)
+    }
+    if (key === 'service_fee_takeaway_amount') {
+      a = Number(a ?? current.service_fee ?? 0)
+      b = Number(b ?? baseline.service_fee ?? 0)
+    }
+    if (key === 'service_title_dine_in') {
+      a = String(a || '').trim() || DEFAULT_SERVICE_TITLE_DINE_IN
+      b = String(b || '').trim() || DEFAULT_SERVICE_TITLE_DINE_IN
+    }
+    if (key === 'service_title_takeaway') {
+      a = String(a || '').trim() || DEFAULT_SERVICE_TITLE_TAKEAWAY
+      b = String(b || '').trim() || DEFAULT_SERVICE_TITLE_TAKEAWAY
     }
     if (key === 'service_fee_dine_in' || key === 'service_fee_takeaway') {
       a = a !== false
@@ -180,7 +202,7 @@ const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'brand', label: 'برند', hint: 'نام، لوگو، رنگ‌ها' },
   { id: 'landing', label: 'لندینگ', hint: 'تم صفحه خوش‌آمد' },
   { id: 'cart', label: 'سبد', hint: 'چیدمان و نوع سفارش' },
-  { id: 'service', label: 'سرویس', hint: 'هزینه سرویس' },
+  { id: 'service', label: 'سرویس', hint: 'عنوان و مبلغ جدا' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
   { id: 'hardware', label: 'سخت‌افزار', hint: 'POS و پرینتر' },
 ]
@@ -221,6 +243,136 @@ function SectionHeader({
       </div>
       {action}
     </div>
+  )
+}
+
+function ServiceChannelCard({
+  heading,
+  hint,
+  enabled,
+  onEnabled,
+  title,
+  onTitle,
+  amount,
+  onAmount,
+  disabled,
+  titleError,
+  amountError,
+  icon,
+}: {
+  heading: string
+  hint: string
+  enabled: boolean
+  onEnabled: (v: boolean) => void
+  title: string
+  onTitle: (v: string) => void
+  amount: number
+  onAmount: (v: number) => void
+  disabled: boolean
+  titleError?: string
+  amountError?: string
+  icon: ReactNode
+}) {
+  return (
+    <AdminSurface
+      className={cn(
+        '!shadow-none',
+        enabled ? 'border-primary/30 bg-primary/[0.04]' : 'bg-muted/20'
+      )}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+              enabled ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+            )}
+          >
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-foreground">{heading}</p>
+            <p className="text-xs text-muted-foreground">{hint}</p>
+          </div>
+        </div>
+        <Switch
+          checked={enabled}
+          onChange={onEnabled}
+          disabled={disabled}
+          label={enabled ? 'با هزینه' : 'بدون هزینه'}
+        />
+      </div>
+
+      <label className="mb-3 block">
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          عنوان روی فاکتور
+        </span>
+        <input
+          type="text"
+          maxLength={80}
+          disabled={disabled}
+          value={title}
+          onChange={(e) => onTitle(e.target.value)}
+          placeholder={heading}
+          className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm font-medium outline-none transition-shadow focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-70"
+        />
+        {titleError ? (
+          <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{titleError}</p>
+        ) : null}
+      </label>
+
+      <label className="block">
+        <span className="mb-1.5 block text-xs font-medium text-muted-foreground">مبلغ</span>
+        <div
+          className={cn(
+            'flex h-12 items-stretch overflow-hidden rounded-xl border border-border bg-background transition-shadow focus-within:ring-2 focus-within:ring-primary/30',
+            disabled && 'cursor-not-allowed opacity-70'
+          )}
+        >
+          <input
+            type="number"
+            min={0}
+            step={1}
+            disabled={disabled}
+            value={amount === 0 ? '0' : String(amount)}
+            onChange={(e) => {
+              const raw = e.target.value
+              if (raw === '') {
+                onAmount(0)
+                return
+              }
+              onAmount(Math.max(0, Math.floor(Number(raw) || 0)))
+            }}
+            placeholder="50000"
+            className="min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-bold tabular-nums outline-none disabled:cursor-not-allowed"
+            dir="ltr"
+          />
+          <span className="flex shrink-0 items-center border-s border-border bg-muted/40 px-3 text-sm font-medium text-muted-foreground">
+            ریال
+          </span>
+        </div>
+        {amountError ? (
+          <p className="mt-1.5 text-sm text-red-600 dark:text-red-400">{amountError}</p>
+        ) : null}
+      </label>
+
+      <div className="mt-4 rounded-2xl border border-dashed border-border/80 bg-muted/30 px-4 py-3">
+        <p className="text-[11px] font-medium text-muted-foreground">پیش‌نمایش روی فاکتور</p>
+        {enabled && amount > 0 ? (
+          <p className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+            <span className="text-sm font-bold text-foreground">
+              {(title || '').trim() || heading}
+            </span>
+            <span className="text-base font-black tabular-nums text-primary" dir="ltr">
+              {formatNumber(amount)}{' '}
+              <span className="text-xs font-semibold text-muted-foreground">ریال</span>
+            </span>
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-muted-foreground">اعمال نمی‌شود</p>
+        )}
+      </div>
+    </AdminSurface>
   )
 }
 
@@ -564,7 +716,17 @@ export function SettingsManager() {
       receipt_copy_mode: settings.receipt_copy_mode || 'dual',
       receipt_number_mode: settings.receipt_number_mode || 'manual',
       service_enabled: Boolean(settings.service_enabled),
-      service_fee: Number(settings.service_fee || 0),
+      service_title_dine_in:
+        (settings.service_title_dine_in || '').trim() || DEFAULT_SERVICE_TITLE_DINE_IN,
+      service_title_takeaway:
+        (settings.service_title_takeaway || '').trim() || DEFAULT_SERVICE_TITLE_TAKEAWAY,
+      service_fee_dine_in_amount: Number(
+        settings.service_fee_dine_in_amount ?? settings.service_fee ?? 0
+      ),
+      service_fee_takeaway_amount: Number(
+        settings.service_fee_takeaway_amount ?? settings.service_fee ?? 0
+      ),
+      service_fee: Number(settings.service_fee_dine_in_amount ?? settings.service_fee ?? 0),
       service_fee_dine_in: settings.service_fee_dine_in !== false,
       service_fee_takeaway: settings.service_fee_takeaway !== false,
       fulfillment_choice_enabled: settings.fulfillment_choice_enabled !== false,
@@ -594,11 +756,27 @@ export function SettingsManager() {
   const textPreviewColor = resolveHex(settings.landing_text_color, DEFAULT_TEXT)
   const mutedPreviewColor = resolveHex(settings.landing_muted_color, DEFAULT_MUTED)
   const serviceOn = Boolean(settings.service_enabled)
-  const serviceFeeAmount = Math.max(0, Math.floor(Number(settings.service_fee) || 0))
+  const dineInTitle =
+    settings.service_title_dine_in === undefined
+      ? DEFAULT_SERVICE_TITLE_DINE_IN
+      : String(settings.service_title_dine_in)
+  const takeawayTitle =
+    settings.service_title_takeaway === undefined
+      ? DEFAULT_SERVICE_TITLE_TAKEAWAY
+      : String(settings.service_title_takeaway)
+  const dineInAmount = Math.max(
+    0,
+    Math.floor(Number(settings.service_fee_dine_in_amount ?? settings.service_fee) || 0)
+  )
+  const takeawayAmount = Math.max(
+    0,
+    Math.floor(Number(settings.service_fee_takeaway_amount ?? settings.service_fee) || 0)
+  )
   const serviceDineInOn = settings.service_fee_dine_in !== false
   const serviceTakeawayOn = settings.service_fee_takeaway !== false
-  const serviceAppliesNowhere =
-    serviceOn && serviceFeeAmount > 0 && !serviceDineInOn && !serviceTakeawayOn
+  const dineApplies = serviceDineInOn && dineInAmount > 0
+  const takeawayApplies = serviceTakeawayOn && takeawayAmount > 0
+  const serviceAppliesNowhere = serviceOn && !dineApplies && !takeawayApplies
   const printerOn = settings.printer_enabled !== false
   const posMockMode = settings.pos_payment_mode === 'mock'
 
@@ -1160,7 +1338,7 @@ export function SettingsManager() {
             <div>
               <SectionHeader
                 title="هزینه سرویس"
-                description="مبلغ ثابت روی فاکتور — فقط اگر حداقل یک محصول سفارش تیک سرویس داشته باشد، یک‌بار اضافه می‌شود."
+                description="عنوان و مبلغ جدا برای داخل سالن و بیرون‌بر — فقط اگر حداقل یک محصول سفارش تیک سرویس داشته باشد، یک‌بار اضافه می‌شود."
               />
 
               <div className="space-y-5">
@@ -1200,7 +1378,7 @@ export function SettingsManager() {
                         </div>
                         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                           {serviceOn
-                            ? 'مبلغ زیر برای سفارش‌های مشمول روی فاکتور اعمال می‌شود.'
+                            ? 'عنوان و مبلغ را جداگانه برای داخل سالن و بیرون‌بر تنظیم کنید.'
                             : 'هیچ هزینه سرویسی به فاکتور اضافه نمی‌شود.'}
                         </p>
                       </div>
@@ -1220,210 +1398,75 @@ export function SettingsManager() {
 
                 <div
                   className={cn(
-                    'grid gap-4 transition-opacity lg:grid-cols-[1.15fr_0.85fr]',
+                    'grid gap-4 transition-opacity lg:grid-cols-2',
                     !serviceOn && 'pointer-events-none opacity-45'
                   )}
                 >
-                  <AdminSurface className="!shadow-none">
-                    <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-bold text-foreground">مبلغ سرویس</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          مبلغ ثابت به ریال — یک‌بار روی کل فاکتور
-                        </p>
-                      </div>
-                      {serviceOn && serviceFeeAmount > 0 ? (
-                        <AdminStatusBadge tone="primary">
-                          <span className="inline-flex items-baseline gap-1" dir="ltr">
-                            <span className="tabular-nums">{formatNumber(serviceFeeAmount)}</span>
-                            <span>ریال</span>
-                          </span>
-                        </AdminStatusBadge>
-                      ) : null}
-                    </div>
-
-                    <label className="block">
-                      <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                        مبلغ
-                      </span>
-                      <div
-                        className={cn(
-                          'flex h-12 items-stretch overflow-hidden rounded-xl border border-border bg-background transition-shadow focus-within:ring-2 focus-within:ring-primary/30',
-                          !serviceOn && 'cursor-not-allowed opacity-70'
-                        )}
-                      >
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          disabled={!serviceOn}
-                          value={
-                            settings.service_fee === undefined ||
-                            settings.service_fee === null
-                              ? ''
-                              : String(settings.service_fee)
-                          }
-                          onChange={(e) => {
-                            const raw = e.target.value
-                            if (raw === '') {
-                              handleChange('service_fee', 0)
-                              return
-                            }
-                            handleChange(
-                              'service_fee',
-                              Math.max(0, Math.floor(Number(raw) || 0))
-                            )
-                          }}
-                          placeholder="50000"
-                          className="min-w-0 flex-1 border-0 bg-transparent px-4 text-base font-bold tabular-nums outline-none disabled:cursor-not-allowed"
-                          dir="ltr"
+                  <ServiceChannelCard
+                    heading="داخل سالن"
+                    hint="عنوان و مبلغ روی فاکتور حضوری"
+                    enabled={serviceDineInOn}
+                    onEnabled={(v) => handleChange('service_fee_dine_in', v)}
+                    title={dineInTitle}
+                    onTitle={(v) => handleChange('service_title_dine_in', v)}
+                    amount={dineInAmount}
+                    onAmount={(v) => handleChange('service_fee_dine_in_amount', v)}
+                    disabled={!serviceOn}
+                    titleError={apiErrors.service_title_dine_in?.[0]}
+                    amountError={apiErrors.service_fee_dine_in_amount?.[0]}
+                    icon={
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                        <path
+                          d="M4 10h16v9a2 2 0 01-2 2H6a2 2 0 01-2-2v-9z"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
                         />
-                        <span className="flex shrink-0 items-center border-s border-border bg-muted/40 px-3 text-sm font-medium text-muted-foreground">
-                          ریال
-                        </span>
-                      </div>
-                    </label>
-                    {apiErrors.service_fee?.[0] ? (
-                      <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                        {apiErrors.service_fee[0]}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-4 rounded-2xl border border-dashed border-border/80 bg-muted/30 px-4 py-3">
-                      <p className="text-[11px] font-medium text-muted-foreground">
-                        پیش‌نمایش روی فاکتور
-                      </p>
-                      {serviceOn && serviceFeeAmount > 0 ? (
-                        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span
-                            className="text-2xl font-black tabular-nums tracking-tight text-primary"
-                            dir="ltr"
-                          >
-                            {formatNumber(serviceFeeAmount)}
-                          </span>
-                          <span className="text-sm font-semibold text-muted-foreground">
-                            ریال
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-2xl font-black text-muted-foreground">—</p>
-                      )}
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {serviceOn && serviceFeeAmount > 0
-                          ? 'یک‌بار به مبلغ فاکتور اضافه می‌شود'
-                          : 'مبلغی تنظیم نشده'}
-                      </p>
-                    </div>
-                  </AdminSurface>
-
-                  <AdminSurface className="!shadow-none">
-                    <div className="mb-4">
-                      <p className="text-sm font-bold text-foreground">محدوده هزینه سرویس</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        فقط مشخص می‌کند هزینه سرویس روی کدام نوع سفارش حساب شود — جدا از فعال بودن نوع سفارش در سبد
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div
-                        className={cn(
-                          'flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-colors',
-                          serviceDineInOn
-                            ? 'border-primary/30 bg-primary/[0.06]'
-                            : 'border-border/80 bg-muted/25'
-                        )}
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className={cn(
-                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                              serviceDineInOn
-                                ? 'bg-primary/15 text-primary'
-                                : 'bg-muted text-muted-foreground'
-                            )}
-                          >
-                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
-                              <path
-                                d="M4 10h16v9a2 2 0 01-2 2H6a2 2 0 01-2-2v-9z"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                              />
-                              <path
-                                d="M8 10V7a4 4 0 018 0v3"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-foreground">داخل سالن</p>
-                            <p className="text-xs text-muted-foreground">اعمال هزینه سرویس روی حضوری</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={serviceDineInOn}
-                          onChange={(v) => handleChange('service_fee_dine_in', v)}
-                          disabled={!serviceOn}
-                          label={serviceDineInOn ? 'با هزینه' : 'بدون هزینه'}
+                        <path
+                          d="M8 10V7a4 4 0 018 0v3"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
                         />
-                      </div>
-
-                      <div
-                        className={cn(
-                          'flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-colors',
-                          serviceTakeawayOn
-                            ? 'border-primary/30 bg-primary/[0.06]'
-                            : 'border-border/80 bg-muted/25'
-                        )}
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div
-                            className={cn(
-                              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-                              serviceTakeawayOn
-                                ? 'bg-primary/15 text-primary'
-                                : 'bg-muted text-muted-foreground'
-                            )}
-                          >
-                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
-                              <path
-                                d="M5 8h14l-1.2 10.2A2 2 0 0115.81 20H8.19a2 2 0 01-1.99-1.8L5 8z"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                                strokeLinejoin="round"
-                              />
-                              <path
-                                d="M9 8V6.5A3 3 0 0112 3.5 3 3 0 0115 6.5V8"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-foreground">بیرون‌بر</p>
-                            <p className="text-xs text-muted-foreground">اعمال هزینه سرویس روی بیرون‌بر</p>
-                          </div>
-                        </div>
-                        <Switch
-                          checked={serviceTakeawayOn}
-                          onChange={(v) => handleChange('service_fee_takeaway', v)}
-                          disabled={!serviceOn}
-                          label={serviceTakeawayOn ? 'با هزینه' : 'بدون هزینه'}
+                      </svg>
+                    }
+                  />
+                  <ServiceChannelCard
+                    heading="بیرون‌بر"
+                    hint="عنوان و مبلغ روی فاکتور بیرون‌بر"
+                    enabled={serviceTakeawayOn}
+                    onEnabled={(v) => handleChange('service_fee_takeaway', v)}
+                    title={takeawayTitle}
+                    onTitle={(v) => handleChange('service_title_takeaway', v)}
+                    amount={takeawayAmount}
+                    onAmount={(v) => handleChange('service_fee_takeaway_amount', v)}
+                    disabled={!serviceOn}
+                    titleError={apiErrors.service_title_takeaway?.[0]}
+                    amountError={apiErrors.service_fee_takeaway_amount?.[0]}
+                    icon={
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
+                        <path
+                          d="M5 8h14l-1.2 10.2A2 2 0 0115.81 20H8.19a2 2 0 01-1.99-1.8L5 8z"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinejoin="round"
                         />
-                      </div>
-                    </div>
-
-                    {(apiErrors.service_fee_dine_in?.[0] ||
-                      apiErrors.service_fee_takeaway?.[0]) && (
-                      <p className="mt-3 text-sm text-red-600 dark:text-red-400">
-                        {apiErrors.service_fee_dine_in?.[0] ||
-                          apiErrors.service_fee_takeaway?.[0]}
-                      </p>
-                    )}
-                  </AdminSurface>
+                        <path
+                          d="M9 8V6.5A3 3 0 0112 3.5 3 3 0 0115 6.5V8"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    }
+                  />
                 </div>
+                {(apiErrors.service_fee_dine_in?.[0] ||
+                  apiErrors.service_fee_takeaway?.[0]) && (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.service_fee_dine_in?.[0] ||
+                      apiErrors.service_fee_takeaway?.[0]}
+                  </p>
+                )}
 
                 <AdminSurface
                   className={cn(
@@ -1457,16 +1500,19 @@ export function SettingsManager() {
                       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                         {!serviceOn
                           ? 'سرویس خاموش است؛ روی هیچ سفارشی اعمال نمی‌شود.'
-                          : serviceFeeAmount <= 0
-                            ? 'مبلغ را وارد کنید تا روی فاکتور دیده شود.'
-                            : serviceAppliesNowhere
-                              ? 'هشدار: هیچ نوع سفارشی انتخاب نشده — سرویس عملاً اعمال نمی‌شود.'
-                              : `برای سفارش‌های ${[
-                                  serviceDineInOn ? 'داخل سالن' : null,
-                                  serviceTakeawayOn ? 'بیرون‌بر' : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' و ')}، در صورت داشتن محصول مشمول، ${formatCurrency(serviceFeeAmount)} اضافه می‌شود.`}
+                          : serviceAppliesNowhere
+                            ? 'هشدار: برای هیچ نوع سفارشی مبلغ فعالی تنظیم نشده — سرویس عملاً اعمال نمی‌شود.'
+                            : [
+                                dineApplies
+                                  ? `داخل سالن «${(dineInTitle || '').trim() || DEFAULT_SERVICE_TITLE_DINE_IN}» ${formatCurrency(dineInAmount)}`
+                                  : null,
+                                takeawayApplies
+                                  ? `بیرون‌بر «${(takeawayTitle || '').trim() || DEFAULT_SERVICE_TITLE_TAKEAWAY}» ${formatCurrency(takeawayAmount)}`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' — ') +
+                              '؛ در صورت داشتن محصول مشمول یک‌بار به فاکتور اضافه می‌شود.'}
                       </p>
                       <p className="mt-2 text-xs text-muted-foreground">
                         برای هر محصول در بخش محصولات می‌توانید تیک «مشمول سرویس» را جداگانه بزنید.

@@ -304,6 +304,10 @@ export interface Settings {
   service_enabled?: boolean
   coupons_enabled?: boolean
   service_fee?: number
+  service_title_dine_in?: string
+  service_title_takeaway?: string
+  service_fee_dine_in_amount?: number
+  service_fee_takeaway_amount?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
   fulfillment_choice_enabled?: boolean

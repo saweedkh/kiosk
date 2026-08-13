@@ -128,28 +128,29 @@ class ReceiptService:
             })
 
         # Prefer fee stored on the order; for older orders (fee=0) recompute from products + settings.
+        fulfillment = getattr(order, 'fulfillment_type', None) or 'dine_in'
+        site_settings = SiteSettings.get_settings()
         stored_fee = int(getattr(order, 'service_fee', 0) or 0)
         if stored_fee > 0:
             service_fee = stored_fee
             total_amount = int(order.total_amount or 0)
         else:
             products = [item.product for item in items if item.product_id]
-            fulfillment = getattr(order, 'fulfillment_type', None) or 'dine_in'
-            service_fee = SiteSettings.get_settings().resolve_order_service_fee(
+            service_fee = site_settings.resolve_order_service_fee(
                 products,
                 fulfillment_type=fulfillment,
             )
             total_amount = items_subtotal + service_fee
 
+        service_title = site_settings.get_service_title(fulfillment) if service_fee > 0 else ''
         if service_fee > 0:
             items_data.append({
-                'name': 'سرویس',
+                'name': service_title,
                 'quantity': 1,
                 'price': f"{service_fee:,} ریال"
             })
         
         branding = ReceiptService.get_receipt_branding()
-        fulfillment = getattr(order, 'fulfillment_type', None) or 'dine_in'
         fulfillment_label = (
             'بیرون‌بر' if fulfillment == 'takeaway' else 'داخل سالن'
         )
@@ -164,6 +165,7 @@ class ReceiptService:
             'order_number': order.order_number,
             'items': items_data,
             'service_fee': service_fee,
+            'service_title': service_title,
             'items_subtotal': items_subtotal,
             'total_amount': f"{total_amount:,} ریال",
             'fulfillment_type': fulfillment,

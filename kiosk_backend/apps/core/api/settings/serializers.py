@@ -69,6 +69,10 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'service_enabled',
             'coupons_enabled',
             'service_fee',
+            'service_title_dine_in',
+            'service_title_takeaway',
+            'service_fee_dine_in_amount',
+            'service_fee_takeaway_amount',
             'service_fee_dine_in',
             'service_fee_takeaway',
             'fulfillment_choice_enabled',
@@ -138,6 +142,12 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('نرخ موفقیت باید بین ۰ تا ۱۰۰ باشد.')
         return rate
 
+    def validate_service_title_dine_in(self, value):
+        return (value or '').strip()
+
+    def validate_service_title_takeaway(self, value):
+        return (value or '').strip()
+
     def get_logo_url(self, obj):
         return _media_url(obj.logo)
 
@@ -185,6 +195,10 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             'service_enabled',
             'coupons_enabled',
             'service_fee',
+            'service_title_dine_in',
+            'service_title_takeaway',
+            'service_fee_dine_in_amount',
+            'service_fee_takeaway_amount',
             'service_fee_dine_in',
             'service_fee_takeaway',
             'fulfillment_choice_enabled',

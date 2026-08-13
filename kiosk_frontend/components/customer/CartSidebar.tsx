@@ -11,9 +11,16 @@ interface CartSidebarProps {
   onClose: () => void
   onCheckout: () => void
   serviceFee?: number
+  serviceTitle?: string
 }
 
-export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: CartSidebarProps) {
+export function CartSidebar({
+  isOpen,
+  onClose,
+  onCheckout,
+  serviceFee = 0,
+  serviceTitle = 'سرویس',
+}: CartSidebarProps) {
   const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } =
     useCartStore()
   const fee = Math.max(0, Math.round(Number(serviceFee) || 0))
@@ -208,7 +215,7 @@ export function CartSidebar({ isOpen, onClose, onCheckout, serviceFee = 0 }: Car
                 <div className="space-y-2">
                   {fee > 0 && (
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">سرویس:</span>
+                      <span className="text-gray-500 dark:text-gray-400">{serviceTitle}:</span>
                       <span className="text-text dark:text-text-dark">{formatCurrency(fee)}</span>
                     </div>
                   )}

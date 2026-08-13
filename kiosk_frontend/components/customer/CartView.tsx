@@ -8,15 +8,20 @@ import { useCartStore } from '@/lib/store/cart-store'
 import { couponsApi } from '@/lib/api/dashboard'
 import { formatCurrency, formatNumber, cn } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
+import {
+  DEFAULT_SERVICE_TITLE_DINE_IN,
+  DEFAULT_SERVICE_TITLE_TAKEAWAY,
+} from '@/lib/api/settings'
 
 export type CartLayout = 'side' | 'bottom'
 
 interface CartViewProps {
   onCheckout: (fulfillmentType: 'dine_in' | 'takeaway') => void
   layout?: CartLayout
-  serviceFee?: number
-  serviceFeeOnDineIn?: boolean
-  serviceFeeOnTakeaway?: boolean
+  serviceFeeDineIn?: number
+  serviceFeeTakeaway?: number
+  serviceTitleDineIn?: string
+  serviceTitleTakeaway?: string
   /** When false, hide coupon field and clear any applied discount. */
   couponsEnabled?: boolean
   /** Master: show dine-in / takeaway choice on kiosk at all. */
@@ -28,9 +33,10 @@ interface CartViewProps {
 export function CartView({
   onCheckout,
   layout = 'side',
-  serviceFee = 0,
-  serviceFeeOnDineIn = true,
-  serviceFeeOnTakeaway = true,
+  serviceFeeDineIn = 0,
+  serviceFeeTakeaway = 0,
+  serviceTitleDineIn = DEFAULT_SERVICE_TITLE_DINE_IN,
+  serviceTitleTakeaway = DEFAULT_SERVICE_TITLE_TAKEAWAY,
   couponsEnabled = true,
   fulfillmentChoiceEnabled = true,
   dineInEnabled = true,
@@ -55,14 +61,16 @@ export function CartView({
     clearCoupon,
   } = useCartStore()
 
-  const baseFee = Math.max(0, Math.round(Number(serviceFee) || 0))
-  const feeApplies =
+  const dineInFee = Math.max(0, Math.round(Number(serviceFeeDineIn) || 0))
+  const takeawayFee = Math.max(0, Math.round(Number(serviceFeeTakeaway) || 0))
+  const fee =
     fulfillmentType === 'takeaway'
-      ? serviceFeeOnTakeaway
+      ? takeawayFee
       : fulfillmentType === 'dine_in'
-        ? serviceFeeOnDineIn
-        : false
-  const fee = feeApplies ? baseFee : 0
+        ? dineInFee
+        : 0
+  const serviceTitle =
+    fulfillmentType === 'takeaway' ? serviceTitleTakeaway : serviceTitleDineIn
   const itemsTotal = getTotalPrice()
   const itemCount = getTotalItems()
 
@@ -147,6 +155,7 @@ export function CartView({
         itemCount={itemCount}
         grandTotal={effectiveGrandTotal}
         fee={fee}
+        serviceTitle={serviceTitle}
         discountAmount={effectiveDiscount}
         couponsEnabled={couponsEnabled}
         couponCode={couponCode}
@@ -182,6 +191,7 @@ export function CartView({
       itemCount={itemCount}
       grandTotal={effectiveGrandTotal}
       fee={fee}
+      serviceTitle={serviceTitle}
       discountAmount={effectiveDiscount}
       couponsEnabled={couponsEnabled}
       couponCode={couponCode}
@@ -213,6 +223,7 @@ type CartSharedProps = {
   itemCount: number
   grandTotal: number
   fee: number
+  serviceTitle: string
   discountAmount: number
   couponsEnabled: boolean
   couponCode: string
@@ -466,7 +477,7 @@ function SideCart(props: CartSharedProps) {
           <div className="space-y-1 rounded-2xl bg-muted/50 px-3 py-2.5 text-sm">
             {props.fee > 0 ? (
               <div className="flex justify-between text-muted-foreground">
-                <span>سرویس</span>
+                <span>{props.serviceTitle}</span>
                 <span>{formatCurrency(props.fee)}</span>
               </div>
             ) : null}
@@ -583,7 +594,7 @@ function BottomCart(
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                 {props.fee > 0 ? (
                   <span className="text-muted-foreground">
-                    سرویس: {formatCurrency(props.fee)}
+                    {props.serviceTitle}: {formatCurrency(props.fee)}
                   </span>
                 ) : null}
                 {props.discountAmount > 0 ? (

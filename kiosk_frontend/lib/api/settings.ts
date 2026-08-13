@@ -21,6 +21,10 @@ export interface Settings {
   service_enabled?: boolean
   coupons_enabled?: boolean
   service_fee?: number
+  service_title_dine_in?: string
+  service_title_takeaway?: string
+  service_fee_dine_in_amount?: number
+  service_fee_takeaway_amount?: number
   service_fee_dine_in?: boolean
   service_fee_takeaway?: boolean
   fulfillment_choice_enabled?: boolean
@@ -104,4 +108,40 @@ export function resolveSiteDescription(settings?: Settings | null): string {
 export function resolveCopyright(settings?: Settings | null): string {
   const text = (settings?.copyright_text || '').trim()
   return text
+}
+
+export const DEFAULT_SERVICE_TITLE_DINE_IN = 'سرویس داخل سالن'
+export const DEFAULT_SERVICE_TITLE_TAKEAWAY = 'سرویس بیرون‌بر'
+
+function readServiceAmount(value: unknown, fallback: unknown): number {
+  if (value !== undefined && value !== null && value !== '') {
+    return Math.max(0, Math.round(Number(value) || 0))
+  }
+  return Math.max(0, Math.round(Number(fallback) || 0))
+}
+
+export function resolveServiceTitle(
+  settings: Settings | null | undefined,
+  fulfillment: 'dine_in' | 'takeaway'
+): string {
+  if (fulfillment === 'takeaway') {
+    const title = (settings?.service_title_takeaway || '').trim()
+    return title || DEFAULT_SERVICE_TITLE_TAKEAWAY
+  }
+  const title = (settings?.service_title_dine_in || '').trim()
+  return title || DEFAULT_SERVICE_TITLE_DINE_IN
+}
+
+/** Amount for a fulfillment type, ignoring the product-applicable check. */
+export function resolveServiceFeeAmount(
+  settings: Settings | null | undefined,
+  fulfillment: 'dine_in' | 'takeaway'
+): number {
+  if (!settings?.service_enabled) return 0
+  if (fulfillment === 'takeaway') {
+    if (settings.service_fee_takeaway === false) return 0
+    return readServiceAmount(settings.service_fee_takeaway_amount, settings.service_fee)
+  }
+  if (settings.service_fee_dine_in === false) return 0
+  return readServiceAmount(settings.service_fee_dine_in_amount, settings.service_fee)
 }

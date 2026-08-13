@@ -21,7 +21,7 @@ export function CategoryFilter({
       <button
         type="button"
         onClick={() => onSelectCategory(null)}
-        className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors touch-manipulation ${
+        className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors ${
           selectedCategory === null
             ? 'bg-primary text-white'
             : 'bg-gray dark:bg-gray-dark text-text-secondary dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -35,7 +35,7 @@ export function CategoryFilter({
           type="button"
           key={category.id}
           onClick={() => onSelectCategory(category.id)}
-          className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors touch-manipulation ${
+          className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors ${
             selectedCategory === category.id
               ? 'bg-primary text-white'
               : 'bg-gray dark:bg-gray-dark text-text-secondary dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'

@@ -90,7 +90,7 @@ export function ProductCard({ product }: ProductCardProps) {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow dark:border-border-dark dark:bg-card-dark touch-manipulation"
+        className="select-none overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow dark:border-border-dark dark:bg-card-dark"
       >
         <div className="relative h-56 w-full bg-gray-100 dark:bg-gray-800">
           {imageUrl ? (
@@ -98,7 +98,8 @@ export function ProductCard({ product }: ProductCardProps) {
               src={imageUrl}
               alt={product.name}
               fill
-              className="object-cover"
+              draggable={false}
+              className="pointer-events-none object-cover"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               unoptimized={
                 imageUrl.startsWith('http://localhost') ||

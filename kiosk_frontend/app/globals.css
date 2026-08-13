@@ -146,22 +146,58 @@
   }
 
   /*
-   * Touch scroll for kiosk / WebView2:
-   * Avoid strict pan-y / pan-x — they fight nested scrollers on Windows.
-   * manipulation keeps taps fast and allows finger scrolling.
+   * Touch scroll for kiosk panels.
+   * pan-y on the scroller AND descendants so drags on cards/buttons scroll the panel.
+   * Horizontal chip rows (.kiosk-scroll-x) override to pan-x.
    */
   .kiosk-scroll {
     -webkit-overflow-scrolling: touch;
-    touch-action: manipulation;
-    overscroll-behavior: auto;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
     overflow-y: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .kiosk-scroll * {
+    touch-action: pan-y;
   }
 
   .kiosk-scroll-x {
     -webkit-overflow-scrolling: touch;
-    touch-action: manipulation;
+    touch-action: pan-x;
     overscroll-behavior-x: contain;
     overflow-x: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .kiosk-scroll-x * {
+    touch-action: pan-x;
+  }
+
+  .kiosk-scroll .kiosk-scroll-x,
+  .kiosk-scroll .kiosk-scroll-x * {
+    touch-action: pan-x;
+  }
+
+  .kiosk-scroll input,
+  .kiosk-scroll textarea,
+  .kiosk-scroll [contenteditable='true'],
+  .kiosk-scroll-x input,
+  .kiosk-scroll-x textarea,
+  .kiosk-scroll-x [contenteditable='true'] {
+    user-select: text;
+    -webkit-user-select: text;
+    touch-action: auto;
+  }
+
+  .kiosk-scroll img,
+  .kiosk-scroll-x img {
+    -webkit-user-drag: none;
+    user-select: none;
   }
 }
 

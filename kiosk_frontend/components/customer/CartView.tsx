@@ -3,11 +3,19 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ShoppingBag, Trash2, Minus, Plus, TicketPercent, X } from 'lucide-react'
+import { ShoppingBag, Trash2, Minus, Plus, TicketPercent, X, UtensilsCrossed, Package } from 'lucide-react'
 import { useCartStore } from '@/lib/store/cart-store'
 import { couponsApi } from '@/lib/api/dashboard'
 import { formatCurrency, formatNumber, cn } from '@/lib/utils'
 import { Button } from '@/components/shared/Button'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   DEFAULT_PACKAGING_TITLE_DINE_IN,
   DEFAULT_PACKAGING_TITLE_TAKEAWAY,
@@ -53,7 +61,11 @@ export function CartView({
   takeawayEnabled = true,
 }: CartViewProps) {
   const [isMounted, setIsMounted] = useState(false)
-  const [fulfillmentType, setFulfillmentType] = useState<'dine_in' | 'takeaway' | null>(null)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [modalFulfillment, setModalFulfillment] = useState<
+    'dine_in' | 'takeaway' | null
+  >(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
   const [couponInput, setCouponInput] = useState('')
   const [couponMsg, setCouponMsg] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
@@ -73,31 +85,21 @@ export function CartView({
 
   const dineInFee = Math.max(0, Math.round(Number(serviceFeeDineIn) || 0))
   const takeawayFee = Math.max(0, Math.round(Number(serviceFeeTakeaway) || 0))
-  const fee =
-    fulfillmentType === 'takeaway'
-      ? takeawayFee
-      : fulfillmentType === 'dine_in'
-        ? dineInFee
-        : 0
-  const serviceTitle =
-    fulfillmentType === 'takeaway' ? serviceTitleTakeaway : serviceTitleDineIn
   const dineInPackaging = Math.max(0, Math.round(Number(packagingFeeDineIn) || 0))
-  const takeawayPackaging = Math.max(0, Math.round(Number(packagingFeeTakeaway) || 0))
-  const packagingFee =
-    fulfillmentType === 'takeaway'
-      ? takeawayPackaging
-      : fulfillmentType === 'dine_in'
-        ? dineInPackaging
-        : 0
-  const packagingTitle =
-    fulfillmentType === 'takeaway' ? packagingTitleTakeaway : packagingTitleDineIn
+  const takeawayPackaging = Math.max(
+    0,
+    Math.round(Number(packagingFeeTakeaway) || 0)
+  )
   const itemsTotal = getTotalPrice()
   const itemCount = getTotalItems()
 
   useEffect(() => setIsMounted(true), [])
   useEffect(() => setCouponInput(couponCode || ''), [couponCode])
   useEffect(() => {
-    if (items.length === 0) setBottomExpanded(false)
+    if (items.length === 0) {
+      setBottomExpanded(false)
+      setCheckoutOpen(false)
+    }
   }, [items.length])
   useEffect(() => {
     if (!couponsEnabled) {
@@ -106,25 +108,27 @@ export function CartView({
       setCouponMsg('')
     }
   }, [couponsEnabled, clearCoupon])
-  useEffect(() => {
-    const choiceOn = fulfillmentChoiceEnabled !== false
-    const dineOk = choiceOn && dineInEnabled !== false
-    const takeOk = choiceOn && takeawayEnabled !== false
-    setFulfillmentType((prev) => {
-      if (!choiceOn) return 'dine_in'
-      if (prev === 'dine_in' && dineOk) return prev
-      if (prev === 'takeaway' && takeOk) return prev
-      if (dineOk) return 'dine_in'
-      if (takeOk) return 'takeaway'
-      return null
-    })
-  }, [fulfillmentChoiceEnabled, dineInEnabled, takeawayEnabled])
 
   const showFulfillmentChoice = fulfillmentChoiceEnabled !== false
   const effectiveDineIn = showFulfillmentChoice && dineInEnabled !== false
   const effectiveTakeaway = showFulfillmentChoice && takeawayEnabled !== false
+  const bothFulfillmentOptions = effectiveDineIn && effectiveTakeaway
+  const noFulfillmentOption =
+    showFulfillmentChoice && !effectiveDineIn && !effectiveTakeaway
 
-  const applyCoupon = async () => {
+  const feesFor = (type: 'dine_in' | 'takeaway') => {
+    const service =
+      type === 'takeaway' ? takeawayFee : dineInFee
+    const packaging =
+      type === 'takeaway' ? takeawayPackaging : dineInPackaging
+    const serviceTitle =
+      type === 'takeaway' ? serviceTitleTakeaway : serviceTitleDineIn
+    const packagingTitle =
+      type === 'takeaway' ? packagingTitleTakeaway : packagingTitleDineIn
+    return { service, packaging, serviceTitle, packagingTitle }
+  }
+
+  const applyCoupon = async (serviceFee = 0, packagingFee = 0) => {
     if (!couponsEnabled) return
     const code = couponInput.trim()
     if (!code) {
@@ -138,7 +142,7 @@ export function CartView({
       const preview = await couponsApi.validate({
         code,
         items_total: itemsTotal,
-        service_fee: fee,
+        service_fee: serviceFee,
         packaging_fee: packagingFee,
       })
       setCoupon(preview.code, preview.discount_amount)
@@ -156,187 +160,404 @@ export function CartView({
   }
 
   const effectiveDiscount = couponsEnabled ? discountAmount : 0
-  const effectiveGrandTotal = Math.max(
-    itemsTotal + fee + packagingFee - effectiveDiscount,
-    0
-  )
+  /** Cart strip total (fees applied after fulfillment choice). */
+  const cartDisplayTotal = Math.max(itemsTotal - effectiveDiscount, 0)
+
+  const modalFees = modalFulfillment ? feesFor(modalFulfillment) : null
+  const modalGrandTotal = modalFulfillment
+    ? Math.max(
+        itemsTotal +
+          (modalFees?.service || 0) +
+          (modalFees?.packaging || 0) -
+          effectiveDiscount,
+        0
+      )
+    : cartDisplayTotal
+
+  const startCheckout = (type: 'dine_in' | 'takeaway') => {
+    setCheckoutOpen(false)
+    onCheckout(type)
+  }
+
+  const handlePayClick = () => {
+    if (items.length === 0 || noFulfillmentOption) return
+    if (!showFulfillmentChoice) {
+      startCheckout('dine_in')
+      return
+    }
+    if (bothFulfillmentOptions) {
+      setModalFulfillment(null)
+      setCheckoutOpen(true)
+      return
+    }
+    startCheckout(effectiveDineIn ? 'dine_in' : 'takeaway')
+  }
+
+  const handleConfirmModalPay = async () => {
+    if (!modalFulfillment) return
+    setConfirmLoading(true)
+    try {
+      const { service, packaging } = feesFor(modalFulfillment)
+      if (couponsEnabled && couponCode) {
+        try {
+          const preview = await couponsApi.validate({
+            code: couponCode,
+            items_total: itemsTotal,
+            service_fee: service,
+            packaging_fee: packaging,
+          })
+          setCoupon(preview.code, preview.discount_amount)
+        } catch {
+          /* keep current discount if revalidate fails */
+        }
+      }
+      startCheckout(modalFulfillment)
+    } finally {
+      setConfirmLoading(false)
+    }
+  }
 
   if (!isMounted) {
     return (
       <div
         className={cn(
           'bg-card',
-          layout === 'side' ? 'flex h-full flex-col' : 'min-h-[7.5rem] w-full border-t portrait:min-h-[22vh]'
+          layout === 'side'
+            ? 'flex h-full flex-col'
+            : 'min-h-[7.5rem] w-full border-t portrait:min-h-[22vh]'
         )}
       />
     )
   }
 
-  if (layout === 'bottom') {
-    return (
-      <BottomCart
-        items={items}
-        itemCount={itemCount}
-        grandTotal={effectiveGrandTotal}
-        fee={fee}
-        serviceTitle={serviceTitle}
-        packagingFee={packagingFee}
-        packagingTitle={packagingTitle}
-        discountAmount={effectiveDiscount}
-        couponsEnabled={couponsEnabled}
-        couponCode={couponCode}
-        couponInput={couponInput}
-        couponMsg={couponMsg}
-        couponLoading={couponLoading}
-        fulfillmentType={fulfillmentType}
-        showFulfillmentChoice={showFulfillmentChoice}
-        dineInEnabled={effectiveDineIn}
-        takeawayEnabled={effectiveTakeaway}
-        expanded={bottomExpanded}
-        getLineUnitPrice={getLineUnitPrice}
-        onExpand={() => setBottomExpanded(true)}
-        onCollapse={() => setBottomExpanded(false)}
-        onFulfillment={setFulfillmentType}
-        onCouponInput={setCouponInput}
-        onApplyCoupon={() => void applyCoupon()}
-        onClearCoupon={() => {
-          clearCoupon()
-          setCouponInput('')
-          setCouponMsg('')
-        }}
-        onRemove={(key) => removeItem(key)}
-        onQuantity={(key, qty) => updateQuantity(key, qty)}
-        onCheckout={() => fulfillmentType && onCheckout(fulfillmentType)}
-      />
-    )
+  const shared = {
+    items,
+    itemCount,
+    cartTotal: cartDisplayTotal,
+    discountAmount: effectiveDiscount,
+    couponsEnabled,
+    couponCode,
+    couponInput,
+    couponMsg,
+    couponLoading,
+    payDisabled: noFulfillmentOption,
+    getLineUnitPrice,
+    onCouponInput: setCouponInput,
+    onApplyCoupon: () => void applyCoupon(0, 0),
+    onClearCoupon: () => {
+      clearCoupon()
+      setCouponInput('')
+      setCouponMsg('')
+    },
+    onRemove: (key: string) => removeItem(key),
+    onQuantity: (key: string, qty: number) => updateQuantity(key, qty),
+    onPay: handlePayClick,
   }
 
   return (
-    <SideCart
-      items={items}
-      itemCount={itemCount}
-      grandTotal={effectiveGrandTotal}
-      fee={fee}
-      serviceTitle={serviceTitle}
-      packagingFee={packagingFee}
-      packagingTitle={packagingTitle}
-      discountAmount={effectiveDiscount}
-      couponsEnabled={couponsEnabled}
-      couponCode={couponCode}
-      couponInput={couponInput}
-      couponMsg={couponMsg}
-      couponLoading={couponLoading}
-      fulfillmentType={fulfillmentType}
-      showFulfillmentChoice={showFulfillmentChoice}
-      dineInEnabled={effectiveDineIn}
-      takeawayEnabled={effectiveTakeaway}
-      getLineUnitPrice={getLineUnitPrice}
-      onFulfillment={setFulfillmentType}
-      onCouponInput={setCouponInput}
-      onApplyCoupon={() => void applyCoupon()}
-      onClearCoupon={() => {
-        clearCoupon()
-        setCouponInput('')
-        setCouponMsg('')
-      }}
-      onRemove={(key) => removeItem(key)}
-      onQuantity={(key, qty) => updateQuantity(key, qty)}
-      onCheckout={() => fulfillmentType && onCheckout(fulfillmentType)}
-    />
+    <>
+      {layout === 'bottom' ? (
+        <BottomCart
+          {...shared}
+          expanded={bottomExpanded}
+          onExpand={() => setBottomExpanded(true)}
+          onCollapse={() => setBottomExpanded(false)}
+        />
+      ) : (
+        <SideCart {...shared} />
+      )}
+
+      <FulfillmentCheckoutModal
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        fulfillment={modalFulfillment}
+        onSelectFulfillment={setModalFulfillment}
+        dineInEnabled={effectiveDineIn}
+        takeawayEnabled={effectiveTakeaway}
+        dineInFee={dineInFee}
+        takeawayFee={takeawayFee}
+        dineInPackaging={dineInPackaging}
+        takeawayPackaging={takeawayPackaging}
+        serviceTitleDineIn={serviceTitleDineIn}
+        serviceTitleTakeaway={serviceTitleTakeaway}
+        packagingTitleDineIn={packagingTitleDineIn}
+        packagingTitleTakeaway={packagingTitleTakeaway}
+        itemsTotal={itemsTotal}
+        discountAmount={effectiveDiscount}
+        couponCode={couponCode}
+        grandTotal={modalGrandTotal}
+        confirmLoading={confirmLoading}
+        onConfirm={() => void handleConfirmModalPay()}
+      />
+    </>
   )
 }
 
 type CartSharedProps = {
   items: ReturnType<typeof useCartStore.getState>['items']
   itemCount: number
-  grandTotal: number
-  fee: number
-  serviceTitle: string
-  packagingFee: number
-  packagingTitle: string
+  cartTotal: number
   discountAmount: number
   couponsEnabled: boolean
   couponCode: string
   couponInput: string
   couponMsg: string
   couponLoading: boolean
-  fulfillmentType: 'dine_in' | 'takeaway' | null
-  showFulfillmentChoice: boolean
-  dineInEnabled: boolean
-  takeawayEnabled: boolean
+  payDisabled: boolean
   getLineUnitPrice: (item: any) => number
-  onFulfillment: (v: 'dine_in' | 'takeaway') => void
   onCouponInput: (v: string) => void
   onApplyCoupon: () => void
   onClearCoupon: () => void
   onRemove: (key: string) => void
   onQuantity: (key: string, qty: number) => void
-  onCheckout: () => void
+  onPay: () => void
 }
 
-function FulfillmentToggle({
-  value,
-  onChange,
-  compact = false,
-  dineInEnabled = true,
-  takeawayEnabled = true,
+function FulfillmentCheckoutModal({
+  open,
+  onOpenChange,
+  fulfillment,
+  onSelectFulfillment,
+  dineInEnabled,
+  takeawayEnabled,
+  dineInFee,
+  takeawayFee,
+  dineInPackaging,
+  takeawayPackaging,
+  serviceTitleDineIn,
+  serviceTitleTakeaway,
+  packagingTitleDineIn,
+  packagingTitleTakeaway,
+  itemsTotal,
+  discountAmount,
+  couponCode,
+  grandTotal,
+  confirmLoading,
+  onConfirm,
 }: {
-  value: 'dine_in' | 'takeaway' | null
-  onChange: (v: 'dine_in' | 'takeaway') => void
-  compact?: boolean
-  dineInEnabled?: boolean
-  takeawayEnabled?: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  fulfillment: 'dine_in' | 'takeaway' | null
+  onSelectFulfillment: (v: 'dine_in' | 'takeaway') => void
+  dineInEnabled: boolean
+  takeawayEnabled: boolean
+  dineInFee: number
+  takeawayFee: number
+  dineInPackaging: number
+  takeawayPackaging: number
+  serviceTitleDineIn: string
+  serviceTitleTakeaway: string
+  packagingTitleDineIn: string
+  packagingTitleTakeaway: string
+  itemsTotal: number
+  discountAmount: number
+  couponCode: string
+  grandTotal: number
+  confirmLoading: boolean
+  onConfirm: () => void
 }) {
-  const opts = [
-    { id: 'dine_in' as const, label: 'داخل سالن', enabled: dineInEnabled },
-    { id: 'takeaway' as const, label: 'بیرون‌بر', enabled: takeawayEnabled },
+  const options = [
+    {
+      id: 'dine_in' as const,
+      label: 'داخل سالن',
+      hint: 'سرو در محل',
+      icon: UtensilsCrossed,
+      enabled: dineInEnabled,
+      service: dineInFee,
+      packaging: dineInPackaging,
+      serviceTitle: serviceTitleDineIn,
+      packagingTitle: packagingTitleDineIn,
+    },
+    {
+      id: 'takeaway' as const,
+      label: 'بیرون‌بر',
+      hint: 'تحویل برای بیرون',
+      icon: Package,
+      enabled: takeawayEnabled,
+      service: takeawayFee,
+      packaging: takeawayPackaging,
+      serviceTitle: serviceTitleTakeaway,
+      packagingTitle: packagingTitleTakeaway,
+    },
   ].filter((o) => o.enabled)
 
-  if (opts.length === 0) {
-    return (
-      <div className="rounded-2xl bg-destructive/10 px-3 py-2 text-center text-xs font-semibold text-destructive">
-        هیچ نوع سفارشی فعال نیست
-      </div>
-    )
-  }
-
-  if (opts.length === 1) {
-    return (
-      <div
-        className={cn(
-          'rounded-2xl bg-primary/10 px-3 text-center font-bold text-primary',
-          compact ? 'py-2 text-xs' : 'py-2.5 text-sm'
-        )}
-      >
-        {opts[0].label}
-      </div>
-    )
-  }
+  const selected = options.find((o) => o.id === fulfillment)
 
   return (
-    <div
-      className={cn(
-        'grid grid-cols-2 gap-1.5 rounded-2xl bg-muted/60 p-1',
-        compact && 'gap-1 p-0.5'
-      )}
-    >
-      {opts.map((o) => (
-        <button
-          key={o.id}
-          type="button"
-          onClick={() => onChange(o.id)}
-          className={cn(
-            'rounded-xl font-bold transition-all',
-            compact ? 'px-2.5 py-2 text-xs' : 'px-3 py-2.5 text-sm',
-            value === o.id
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        hideCloseButton
+        className={cn(
+          'flex max-h-[92vh] w-[min(960px,94vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-3xl',
+          'top-[50%] translate-y-[-50%]'
+        )}
+      >
+        <div className="relative border-b border-border/70 bg-gradient-to-l from-primary/10 via-background to-background px-6 py-5 pe-28 sm:px-8 sm:py-6 sm:pe-36">
+          <DialogClose
+            type="button"
+            className={cn(
+              'absolute end-4 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center gap-2',
+              'h-14 min-w-[7.5rem] rounded-2xl border-2 border-border bg-card px-4',
+              'text-base font-black text-foreground shadow-md',
+              'hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+              'sm:h-16 sm:min-w-[8.5rem] sm:text-lg'
+            )}
+            aria-label="بستن"
+          >
+            <X className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2.5} />
+            بستن
+          </DialogClose>
+          <DialogHeader className="space-y-2 text-right">
+            <DialogTitle className="text-2xl font-black tracking-tight sm:text-3xl">
+              نحوه دریافت سفارش
+            </DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground sm:text-lg">
+              داخل سالن یا بیرون‌بر را انتخاب کنید، سپس پرداخت را بزنید
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="kiosk-scroll min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-6 sm:px-8">
+          <div
+            className={cn(
+              'grid gap-4',
+              options.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'
+            )}
+          >
+            {options.map((opt) => {
+              const Icon = opt.icon
+              const active = fulfillment === opt.id
+              const optionTotal = opt.service + opt.packaging
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => onSelectFulfillment(opt.id)}
+                  className={cn(
+                    'relative flex min-h-[11rem] flex-col rounded-3xl border-2 p-5 text-right transition-all sm:min-h-[12.5rem] sm:p-6',
+                    active
+                      ? 'border-primary bg-primary/10 shadow-lg shadow-primary/15 scale-[1.01]'
+                      : 'border-border/80 bg-card hover:border-primary/40 hover:bg-muted/40'
+                  )}
+                >
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div
+                      className={cn(
+                        'flex h-14 w-14 items-center justify-center rounded-2xl sm:h-16 sm:w-16',
+                        active
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2} />
+                    </div>
+                    {active ? (
+                      <span className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
+                        انتخاب شده
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-xl font-black sm:text-2xl">{opt.label}</p>
+                  <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                    {opt.hint}
+                  </p>
+                  <div className="mt-auto space-y-1 pt-4 text-sm">
+                    {opt.service > 0 ? (
+                      <div className="flex justify-between gap-3 text-muted-foreground">
+                        <span>{opt.serviceTitle}</span>
+                        <span className="font-semibold tabular-nums">
+                          {formatCurrency(opt.service)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {opt.packaging > 0 ? (
+                      <div className="flex justify-between gap-3 text-muted-foreground">
+                        <span>{opt.packagingTitle}</span>
+                        <span className="font-semibold tabular-nums">
+                          {formatCurrency(opt.packaging)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {optionTotal === 0 ? (
+                      <p className="text-muted-foreground">بدون هزینه اضافه</p>
+                    ) : null}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="rounded-3xl border border-border/80 bg-muted/40 px-5 py-5 sm:px-6 sm:py-6">
+            <p className="mb-4 text-base font-bold sm:text-lg">جمع‌بندی پرداخت</p>
+            <div className="space-y-3 text-base sm:text-lg">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">جمع محصولات</span>
+                <span className="font-bold tabular-nums">
+                  {formatCurrency(itemsTotal)}
+                </span>
+              </div>
+              {selected && selected.service > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">
+                    {selected.serviceTitle}
+                  </span>
+                  <span className="font-bold tabular-nums">
+                    {formatCurrency(selected.service)}
+                  </span>
+                </div>
+              ) : null}
+              {selected && selected.packaging > 0 ? (
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">
+                    {selected.packagingTitle}
+                  </span>
+                  <span className="font-bold tabular-nums">
+                    {formatCurrency(selected.packaging)}
+                  </span>
+                </div>
+              ) : null}
+              {discountAmount > 0 ? (
+                <div className="flex justify-between gap-4 text-emerald-600">
+                  <span>
+                    تخفیف{couponCode ? ` (${couponCode})` : ''}
+                  </span>
+                  <span className="font-bold tabular-nums">
+                    -{formatCurrency(discountAmount)}
+                  </span>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-4 border-t border-border/70 pt-4">
+                <span className="text-lg font-black sm:text-xl">مبلغ نهایی</span>
+                <span className="text-2xl font-black text-primary sm:text-3xl tabular-nums">
+                  {fulfillment
+                    ? formatCurrency(grandTotal)
+                    : '—'}
+                </span>
+              </div>
+              {!fulfillment ? (
+                <p className="text-sm text-muted-foreground">
+                  برای دیدن مبلغ نهایی، نوع سفارش را انتخاب کنید
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-border/70 bg-card px-6 py-5 sm:px-8 sm:py-6">
+          <Button
+            type="button"
+            variant="primary"
+            disabled={!fulfillment || confirmLoading}
+            isLoading={confirmLoading}
+            onClick={onConfirm}
+            className="h-16 w-full rounded-2xl text-xl font-black shadow-xl shadow-primary/25 sm:h-[4.5rem] sm:text-2xl"
+          >
+            پرداخت و ادامه
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -356,7 +577,9 @@ function SideCart(props: CartSharedProps) {
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-black tracking-tight">سبد خرید</h2>
           <p className="text-xs text-muted-foreground">
-            {empty ? 'سبد خالی است' : `${formatNumber(props.itemCount)} قلم انتخاب‌شده`}
+            {empty
+              ? 'سبد خالی است'
+              : `${formatNumber(props.itemCount)} قلم انتخاب‌شده`}
           </p>
         </div>
         {!empty ? (
@@ -410,7 +633,9 @@ function SideCart(props: CartSharedProps) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <h4 className="truncate font-bold leading-snug">{item.product.name}</h4>
+                          <h4 className="truncate font-bold leading-snug">
+                            {item.product.name}
+                          </h4>
                           <button
                             type="button"
                             onClick={() => props.onRemove(item.key)}
@@ -427,7 +652,9 @@ function SideCart(props: CartSharedProps) {
                                 key={`${item.key}-${o.id}`}
                                 className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
                               >
-                                {o.group_name ? `${o.group_name}: ${o.name}` : o.name}
+                                {o.group_name
+                                  ? `${o.group_name}: ${o.name}`
+                                  : o.name}
                               </span>
                             ))}
                           </div>
@@ -439,7 +666,9 @@ function SideCart(props: CartSharedProps) {
                           <button
                             type="button"
                             className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-background"
-                            onClick={() => props.onQuantity(item.key, item.quantity - 1)}
+                            onClick={() =>
+                              props.onQuantity(item.key, item.quantity - 1)
+                            }
                           >
                             <Minus className="h-4 w-4" />
                           </button>
@@ -449,8 +678,12 @@ function SideCart(props: CartSharedProps) {
                           <button
                             type="button"
                             className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-background disabled:opacity-40"
-                            disabled={item.quantity >= item.product.stock_quantity}
-                            onClick={() => props.onQuantity(item.key, item.quantity + 1)}
+                            disabled={
+                              item.quantity >= item.product.stock_quantity
+                            }
+                            onClick={() =>
+                              props.onQuantity(item.key, item.quantity + 1)
+                            }
                           >
                             <Plus className="h-4 w-4" />
                           </button>
@@ -467,15 +700,6 @@ function SideCart(props: CartSharedProps) {
 
       {!empty ? (
         <div className="relative z-[1] space-y-3 border-t border-border/70 bg-card/95 px-4 py-4 backdrop-blur">
-          {props.showFulfillmentChoice ? (
-            <FulfillmentToggle
-              value={props.fulfillmentType}
-              onChange={props.onFulfillment}
-              dineInEnabled={props.dineInEnabled}
-              takeawayEnabled={props.takeawayEnabled}
-            />
-          ) : null}
-
           {props.couponsEnabled ? (
             <div className="space-y-1.5">
               <div className="flex gap-2">
@@ -505,40 +729,32 @@ function SideCart(props: CartSharedProps) {
           ) : null}
 
           <div className="space-y-1 rounded-2xl bg-muted/50 px-3 py-2.5 text-sm">
-            {props.fee > 0 ? (
-              <div className="flex justify-between text-muted-foreground">
-                <span>{props.serviceTitle}</span>
-                <span>{formatCurrency(props.fee)}</span>
-              </div>
-            ) : null}
-            {props.packagingFee > 0 ? (
-              <div className="flex justify-between text-muted-foreground">
-                <span>{props.packagingTitle}</span>
-                <span>{formatCurrency(props.packagingFee)}</span>
-              </div>
-            ) : null}
             {props.discountAmount > 0 ? (
               <div className="flex justify-between text-emerald-600">
-                <span>تخفیف{props.couponCode ? ` (${props.couponCode})` : ''}</span>
+                <span>
+                  تخفیف{props.couponCode ? ` (${props.couponCode})` : ''}
+                </span>
                 <span>-{formatCurrency(props.discountAmount)}</span>
               </div>
             ) : null}
             <div className="flex items-center justify-between pt-1">
-              <span className="font-medium">جمع کل</span>
+              <span className="font-medium">جمع سبد</span>
               <span className="text-xl font-black text-primary">
-                {formatCurrency(props.grandTotal)}
+                {formatCurrency(props.cartTotal)}
               </span>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              هزینه سرویس و بسته‌بندی در مرحله پرداخت مشخص می‌شود
+            </p>
           </div>
 
           <Button
             variant="primary"
-            size="lg"
-            className="w-full rounded-2xl text-base font-black shadow-lg shadow-primary/20"
-            disabled={!props.fulfillmentType}
-            onClick={props.onCheckout}
+            disabled={props.payDisabled}
+            onClick={props.onPay}
+            className="h-16 w-full rounded-2xl text-xl font-black shadow-xl shadow-primary/25"
           >
-            تکمیل سفارش
+            پرداخت
           </Button>
         </div>
       ) : null}
@@ -559,7 +775,6 @@ function BottomCart(
     <div
       className={cn(
         'relative z-40 w-full flex-shrink-0 border-t border-border/80 bg-card/95 shadow-[0_-12px_40px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:shadow-[0_-12px_40px_rgba(0,0,0,0.35)]',
-        // Landscape / wide: compact strip. Portrait kiosks: taller for easy touch.
         'min-h-[7.5rem] sm:min-h-[8.25rem]',
         'portrait:min-h-[22vh] portrait:max-h-[38vh] sm:portrait:min-h-[24vh]'
       )}
@@ -579,7 +794,9 @@ function BottomCart(
           >
             <div className="space-y-3 px-4 py-3 sm:px-6 portrait:px-5 portrait:py-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold portrait:text-base">جزئیات سفارش</p>
+                <p className="text-sm font-bold portrait:text-base">
+                  جزئیات سفارش
+                </p>
                 <button
                   type="button"
                   onClick={props.onCollapse}
@@ -589,15 +806,6 @@ function BottomCart(
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              {props.showFulfillmentChoice ? (
-                <FulfillmentToggle
-                  value={props.fulfillmentType}
-                  onChange={props.onFulfillment}
-                  compact
-                  dineInEnabled={props.dineInEnabled}
-                  takeawayEnabled={props.takeawayEnabled}
-                />
-              ) : null}
               {props.couponsEnabled ? (
                 <div className="space-y-1.5">
                   <div className="flex gap-2">
@@ -617,33 +825,28 @@ function BottomCart(
                       اعمال
                     </Button>
                     {props.couponCode ? (
-                      <Button type="button" variant="ghost" size="sm" onClick={props.onClearCoupon}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={props.onClearCoupon}
+                      >
                         حذف کد
                       </Button>
                     ) : null}
                   </div>
                   {props.couponMsg ? (
-                    <p className="text-xs text-muted-foreground">{props.couponMsg}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {props.couponMsg}
+                    </p>
                   ) : null}
                 </div>
               ) : null}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                {props.fee > 0 ? (
-                  <span className="text-muted-foreground">
-                    {props.serviceTitle}: {formatCurrency(props.fee)}
-                  </span>
-                ) : null}
-                {props.packagingFee > 0 ? (
-                  <span className="text-muted-foreground">
-                    {props.packagingTitle}: {formatCurrency(props.packagingFee)}
-                  </span>
-                ) : null}
-                {props.discountAmount > 0 ? (
-                  <span className="text-emerald-600">
-                    تخفیف: -{formatCurrency(props.discountAmount)}
-                  </span>
-                ) : null}
-              </div>
+              {props.discountAmount > 0 ? (
+                <div className="text-sm text-emerald-600">
+                  تخفیف: -{formatCurrency(props.discountAmount)}
+                </div>
+              ) : null}
             </div>
           </motion.div>
         ) : null}
@@ -655,17 +858,18 @@ function BottomCart(
           'portrait:gap-4 portrait:px-4 portrait:py-4'
         )}
       >
-        {/* CTA cluster */}
         <div
           className={cn(
-            'flex w-[min(280px,34%)] flex-shrink-0 flex-col justify-center gap-2',
-            'portrait:w-[min(320px,38%)] portrait:gap-3'
+            'flex w-[min(340px,42%)] flex-shrink-0 flex-col justify-center gap-2',
+            'portrait:w-[min(380px,46%)] portrait:gap-3'
           )}
         >
           <div className="flex items-baseline justify-between gap-2 px-1">
-            <span className="text-xs text-muted-foreground portrait:text-sm">جمع</span>
+            <span className="text-xs text-muted-foreground portrait:text-sm">
+              جمع سبد
+            </span>
             <span className="text-lg font-black text-primary sm:text-xl portrait:text-2xl">
-              {empty ? formatCurrency(0) : formatCurrency(props.grandTotal)}
+              {empty ? formatCurrency(0) : formatCurrency(props.cartTotal)}
             </span>
           </div>
           {!empty ? (
@@ -682,16 +886,9 @@ function BottomCart(
               <Button
                 type="button"
                 variant="primary"
-                size="sm"
-                className="flex-[1.4] rounded-xl font-black shadow-md shadow-primary/20 portrait:h-14 portrait:text-base"
-                disabled={!props.fulfillmentType}
-                onClick={() => {
-                  if (!props.fulfillmentType) {
-                    props.onExpand()
-                    return
-                  }
-                  props.onCheckout()
-                }}
+                disabled={props.payDisabled}
+                onClick={props.onPay}
+                className="h-14 flex-[1.8] rounded-2xl text-lg font-black shadow-lg shadow-primary/25 portrait:h-16 portrait:text-xl"
               >
                 پرداخت
               </Button>
@@ -699,7 +896,6 @@ function BottomCart(
           ) : null}
         </div>
 
-        {/* Horizontal items / empty */}
         <div className="kiosk-scroll min-w-0 flex-1 overflow-x-auto overscroll-x-contain">
           {empty ? (
             <div className="flex h-full min-h-[5.5rem] items-center justify-center rounded-2xl border border-dashed border-border/80 bg-muted/25 px-5 portrait:min-h-[12vh]">
@@ -759,7 +955,9 @@ function BottomCart(
                         <button
                           type="button"
                           className="flex h-7 w-7 items-center justify-center portrait:h-9 portrait:w-9"
-                          onClick={() => props.onQuantity(item.key, item.quantity - 1)}
+                          onClick={() =>
+                            props.onQuantity(item.key, item.quantity - 1)
+                          }
                         >
                           <Minus className="h-3 w-3" />
                         </button>
@@ -769,8 +967,12 @@ function BottomCart(
                         <button
                           type="button"
                           className="flex h-7 w-7 items-center justify-center disabled:opacity-40 portrait:h-9 portrait:w-9"
-                          disabled={item.quantity >= item.product.stock_quantity}
-                          onClick={() => props.onQuantity(item.key, item.quantity + 1)}
+                          disabled={
+                            item.quantity >= item.product.stock_quantity
+                          }
+                          onClick={() =>
+                            props.onQuantity(item.key, item.quantity + 1)
+                          }
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -783,20 +985,7 @@ function BottomCart(
           )}
         </div>
 
-        {!empty && props.showFulfillmentChoice ? (
-          <div className="hidden w-28 flex-shrink-0 flex-col justify-center gap-1.5 lg:flex portrait:w-32">
-            <span className="text-center text-[11px] font-medium text-muted-foreground portrait:text-xs">
-              {formatNumber(props.itemCount)} قلم
-            </span>
-            <FulfillmentToggle
-              value={props.fulfillmentType}
-              onChange={props.onFulfillment}
-              compact
-              dineInEnabled={props.dineInEnabled}
-              takeawayEnabled={props.takeawayEnabled}
-            />
-          </div>
-        ) : !empty ? (
+        {!empty ? (
           <div className="hidden w-28 flex-shrink-0 flex-col justify-center gap-1.5 lg:flex portrait:w-32">
             <span className="text-center text-[11px] font-medium text-muted-foreground portrait:text-xs">
               {formatNumber(props.itemCount)} قلم

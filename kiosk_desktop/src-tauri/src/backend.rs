@@ -151,6 +151,7 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<
         .env("POS_TCP_HOST", &config.pos_host)
         .env("POS_TCP_PORT", config.pos_port.to_string())
         .env("SEED_DEMO_DATA", "1")
+        .env("KIOSK_QUIET_STARTUP", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());

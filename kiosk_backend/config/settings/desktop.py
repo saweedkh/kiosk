@@ -49,6 +49,18 @@ for handler in LOGGING.get('handlers', {}).values():
     if handler.get('class') == 'logging.FileHandler':
         handler['filename'] = str(LOGS_DIR / 'django-app.log')
 
+# Packaged sidecar: Tauri captures stdout into django.log — keep console quiet.
+import sys as _sys
+
+if getattr(_sys, 'frozen', False) or _env('KIOSK_QUIET_STARTUP', '').lower() in ('1', 'true', 'yes', 'on'):
+    for _logger_cfg in LOGGING.get('loggers', {}).values():
+        _logger_cfg['handlers'] = [
+            h for h in _logger_cfg.get('handlers', []) if h != 'console'
+        ]
+    LOGGING['root']['handlers'] = [
+        h for h in LOGGING['root'].get('handlers', []) if h != 'console'
+    ]
+
 CORS_ALLOWED_ORIGINS = list(
     set(
         CORS_ALLOWED_ORIGINS

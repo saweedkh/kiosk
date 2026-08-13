@@ -26,6 +26,19 @@ def _configure_stdio_utf8() -> None:
             pass
 
 
+def _is_packaged() -> bool:
+    return getattr(sys, 'frozen', False)
+
+
+def _startup_verbosity() -> int:
+    """Packaged exe: no migration/seed spam in django.log."""
+    if _is_packaged():
+        return 0
+    if os.environ.get('KIOSK_QUIET_STARTUP', '').lower() in ('1', 'true', 'yes', 'on'):
+        return 0
+    return 1
+
+
 def _bootstrap_django() -> None:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
 
@@ -44,7 +57,8 @@ def _bootstrap_django() -> None:
 def _run_migrations() -> None:
     from django.core.management import call_command
 
-    call_command('migrate', '--noinput', verbosity=1)
+    v = _startup_verbosity()
+    call_command('migrate', '--noinput', verbosity=v)
     call_command('setup_permission_groups', verbosity=0)
     if os.environ.get('SEED_DEMO_DATA', '1') != '0':
         call_command('seed_demo_data', verbosity=0)
@@ -61,7 +75,8 @@ def main() -> None:
     from waitress import serve
     from config.wsgi import application
 
-    print(f'Kiosk backend (Django) http://{host}:{port}/', flush=True)
+    if not _is_packaged():
+        print(f'Kiosk backend (Django) http://{host}:{port}/', flush=True)
     serve(application, host=host, port=port, threads=6, channel_timeout=120)
 
 

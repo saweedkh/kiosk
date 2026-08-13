@@ -3,8 +3,10 @@ Print service for sending receipts to network printers using python-escpos.
 """
 from typing import Dict, Any, List, Optional
 import os
+import sys
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from PIL import Image, ImageFont
 from django.conf import settings
 from django.db import connection
@@ -76,6 +78,33 @@ class PrintService:
         thread.start()
 
     @staticmethod
+    def _resolve_receipt_font_path() -> str:
+        """Locate Persian receipt TTF in dev, PyInstaller bundle, or beside the EXE."""
+        names = ('Vazirmatn-Bold.ttf', 'Vazir-Bold.ttf')
+        roots: List[Path] = [Path(settings.BASE_DIR)]
+        if getattr(sys, 'frozen', False):
+            meipass = getattr(sys, '_MEIPASS', None)
+            if meipass:
+                roots.insert(0, Path(meipass))
+            try:
+                from apps.core.desktop_paths import get_package_root
+
+                roots.append(get_package_root())
+            except Exception:
+                pass
+        seen: set[str] = set()
+        for root in roots:
+            for name in names:
+                candidate = (root / 'static' / name).resolve()
+                key = str(candidate)
+                if key in seen:
+                    continue
+                seen.add(key)
+                if candidate.is_file():
+                    return key
+        return ''
+
+    @staticmethod
     def _load_fonts() -> Dict[str, ImageFont.ImageFont]:
         global _FONT_CACHE
         with _FONT_CACHE_LOCK:
@@ -90,21 +119,20 @@ class PrintService:
             'meta': None,
             'small': None,
         }
-        vazirmatn_bold_path = ''
+        font_path = PrintService._resolve_receipt_font_path()
         try:
-            vazirmatn_bold_path = os.path.join(settings.BASE_DIR, 'static', 'Vazirmatn-Bold.ttf')
-            if os.path.exists(vazirmatn_bold_path):
-                fonts['title'] = ImageFont.truetype(vazirmatn_bold_path, ReceiptConstants.FONT_SIZE_TITLE)
-                fonts['ticket'] = ImageFont.truetype(vazirmatn_bold_path, ReceiptConstants.FONT_SIZE_TICKET)
-                fonts['bold'] = ImageFont.truetype(vazirmatn_bold_path, ReceiptConstants.FONT_SIZE_BOLD)
-                fonts['normal'] = ImageFont.truetype(vazirmatn_bold_path, ReceiptConstants.FONT_SIZE_NORMAL)
-                fonts['meta'] = ImageFont.truetype(vazirmatn_bold_path, ReceiptConstants.FONT_SIZE_META)
-                fonts['small'] = ImageFont.truetype(vazirmatn_bold_path, ReceiptConstants.FONT_SIZE_SMALL)
+            if font_path:
+                fonts['title'] = ImageFont.truetype(font_path, ReceiptConstants.FONT_SIZE_TITLE)
+                fonts['ticket'] = ImageFont.truetype(font_path, ReceiptConstants.FONT_SIZE_TICKET)
+                fonts['bold'] = ImageFont.truetype(font_path, ReceiptConstants.FONT_SIZE_BOLD)
+                fonts['normal'] = ImageFont.truetype(font_path, ReceiptConstants.FONT_SIZE_NORMAL)
+                fonts['meta'] = ImageFont.truetype(font_path, ReceiptConstants.FONT_SIZE_META)
+                fonts['small'] = ImageFont.truetype(font_path, ReceiptConstants.FONT_SIZE_SMALL)
         except (OSError, IOError) as e:
             LogService.log_warning(
                 'print',
                 'font_load_failed',
-                details={'error': str(e), 'font_path': vazirmatn_bold_path},
+                details={'error': str(e), 'font_path': font_path},
             )
 
         fallback = ImageFont.load_default()
@@ -167,8 +195,10 @@ class PrintService:
         printer.set(align='center')
         if receipt_image.mode != 'RGB':
             receipt_image = receipt_image.convert('RGB')
-        # graphics (GS v 0) is often faster on ESC/POS network printers; fall back if unsupported
+        # bitImageRaster is the most compatible mode on ESC/POS network printers.
         try:
+            printer.image(receipt_image, impl='bitImageRaster')
+        except Exception:
             printer.image(
                 receipt_image,
                 impl='graphics',
@@ -176,8 +206,6 @@ class PrintService:
                 high_density_vertical=True,
                 high_density_horizontal=True,
             )
-        except Exception:
-            printer.image(receipt_image, impl='bitImageRaster')
         printer.text("\n\n")
         if cut:
             printer.cut()

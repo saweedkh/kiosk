@@ -23,6 +23,19 @@ try:
 except Exception:
     arabic_datas = []
 
+# Receipt Persian text needs a bundled TTF (not in collectstatic).
+_receipt_font = os.path.join(project_root, "static", "Vazirmatn-Bold.ttf")
+if not os.path.isfile(_receipt_font):
+    _receipt_font = os.path.join(
+        project_root, "..", "kiosk_frontend", "public", "font", "Vazir-Bold.ttf"
+    )
+if not os.path.isfile(_receipt_font):
+    raise SystemExit(
+        "Receipt font missing. Add kiosk_backend/static/Vazirmatn-Bold.ttf "
+        "or ensure kiosk_frontend/public/font/Vazir-Bold.ttf exists before building."
+    )
+_receipt_font_datas = [(_receipt_font, "static")]
+
 a = Analysis(
     [os.path.join(project_root, "main.py")],
     pathex=[project_root],
@@ -30,6 +43,7 @@ a = Analysis(
     datas=[
         (os.path.join(project_root, "apps"), "apps"),
         (os.path.join(project_root, "config"), "config"),
+        *_receipt_font_datas,
         *escpos_datas,
         *arabic_datas,
     ],

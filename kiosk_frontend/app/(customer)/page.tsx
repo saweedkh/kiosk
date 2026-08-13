@@ -241,7 +241,8 @@ export default function CustomerPage() {
     });
   };
 
-  // Auto-close payment modal: success / cancel / timeout → attract; insufficient funds → keep cart
+  // Auto-close payment modal: success / cancel / timeout → attract;
+  // insufficient funds / wrong PIN → keep cart
   useEffect(() => {
     if (
       (paymentStatus === "success" ||

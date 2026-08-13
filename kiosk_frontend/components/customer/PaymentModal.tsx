@@ -84,6 +84,31 @@ export function PaymentModal({
             bgGradient: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10',
           }
         }
+        if (failureKind === 'wrong_pin') {
+          return {
+            icon: (
+              <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-red-600 dark:text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+            ),
+            title: 'رمز اشتباه',
+            message: 'رمز کارت اشتباه بود. سبد خرید شما حفظ شده — می‌توانید دوباره پرداخت کنید.',
+            gradient: 'from-red-500 to-red-600',
+            bgGradient: 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/10',
+          }
+        }
         if (keepCart) {
           return {
             icon: (

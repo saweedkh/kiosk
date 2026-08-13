@@ -1,5 +1,6 @@
 export type PaymentFailureKind =
   | 'insufficient_funds'
+  | 'wrong_pin'
   | 'cancelled'
   | 'timeout'
   | 'other'
@@ -18,6 +19,7 @@ type ResolveInput = {
 
 const VALID_KINDS: PaymentFailureKind[] = [
   'insufficient_funds',
+  'wrong_pin',
   'cancelled',
   'timeout',
   'other',
@@ -66,6 +68,16 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
 
   const code = normalizeCode(input.gateway?.response_code)
   if (
+    code === '03' ||
+    message.includes('رمز اشتباه') ||
+    message.includes('wrong pin') ||
+    message.includes('incorrect pin') ||
+    message.includes('invalid pin')
+  ) {
+    return 'wrong_pin'
+  }
+
+  if (
     code === '02' ||
     message.includes('insufficient') ||
     message.includes('موجودی') ||
@@ -77,6 +89,7 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
   return 'other'
 }
 
+/** Soft failures where the customer can retry without losing the cart. */
 export function shouldKeepCartOnPaymentFailure(kind: PaymentFailureKind): boolean {
-  return kind === 'insufficient_funds'
+  return kind === 'insufficient_funds' || kind === 'wrong_pin'
 }

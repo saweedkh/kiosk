@@ -6,9 +6,11 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 INSUFFICIENT_FUNDS_CODES = frozenset({'02'})
+WRONG_PIN_CODES = frozenset({'03'})
 CANCEL_CODES = frozenset({'81', '99'})
 
 PAYMENT_FAILURE_INSUFFICIENT_FUNDS = 'insufficient_funds'
+PAYMENT_FAILURE_WRONG_PIN = 'wrong_pin'
 PAYMENT_FAILURE_CANCELLED = 'cancelled'
 PAYMENT_FAILURE_TIMEOUT = 'timeout'
 PAYMENT_FAILURE_OTHER = 'other'
@@ -21,7 +23,7 @@ def classify_payment_failure(
     error_message: str = '',
 ) -> str:
     """
-    Returns one of: insufficient_funds | cancelled | timeout | other
+    Returns one of: insufficient_funds | wrong_pin | cancelled | timeout | other
     """
     gr = gateway_response or {}
     status = (gr.get('status') or payment_status or '').strip().lower()
@@ -43,6 +45,9 @@ def classify_payment_failure(
         return PAYMENT_FAILURE_TIMEOUT
 
     code = _normalize_response_code(gr.get('response_code'))
+    if code in WRONG_PIN_CODES or _looks_wrong_pin(message):
+        return PAYMENT_FAILURE_WRONG_PIN
+
     if code in INSUFFICIENT_FUNDS_CODES or _looks_insufficient_funds(message):
         return PAYMENT_FAILURE_INSUFFICIENT_FUNDS
 
@@ -83,4 +88,17 @@ def _looks_timeout(message: str) -> bool:
 
 def _looks_insufficient_funds(message: str) -> bool:
     tokens = ('insufficient', 'موجودی', 'balance')
+    return any(token in message for token in tokens)
+
+
+def _looks_wrong_pin(message: str) -> bool:
+    tokens = (
+        'رمز اشتباه',
+        'رمز عبور اشتباه',
+        'wrong pin',
+        'incorrect pin',
+        'invalid pin',
+        'pin error',
+        'pin wrong',
+    )
     return any(token in message for token in tokens)

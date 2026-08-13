@@ -295,6 +295,9 @@ export interface Settings {
   receipt_copy_mode?: 'single' | 'dual' | string
   pos_ip?: string
   pos_port?: number
+  pos_payment_mode?: 'mock' | 'real' | string
+  mock_payment_delay?: number
+  mock_payment_success_rate?: number
   printer_enabled?: boolean
   printer_ip?: string
   printer_port?: number

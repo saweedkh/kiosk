@@ -75,6 +75,9 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'dine_in_enabled',
             'takeaway_enabled',
             'cart_layout',
+            'pos_payment_mode',
+            'mock_payment_delay',
+            'mock_payment_success_rate',
             'pos_ip',
             'pos_port',
             'printer_enabled',
@@ -122,6 +125,18 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
         if port < 1 or port > 65535:
             raise serializers.ValidationError('پورت باید بین ۱ تا ۶۵۵۳۵ باشد.')
         return port
+
+    def validate_mock_payment_delay(self, value):
+        delay = int(value)
+        if delay < 1 or delay > 60:
+            raise serializers.ValidationError('تأخیر Mock باید بین ۱ تا ۶۰ ثانیه باشد.')
+        return delay
+
+    def validate_mock_payment_success_rate(self, value):
+        rate = int(value)
+        if rate < 0 or rate > 100:
+            raise serializers.ValidationError('نرخ موفقیت باید بین ۰ تا ۱۰۰ باشد.')
+        return rate
 
     def get_logo_url(self, obj):
         return _media_url(obj.logo)

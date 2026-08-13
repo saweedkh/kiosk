@@ -44,6 +44,9 @@ class SiteSettingsAdmin(admin.ModelAdmin):
         }),
         ('سخت‌افزار کیوسک', {
             'fields': (
+                'pos_payment_mode',
+                'mock_payment_delay',
+                'mock_payment_success_rate',
                 'pos_ip',
                 'pos_port',
                 'printer_enabled',

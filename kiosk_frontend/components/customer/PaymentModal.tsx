@@ -3,6 +3,10 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/shared/Button'
 import { formatCurrency, cn } from '@/lib/utils'
+import {
+  shouldKeepCartOnPaymentFailure,
+  type PaymentFailureKind,
+} from '@/lib/payment-failure'
 
 interface PaymentModalProps {
   isOpen: boolean
@@ -12,6 +16,7 @@ interface PaymentModalProps {
   onConfirm?: () => void
   isLoading?: boolean
   status?: 'waiting' | 'success' | 'failed' | 'cancelled'
+  failureKind?: PaymentFailureKind | null
 }
 
 export function PaymentModal({
@@ -22,7 +27,10 @@ export function PaymentModal({
   onConfirm,
   isLoading = false,
   status = 'waiting',
+  failureKind = null,
 }: PaymentModalProps) {
+  const keepCart = failureKind ? shouldKeepCartOnPaymentFailure(failureKind) : false
+
   const getStatusConfig = () => {
     switch (status) {
       case 'success':
@@ -50,6 +58,56 @@ export function PaymentModal({
           bgGradient: 'from-green-50 to-green-50 dark:from-green-900/20 dark:to-green-900/10',
         }
       case 'failed':
+        if (failureKind === 'timeout') {
+          return {
+            icon: (
+              <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-amber-600 dark:text-amber-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            ),
+            title: 'زمان پرداخت تمام شد',
+            message: 'پرداختی انجام نشد. سبد خرید خالی می‌شود.',
+            gradient: 'from-amber-500 to-orange-600',
+            bgGradient: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10',
+          }
+        }
+        if (keepCart) {
+          return {
+            icon: (
+              <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-red-600 dark:text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            ),
+            title: 'موجودی کافی نیست',
+            message: 'سبد خرید شما حفظ شده — می‌توانید با کارت دیگر دوباره پرداخت کنید.',
+            gradient: 'from-red-500 to-red-600',
+            bgGradient: 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/10',
+          }
+        }
         return {
           icon: (
             <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
@@ -69,8 +127,7 @@ export function PaymentModal({
             </div>
           ),
           title: 'پرداخت انجام نشد',
-          message:
-            'پرداخت تأیید نشد (مثلاً موجودی ناکافی). سبد خرید شما حفظ شده؛ می‌توانید دوباره پرداخت کنید.',
+          message: 'پرداخت تأیید نشد. سبد خرید خالی می‌شود.',
           gradient: 'from-red-500 to-red-600',
           bgGradient: 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/10',
         }
@@ -98,8 +155,8 @@ export function PaymentModal({
               </svg>
             </motion.div>
           ),
-          title: 'لغو شد',
-          message: 'پرداخت لغو شد. سبد خرید شما حفظ شده است.',
+          title: 'پرداخت لغو شد',
+          message: 'پرداخت از روی کارتخوان لغو شد. سبد خرید خالی می‌شود.',
           gradient: 'from-orange-500 to-amber-600',
           bgGradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10',
         }
@@ -135,7 +192,7 @@ export function PaymentModal({
             </motion.div>
           ),
           title: 'در انتظار پرداخت',
-          message: 'لطفا پرداخت خود را توسط کارتخوان انجام بدین',
+          message: 'لطفاً پرداخت خود را توسط کارتخوان انجام دهید',
           gradient: 'from-blue-500 to-indigo-600',
           bgGradient: 'from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/10',
         }
@@ -143,12 +200,12 @@ export function PaymentModal({
   }
 
   const config = getStatusConfig()
+  const dismissLabel = keepCart ? 'بازگشت به سبد' : 'بستن'
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -158,7 +215,6 @@ export function PaymentModal({
             style={{ pointerEvents: status === 'waiting' ? 'none' : 'auto' }}
           />
 
-          {/* Modal */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -169,27 +225,19 @@ export function PaymentModal({
               className="pointer-events-auto w-full max-w-md"
             >
               <div className="relative bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
-                {/* Gradient Background */}
                 <div className={cn('absolute inset-0 bg-gradient-to-br opacity-50', config.bgGradient)} />
 
-                {/* Content */}
                 <div className="relative p-8">
-                  {/* Icon */}
-                  <div className="flex justify-center mb-6">
-                    {config.icon}
-                  </div>
+                  <div className="flex justify-center mb-6">{config.icon}</div>
 
-                  {/* Title */}
                   <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">
                     {config.title}
                   </h2>
 
-                  {/* Message */}
                   <p className="text-center text-gray-600 dark:text-gray-300 mb-6">
                     {config.message}
                   </p>
 
-                  {/* Amount Card - فقط برای وضعیت waiting */}
                   {status === 'waiting' && (
                     <div className={cn('bg-gradient-to-br rounded-xl p-5 mb-6', config.gradient)}>
                       <div className="text-center">
@@ -201,11 +249,10 @@ export function PaymentModal({
                     </div>
                   )}
 
-                  {/* Order Number */}
                   {orderNumber && (
                     <div className="text-center mb-6">
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        شماره سفارش: 
+                        شماره سفارش:
                       </span>
                       <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mr-2">
                         {orderNumber}
@@ -213,7 +260,6 @@ export function PaymentModal({
                     </div>
                   )}
 
-                  {/* Loading Message */}
                   {status === 'waiting' && (
                     <div className="text-center mb-6">
                       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -224,23 +270,21 @@ export function PaymentModal({
                     </div>
                   )}
 
-                  {/* Failed Message */}
-                  {status === 'failed' && (
+                  {status === 'failed' && keepCart && (
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-6">
                       <p className="text-sm text-red-700 dark:text-red-300 text-center">
-                        سبد خرید حفظ شده — می‌توانید دوباره پرداخت کنید
+                        می‌توانید همان سفارش را دوباره پرداخت کنید
                       </p>
                     </div>
                   )}
 
-                  {/* Actions */}
                   <div className="space-y-3">
                     {status === 'waiting' ? (
                       <Button
                         variant="outline"
                         size="lg"
                         className="w-full border-2 border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 opacity-50 cursor-not-allowed"
-                        onClick={() => {}} // هیچ کاری نکن - باید منتظر پاسخ بک‌اند باشیم
+                        onClick={() => {}}
                         disabled={true}
                       >
                         {isLoading ? 'در حال پردازش...' : 'در انتظار پرداخت...'}
@@ -252,7 +296,7 @@ export function PaymentModal({
                         className={cn('w-full bg-gradient-to-r shadow-lg hover:shadow-xl transition-all', config.gradient)}
                         onClick={onCancel}
                       >
-                        بازگشت به سبد
+                        {dismissLabel}
                       </Button>
                     ) : (
                       <Button

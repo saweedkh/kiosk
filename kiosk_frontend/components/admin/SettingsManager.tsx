@@ -66,6 +66,9 @@ const DIRTY_FIELDS = [
   'fulfillment_choice_enabled',
   'dine_in_enabled',
   'takeaway_enabled',
+  'pos_payment_mode',
+  'mock_payment_delay',
+  'mock_payment_success_rate',
   'pos_ip',
   'pos_port',
   'printer_enabled',
@@ -95,6 +98,9 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   fulfillment_choice_enabled: 'انتخاب نوع سفارش',
   dine_in_enabled: 'داخل سالن',
   takeaway_enabled: 'بیرون‌بر',
+  pos_payment_mode: 'حالت پرداخت',
+  mock_payment_delay: 'تأخیر Mock',
+  mock_payment_success_rate: 'نرخ موفقیت Mock',
   pos_ip: 'آی‌پی کارتخوان',
   pos_port: 'پورت کارتخوان',
   printer_enabled: 'چاپگر',
@@ -143,6 +149,14 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
     if (key === 'pos_port' || key === 'printer_port') {
       a = Number(a || 0)
       b = Number(b || 0)
+    }
+    if (key === 'mock_payment_delay' || key === 'mock_payment_success_rate') {
+      a = Number(a || 0)
+      b = Number(b || 0)
+    }
+    if (key === 'pos_payment_mode') {
+      a = a === 'mock' ? 'mock' : 'real'
+      b = b === 'mock' ? 'mock' : 'real'
     }
     if (norm(a) !== norm(b)) labels.push(DIRTY_FIELD_LABELS[key])
   }
@@ -556,6 +570,9 @@ export function SettingsManager() {
       fulfillment_choice_enabled: settings.fulfillment_choice_enabled !== false,
       dine_in_enabled: settings.dine_in_enabled !== false,
       takeaway_enabled: settings.takeaway_enabled !== false,
+      pos_payment_mode: settings.pos_payment_mode === 'mock' ? 'mock' : 'real',
+      mock_payment_delay: Number(settings.mock_payment_delay ?? 3),
+      mock_payment_success_rate: Number(settings.mock_payment_success_rate ?? 100),
       pos_ip: settings.pos_ip || '192.168.1.102',
       pos_port: Number(settings.pos_port || 1362),
       printer_enabled: settings.printer_enabled !== false,
@@ -583,6 +600,7 @@ export function SettingsManager() {
   const serviceAppliesNowhere =
     serviceOn && serviceFeeAmount > 0 && !serviceDineInOn && !serviceTakeawayOn
   const printerOn = settings.printer_enabled !== false
+  const posMockMode = settings.pos_payment_mode === 'mock'
 
   const applyPalette = (palette: LandingPalette) => {
     setSettings((prev) => ({
@@ -1796,18 +1814,103 @@ export function SettingsManager() {
             <div className="space-y-8">
               <SectionHeader
                 title="سخت‌افزار کیوسک"
-                description="آدرس کارتخوان و پرینتر فیش. پس از ذخیره، تراکنش‌های بعدی از همین مقادیر استفاده می‌کنند."
+                description="حالت پرداخت، آدرس کارتخوان و پرینتر فیش. پس از ذخیره، تراکنش‌های بعدی از همین مقادیر استفاده می‌کنند."
               />
 
               <AdminSurface className="space-y-5">
                 <SectionHeader
-                  title="کارتخوان (POS)"
-                  description="اتصال TCP مستقیم به دستگاه پرداخت روی شبکه محلی."
+                  title="حالت پرداخت"
+                  description="در حالت آزمایشی مبلغ به کارتخوان واقعی ارسال نمی‌شود؛ برای تست منو و چاپ مناسب است."
                 />
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <AdminSegmented
+                    value={posMockMode ? 'mock' : 'real'}
+                    onChange={(v) => handleChange('pos_payment_mode', v)}
+                    options={[
+                      { id: 'real', label: 'واقعی (کارتخوان)' },
+                      { id: 'mock', label: 'آزمایشی (Mock)' },
+                    ]}
+                  />
+                  {posMockMode ? (
+                    <AdminStatusBadge tone="warning">بدون POS واقعی</AdminStatusBadge>
+                  ) : (
+                    <AdminStatusBadge tone="success">ارسال به دستگاه</AdminStatusBadge>
+                  )}
+                </div>
+                {apiErrors.pos_payment_mode?.[0] ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.pos_payment_mode[0]}
+                  </p>
+                ) : null}
+                <div
+                  className={cn(
+                    'grid gap-4 sm:grid-cols-2 transition-opacity',
+                    !posMockMode && 'pointer-events-none opacity-45'
+                  )}
+                >
+                  <Input
+                    label="تأخیر شبیه‌سازی (ثانیه)"
+                    type="number"
+                    min={1}
+                    max={60}
+                    dir="ltr"
+                    disabled={!posMockMode}
+                    value={
+                      settings.mock_payment_delay === undefined ||
+                      settings.mock_payment_delay === null
+                        ? ''
+                        : String(settings.mock_payment_delay)
+                    }
+                    onChange={(e) =>
+                      handleChange('mock_payment_delay', Number(e.target.value) || 3)
+                    }
+                    error={apiErrors.mock_payment_delay?.[0]}
+                    placeholder="3"
+                  />
+                  <Input
+                    label="نرخ موفقیت (٪)"
+                    type="number"
+                    min={0}
+                    max={100}
+                    dir="ltr"
+                    disabled={!posMockMode}
+                    value={
+                      settings.mock_payment_success_rate === undefined ||
+                      settings.mock_payment_success_rate === null
+                        ? ''
+                        : String(settings.mock_payment_success_rate)
+                    }
+                    onChange={(e) =>
+                      handleChange(
+                        'mock_payment_success_rate',
+                        Math.min(100, Math.max(0, Number(e.target.value) || 100))
+                      )
+                    }
+                    error={apiErrors.mock_payment_success_rate?.[0]}
+                    placeholder="100"
+                  />
+                </div>
+              </AdminSurface>
+
+              <AdminSurface className="space-y-5">
+                <SectionHeader
+                  title="کارتخوان (POS)"
+                  description={
+                    posMockMode
+                      ? 'در حالت آزمایشی استفاده نمی‌شود؛ برای بازگشت به پرداخت واقعی ذخیره کنید.'
+                      : 'ارسال مبلغ به کارتخوان (DLL روی ویندوز یا TCP روی سرور).'
+                  }
+                />
+                <div
+                  className={cn(
+                    'grid gap-4 sm:grid-cols-2 transition-opacity',
+                    posMockMode && 'pointer-events-none opacity-45'
+                  )}
+                >
                   <Input
                     label="آی‌پی کارتخوان"
                     dir="ltr"
+                    disabled={posMockMode}
                     value={settings.pos_ip || ''}
                     onChange={(e) => handleChange('pos_ip', e.target.value)}
                     error={apiErrors.pos_ip?.[0]}
@@ -1819,6 +1922,7 @@ export function SettingsManager() {
                     min={1}
                     max={65535}
                     dir="ltr"
+                    disabled={posMockMode}
                     value={
                       settings.pos_port === undefined || settings.pos_port === null
                         ? ''

@@ -275,6 +275,29 @@ class SiteSettings(models.Model):
     )
 
     # سخت‌افزار کیوسک (کارتخوان / پرینتر)
+    POS_PAYMENT_MODE_MOCK = 'mock'
+    POS_PAYMENT_MODE_REAL = 'real'
+    POS_PAYMENT_MODE_CHOICES = [
+        (POS_PAYMENT_MODE_MOCK, 'آزمایشی (Mock)'),
+        (POS_PAYMENT_MODE_REAL, 'واقعی (کارتخوان)'),
+    ]
+    pos_payment_mode = models.CharField(
+        max_length=10,
+        choices=POS_PAYMENT_MODE_CHOICES,
+        default=POS_PAYMENT_MODE_REAL,
+        verbose_name='حالت پرداخت POS',
+        help_text='آزمایشی: بدون کارتخوان واقعی. واقعی: ارسال مبلغ به دستگاه پرداخت.',
+    )
+    mock_payment_delay = models.PositiveSmallIntegerField(
+        default=3,
+        verbose_name='تأخیر Mock (ثانیه)',
+        help_text='فقط در حالت آزمایشی — شبیه‌سازی زمان پردازش کارتخوان',
+    )
+    mock_payment_success_rate = models.PositiveSmallIntegerField(
+        default=100,
+        verbose_name='نرخ موفقیت Mock (٪)',
+        help_text='۱۰۰ = همیشه موفق؛ کمتر = احتمال رد تراکنش برای تست',
+    )
     pos_ip = models.CharField(
         max_length=45,
         default='192.168.1.102',
@@ -387,6 +410,9 @@ class SiteSettings(models.Model):
                 'fulfillment_choice_enabled': True,
                 'pos_ip': '192.168.1.102',
                 'pos_port': 1362,
+                'pos_payment_mode': cls.POS_PAYMENT_MODE_REAL,
+                'mock_payment_delay': 3,
+                'mock_payment_success_rate': 100,
                 'printer_enabled': True,
                 'printer_ip': '192.168.1.100',
                 'printer_port': 9100,

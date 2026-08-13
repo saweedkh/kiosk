@@ -41,6 +41,22 @@ def get_printer_config() -> Dict[str, Any]:
 
 
 def merge_payment_gateway_config(config: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    from apps.core.models.settings import SiteSettings
+
+    site = SiteSettings.get_settings()
     cfg = dict(config if config is not None else django_settings.PAYMENT_GATEWAY_CONFIG)
     cfg.update(get_pos_config())
+
+    mode = (getattr(site, 'pos_payment_mode', None) or SiteSettings.POS_PAYMENT_MODE_REAL).strip().lower()
+    if mode == SiteSettings.POS_PAYMENT_MODE_MOCK:
+        cfg['gateway_name'] = 'mock'
+        delay = getattr(site, 'mock_payment_delay', None)
+        if delay is not None:
+            cfg['mock_payment_delay'] = max(1.0, float(delay))
+        rate = getattr(site, 'mock_payment_success_rate', None)
+        if rate is not None:
+            rate_int = max(0, min(100, int(rate)))
+            cfg['mock_payment_success_rate'] = rate_int
+            cfg['mock_payment_success'] = rate_int >= 100
+
     return cfg

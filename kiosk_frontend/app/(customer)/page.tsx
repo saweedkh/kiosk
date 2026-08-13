@@ -23,6 +23,11 @@ import {
 import { useCartStore } from "@/lib/store/cart-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { analyticsApi } from "@/lib/api/dashboard";
+import {
+  resolvePaymentFailureKind,
+  shouldKeepCartOnPaymentFailure,
+  type PaymentFailureKind,
+} from "@/lib/payment-failure";
 import { formatNumber, cn } from "@/lib/utils";
 import {
   readCachedSettings,
@@ -45,6 +50,8 @@ import {
 
 /** Return to attract screen after this much idle time on the menu */
 const KIOSK_IDLE_MS = 90_000;
+/** Clear cart if customer does not complete POS payment in this window */
+const PAYMENT_DEVICE_IDLE_MS = 120_000;
 /** Menu stays cached until catalog_revision bumps (admin product/category change). */
 const MENU_STALE_MS = Infinity;
 const MENU_GC_MS = 24 * 60 * 60 * 1000;
@@ -59,6 +66,8 @@ export default function CustomerPage() {
   const [paymentStatus, setPaymentStatus] = useState<
     "waiting" | "success" | "failed" | "cancelled"
   >("waiting");
+  const [paymentFailureKind, setPaymentFailureKind] =
+    useState<PaymentFailureKind | null>(null);
   const [currentOrder, setCurrentOrder] = useState<{
     id: number;
     orderNumber: string;
@@ -71,6 +80,7 @@ export default function CustomerPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cartClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentModalTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const paymentWaitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastCatalogRevisionRef = useRef<number | null>(null);
   const landingThemeRef = useRef("cinema");
@@ -152,6 +162,9 @@ export default function CustomerPage() {
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
       }
+      if (paymentWaitTimeoutRef.current) {
+        clearTimeout(paymentWaitTimeoutRef.current);
+      }
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
       }
@@ -163,10 +176,22 @@ export default function CustomerPage() {
       clearTimeout(paymentModalTimeoutRef.current);
       paymentModalTimeoutRef.current = null;
     }
+    if (paymentWaitTimeoutRef.current) {
+      clearTimeout(paymentWaitTimeoutRef.current);
+      paymentWaitTimeoutRef.current = null;
+    }
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
+  };
+
+  const finishPaymentFlow = (kind: PaymentFailureKind | null) => {
+    if (kind && shouldKeepCartOnPaymentFailure(kind)) {
+      returnToMenuKeepingCart();
+      return;
+    }
+    goToAttract();
   };
 
   /** Full session reset → attract (clears cart). Use after success or idle. */
@@ -179,18 +204,18 @@ export default function CustomerPage() {
     setIsPaymentModalOpen(false);
     setCurrentOrder(null);
     setPaymentStatus("waiting");
+    setPaymentFailureKind(null);
     setPendingFulfillment(null);
     setSelectedCategory(null);
     clearCart();
     setShowAttract(true);
   };
-
-  /** Close payment UI but keep cart so customer can retry without re-ordering. */
   const returnToMenuKeepingCart = () => {
     clearPaymentTimers();
     setIsPaymentModalOpen(false);
     setCurrentOrder(null);
     setPaymentStatus("waiting");
+    setPaymentFailureKind(null);
     // keep pendingFulfillment / cart items for retry
   };
 
@@ -205,7 +230,7 @@ export default function CustomerPage() {
     });
   };
 
-  // Auto-close payment modal: success → attract; fail/cancel → keep cart on menu
+  // Auto-close payment modal: success / cancel / timeout → attract; insufficient funds → keep cart
   useEffect(() => {
     if (
       (paymentStatus === "success" ||
@@ -224,7 +249,7 @@ export default function CustomerPage() {
             if (paymentStatus === "success") {
               goToAttract();
             } else {
-              returnToMenuKeepingCart();
+              finishPaymentFlow(paymentFailureKind);
             }
             return false;
           }
@@ -245,7 +270,31 @@ export default function CustomerPage() {
         paymentModalTimeoutRef.current = null;
       }
     }
-  }, [paymentStatus, isPaymentModalOpen]);
+  }, [paymentStatus, isPaymentModalOpen, paymentFailureKind]);
+
+  // No POS interaction for a while → fail and clear cart (modal auto-close handles reset)
+  useEffect(() => {
+    if (!isPaymentModalOpen || paymentStatus !== "waiting") {
+      if (paymentWaitTimeoutRef.current) {
+        clearTimeout(paymentWaitTimeoutRef.current);
+        paymentWaitTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    paymentWaitTimeoutRef.current = setTimeout(() => {
+      setPaymentFailureKind("timeout");
+      setPaymentStatus("failed");
+      paymentWaitTimeoutRef.current = null;
+    }, PAYMENT_DEVICE_IDLE_MS);
+
+    return () => {
+      if (paymentWaitTimeoutRef.current) {
+        clearTimeout(paymentWaitTimeoutRef.current);
+        paymentWaitTimeoutRef.current = null;
+      }
+    };
+  }, [isPaymentModalOpen, paymentStatus]);
 
   // Idle → attract screen (skip while attract/payment open)
   useEffect(() => {
@@ -633,8 +682,15 @@ export default function CustomerPage() {
           order.payment_status === "cancelled" ||
           order.status === "cancelled"
         ) {
+          setPaymentFailureKind("cancelled");
           setPaymentStatus("cancelled");
         } else if (order.payment_status === "failed") {
+          setPaymentFailureKind(
+            resolvePaymentFailureKind({
+              paymentStatus: order.payment_status,
+              order,
+            })
+          );
           setPaymentStatus("failed");
         } else {
           // اگر وضعیت مشخص نبود، همچنان در حالت waiting بمانیم
@@ -645,7 +701,7 @@ export default function CustomerPage() {
             setPaymentStatus("waiting");
           } else {
             // اگر وضعیت نامشخص است، به عنوان failed در نظر بگیریم
-            // تا کاربر بداند که مشکلی پیش آمده
+            setPaymentFailureKind("other");
             setPaymentStatus("failed");
           }
         }
@@ -661,20 +717,34 @@ export default function CustomerPage() {
       }
       
       const responseData = error.response?.data;
-      const messages = responseData?.messages;
+      const messages = responseData?.messages as Record<string, unknown> | undefined;
       const orderFromError =
-        messages?.order ||
+        (messages?.order as { id?: number; order_number?: string; payment_status?: string; status?: string } | undefined) ||
         (Array.isArray(responseData?.result) ? null : responseData?.result);
+      const gatewayFromError = messages?.gateway as
+        | {
+            response_code?: string;
+            response_message?: string;
+            status?: string;
+          }
+        | undefined;
       const paymentMessage = String(
         messages?.message ||
           messages?.error ||
           error.message ||
           ""
       );
-      const isCancelled =
-        orderFromError?.payment_status === "cancelled" ||
-        orderFromError?.status === "cancelled" ||
-        paymentMessage.includes("لغو");
+      const failureKind = resolvePaymentFailureKind({
+        paymentFailureKind:
+          typeof messages?.payment_failure_kind === "string"
+            ? messages.payment_failure_kind
+            : null,
+        paymentStatus: orderFromError?.payment_status || orderFromError?.status,
+        order: orderFromError,
+        message: paymentMessage,
+        gateway: gatewayFromError,
+      });
+      setPaymentFailureKind(failureKind);
 
       if (orderFromError?.id) {
         setCurrentOrder({
@@ -683,19 +753,19 @@ export default function CustomerPage() {
         });
       }
 
-      // 402 = پرداخت ناموفق/لغو شده از کارتخوان — از صفحه انتظار خارج شو
-      if (error.response?.status === 402 || isCancelled) {
-        setPaymentStatus(isCancelled ? "cancelled" : "failed");
+      if (error.response?.status === 402) {
+        setPaymentStatus(failureKind === "cancelled" ? "cancelled" : "failed");
         return;
       }
 
       if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
         console.warn("Request timeout - payment may still be processing");
+        setPaymentFailureKind("timeout");
         setPaymentStatus("failed");
         return;
       }
 
-      setPaymentStatus(isCancelled ? "cancelled" : "failed");
+      setPaymentStatus(failureKind === "cancelled" ? "cancelled" : "failed");
     },
   });
 
@@ -720,6 +790,7 @@ export default function CustomerPage() {
     
     // Reset state
     setPaymentStatus("waiting");
+    setPaymentFailureKind(null);
     setCurrentOrder(null);
     setPendingFulfillment(selectedFulfillment);
     
@@ -744,10 +815,7 @@ export default function CustomerPage() {
       goToAttract();
       return;
     }
-    // failed / cancelled: keep cart so they can pay again
-    if (paymentStatus === "failed" || paymentStatus === "cancelled") {
-      returnToMenuKeepingCart();
-    }
+    finishPaymentFlow(paymentFailureKind);
   };
 
   const handlePaymentConfirm = () => {
@@ -986,6 +1054,7 @@ export default function CustomerPage() {
         onConfirm={handlePaymentConfirm}
         isLoading={createOrderMutation.isPending}
         status={paymentStatus}
+        failureKind={paymentFailureKind}
       />
     </div>
   );

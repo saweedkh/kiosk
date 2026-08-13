@@ -30,7 +30,7 @@ class ProductOptionGroupListCreateAPIView(generics.ListCreateAPIView):
         return ProductOptionGroupWriteSerializer
 
     def get_queryset(self):
-        product_id = self.kwargs['product_id']
+        product_id = self.kwargs['pk']
         return (
             ProductOptionGroup.objects.filter(product_id=product_id)
             .prefetch_related('options')
@@ -38,7 +38,7 @@ class ProductOptionGroupListCreateAPIView(generics.ListCreateAPIView):
         )
 
     def perform_create(self, serializer):
-        product = Product.objects.get(pk=self.kwargs['product_id'])
+        product = Product.objects.get(pk=self.kwargs['pk'])
         serializer.save(product=product)
         SiteSettings.bump_catalog_revision()
 
@@ -55,7 +55,7 @@ class ProductOptionGroupDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_queryset(self):
         return ProductOptionGroup.objects.filter(
-            product_id=self.kwargs['product_id']
+            product_id=self.kwargs['pk']
         ).prefetch_related('options')
 
     def perform_update(self, serializer):
@@ -76,7 +76,7 @@ class ProductOptionDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return ProductOption.objects.filter(
             group_id=self.kwargs['group_id'],
-            group__product_id=self.kwargs['product_id'],
+            group__product_id=self.kwargs['pk'],
         )
 
     def perform_update(self, serializer):

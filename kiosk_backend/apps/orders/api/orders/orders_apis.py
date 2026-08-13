@@ -10,6 +10,7 @@ from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
 from apps.payment.gateway.exceptions import GatewayException
 from apps.core.exceptions.payment import PaymentFailedException
+from apps.payment.gateway.failure_kind import classify_payment_failure
 
 
 class OrderCreateAPIView(generics.GenericAPIView):
@@ -109,14 +110,24 @@ class OrderCreateAPIView(generics.GenericAPIView):
             # Payment failed - return error with order details if order was created
             error_response = {
                 'error': 'Payment failed',
-                'message': str(e)
+                'message': str(e),
             }
-            
-            # Include order details if order was created before payment failed
-            # (order might be in cancelled state)
+
             if order is not None:
                 error_response['order'] = OrderSerializer(order).data
-            
+                error_response['payment_failure_kind'] = classify_payment_failure(
+                    payment_status=order.payment_status,
+                    gateway_response=order.gateway_response_data,
+                    error_message=order.error_message or str(e),
+                )
+                if order.gateway_response_data:
+                    gr = order.gateway_response_data
+                    error_response['gateway'] = {
+                        'status': gr.get('status'),
+                        'response_code': gr.get('response_code'),
+                        'response_message': gr.get('response_message'),
+                    }
+
             return Response(
                 data=error_response,
                 status=status.HTTP_402_PAYMENT_REQUIRED

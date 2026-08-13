@@ -30,13 +30,14 @@ _log_dir = _env('KIOSK_LOG_DIR', '')
 LOGS_DIR = Path(_log_dir) if _log_dir else (DATA_DIR / 'logs')
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Desktop: no bridge; Windows uses direct POS TCP/DLL via pos gateway
+# Desktop: in-process pna.pcpos.dll (32-bit backend). No HTTP bridge, no raw TCP.
 _PAYMENT_GATEWAY_NAME = _env(
     'PAYMENT_GATEWAY_NAME',
-    'pos' if os.name == 'nt' else 'mock',
+    'dll' if os.name == 'nt' else 'mock',
 ).lower()
-if _PAYMENT_GATEWAY_NAME in ('bridge', 'pos_bridge', 'dll_bridge'):
-    _PAYMENT_GATEWAY_NAME = 'pos'
+# Legacy aliases → direct DLL
+if _PAYMENT_GATEWAY_NAME in ('bridge', 'pos_bridge', 'dll_bridge', 'pos'):
+    _PAYMENT_GATEWAY_NAME = 'dll'
 
 PAYMENT_GATEWAY_CONFIG = {
     **PAYMENT_GATEWAY_CONFIG,

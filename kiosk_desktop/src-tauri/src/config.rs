@@ -28,7 +28,7 @@ impl AppConfig {
                 .unwrap_or(1362),
             payment_gateway: std::env::var("PAYMENT_GATEWAY_NAME").unwrap_or_else(|_| {
                 if cfg!(target_os = "windows") {
-                    "pos".into()
+                    "dll".into()
                 } else {
                     "mock".into()
                 }

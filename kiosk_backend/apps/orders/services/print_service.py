@@ -1,9 +1,10 @@
 """
 Print service for sending receipts to network printers using python-escpos.
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import os
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 from PIL import Image, ImageFont
 from django.conf import settings
 from django.db import connection
@@ -19,6 +20,10 @@ RECEIPT_COPIES_DUAL: List[str] = [
     'فاکتور مشتری',
     'فاکتور فروشنده',
 ]
+
+_FONT_CACHE: Optional[Dict[str, ImageFont.ImageFont]] = None
+_FONT_CACHE_LOCK = threading.Lock()
+_RENDER_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix='receipt-render')
 
 
 class PrintService:
@@ -72,6 +77,11 @@ class PrintService:
 
     @staticmethod
     def _load_fonts() -> Dict[str, ImageFont.ImageFont]:
+        global _FONT_CACHE
+        with _FONT_CACHE_LOCK:
+            if _FONT_CACHE is not None:
+                return _FONT_CACHE
+
         fonts = {
             'title': None,
             'ticket': None,
@@ -101,16 +111,39 @@ class PrintService:
         for key in fonts:
             if fonts[key] is None:
                 fonts[key] = fallback
+
+        with _FONT_CACHE_LOCK:
+            _FONT_CACHE = fonts
         return fonts
 
     @staticmethod
-    def generate_receipt_image(receipt_data: Dict[str, Any], width: int = 576) -> Image.Image:
+    def generate_receipt_image(
+        receipt_data: Dict[str, Any],
+        width: int = 576,
+        fonts: Optional[Dict[str, ImageFont.ImageFont]] = None,
+    ) -> Image.Image:
         """
         Generate receipt image using the selected template from settings.
         """
-        fonts = PrintService._load_fonts()
+        if fonts is None:
+            fonts = PrintService._load_fonts()
         template = (receipt_data.get('receipt_template') or 'modern').strip() or 'modern'
         return render_receipt(receipt_data, fonts, width=width, template=template)
+
+    @staticmethod
+    def _render_copy_async(
+        base_receipt_data: Dict[str, Any],
+        copy_label: str,
+        width: int,
+        fonts: Dict[str, ImageFont.ImageFont],
+    ) -> Future:
+        data = {
+            **base_receipt_data,
+            'copy_label': (copy_label or '').strip(),
+        }
+        return _RENDER_POOL.submit(
+            PrintService.generate_receipt_image, data, width, fonts
+        )
 
     @staticmethod
     def save_receipt_image(receipt_image: Image.Image, order_number: str, request=None, suffix: str = '') -> str:
@@ -130,13 +163,24 @@ class PrintService:
         return f"{settings.MEDIA_URL}receipts/{filename}"
 
     @staticmethod
-    def _print_image(printer: Any, receipt_image: Image.Image) -> None:
+    def _print_image(printer: Any, receipt_image: Image.Image, *, cut: bool = True) -> None:
         printer.set(align='center')
         if receipt_image.mode != 'RGB':
             receipt_image = receipt_image.convert('RGB')
-        printer.image(receipt_image, impl='bitImageRaster')
+        # graphics (GS v 0) is often faster on ESC/POS network printers; fall back if unsupported
+        try:
+            printer.image(
+                receipt_image,
+                impl='graphics',
+                fragment_height=512,
+                high_density_vertical=True,
+                high_density_horizontal=True,
+            )
+        except Exception:
+            printer.image(receipt_image, impl='bitImageRaster')
         printer.text("\n\n")
-        printer.cut()
+        if cut:
+            printer.cut()
 
     @staticmethod
     def _receipt_copy_labels() -> List[str]:
@@ -188,17 +232,53 @@ class PrintService:
             # does not fail when that data file is missing or unused.
             from escpos.printer import Network
 
-            printer = Network(printer_ip, port=printer_port)
+            printer = Network(printer_ip, port=printer_port, timeout=5)
             printer.profile.media['width']['pixel'] = ReceiptConstants.IMAGE_WIDTH
 
+            # Build receipt payload once; only copy_label differs between dual copies
+            base_receipt_data = ReceiptService.generate_receipt_data(order)
+            fonts = PrintService._load_fonts()
+            width = ReceiptConstants.IMAGE_WIDTH
+
             printed_copies = []
-            for copy_label in copy_labels:
-                receipt_data = ReceiptService.generate_receipt_data_for_copy(order, copy_label)
+            if len(copy_labels) == 1:
+                receipt_data = {
+                    **base_receipt_data,
+                    'copy_label': (copy_labels[0] or '').strip(),
+                }
                 receipt_image = PrintService.generate_receipt_image(
-                    receipt_data, width=ReceiptConstants.IMAGE_WIDTH
+                    receipt_data, width=width, fonts=fonts
                 )
-                PrintService._print_image(printer, receipt_image)
-                printed_copies.append(copy_label or 'single')
+                PrintService._print_image(printer, receipt_image, cut=True)
+                printed_copies.append(copy_labels[0] or 'single')
+            else:
+                # Dual: render next copy while the printer sends the current one
+                pending = None
+                for idx, copy_label in enumerate(copy_labels):
+                    if pending is not None:
+                        receipt_image = pending.result()
+                    else:
+                        receipt_data = {
+                            **base_receipt_data,
+                            'copy_label': (copy_label or '').strip(),
+                        }
+                        receipt_image = PrintService.generate_receipt_image(
+                            receipt_data, width=width, fonts=fonts
+                        )
+
+                    next_pending = None
+                    if idx + 1 < len(copy_labels):
+                        next_label = copy_labels[idx + 1]
+                        next_pending = PrintService._render_copy_async(
+                            base_receipt_data, next_label, width, fonts
+                        )
+
+                    PrintService._print_image(printer, receipt_image, cut=True)
+                    printed_copies.append(copy_label or 'single')
+                    pending = next_pending
+
+                if pending is not None:
+                    pending.result()
 
             printer.close()
 

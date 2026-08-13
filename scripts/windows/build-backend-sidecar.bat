@@ -1,9 +1,10 @@
 @echo off
-REM Build Django backend sidecar for Tauri (Windows x64)
+REM Build Django backend sidecar for Tauri (Windows — use Python 3.11 **32-bit** for PNA DLL)
 setlocal EnableExtensions
 cd /d "%~dp0..\.."
 
-echo === Build kiosk-backend sidecar (PyInstaller) ===
+echo === Build kiosk-backend sidecar (PyInstaller, 32-bit Python required) ===
+echo PNA pna.pcpos.dll is PE32 — use py -3.11-32 or Python311-32 in venv.
 
 set "VENV=%CD%\kiosk_backend\venv"
 if not exist "%VENV%\Scripts\python.exe" (

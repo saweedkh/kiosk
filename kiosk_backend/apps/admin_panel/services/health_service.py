@@ -63,6 +63,40 @@ class HealthMonitorService:
         pos = get_pos_config()
         host = pos['tcp_host']
         port = int(pos['tcp_port'])
+
+        if gateway in ('dll', 'pos_dll', 'pcpos'):
+            started = time.monotonic()
+            try:
+                from apps.payment.gateway.adapter import PaymentGatewayAdapter
+
+                gw = PaymentGatewayAdapter.get_gateway()
+                test = gw.test_connection() if hasattr(gw, 'test_connection') else {}
+                latency_ms = int((time.monotonic() - started) * 1000)
+                ok = bool(test.get('success'))
+                return {
+                    'ok': ok,
+                    'status': 'ok' if ok else 'down',
+                    'latency_ms': latency_ms,
+                    'host': host,
+                    'port': port,
+                    'error': None if ok else test.get('message'),
+                    'message': test.get('message')
+                    or ('کارتخوان (DLL) در دسترس است' if ok else 'اتصال DLL به کارتخوان برقرار نشد'),
+                    'connection_type': 'dll',
+                }
+            except Exception as exc:
+                latency_ms = int((time.monotonic() - started) * 1000)
+                return {
+                    'ok': False,
+                    'status': 'down',
+                    'latency_ms': latency_ms,
+                    'host': host,
+                    'port': port,
+                    'error': str(exc),
+                    'message': f'خطای DLL: {exc}',
+                    'connection_type': 'dll',
+                }
+
         result = HealthMonitorService._tcp_probe(host, port, timeout=2.0)
         result['message'] = 'کارتخوان در دسترس است' if result['ok'] else 'اتصال به کارتخوان برقرار نشد'
         return result

@@ -7,7 +7,7 @@ One **Tauri** installer ships **everything**:
 | UI | Next.js static export (customer + admin) |
 | API | **Full Django REST** (same as Docker/web) |
 | DB | SQLite in app data dir |
-| POS | Django `pos` gateway + `pna.pcpos.dll` on Windows |
+| POS | In-process **`pna.pcpos.dll`** via `PAYMENT_GATEWAY_NAME=dll` (32-bit backend sidecar) |
 
 Tauri only provides the window + lifecycle; **no partial Rust API rewrite**.
 
@@ -64,7 +64,11 @@ kiosk_desktop\src-tauri\target\release\kiosk.exe
 kiosk_desktop\src-tauri\target\release\bundle\msi\*.msi
 ```
 
-Copy `pna.pcpos.dll` next to `kiosk.exe` on the kiosk machine (optional; for real POS).
+Copy **`pna.pcpos.dll`** next to **`kiosk.exe`** (required for card payments).
+
+**Important:** the vendor DLL is **PE32 (32-bit)**. Build the backend sidecar with **Python 3.11 32-bit (win32)** so pythonnet can load the DLL in-process. GitHub Actions CI uses `architecture: x86` for PyInstaller.
+
+Configure POS IP/port in **Admin → Settings → Hardware** (defaults: `192.168.1.102:1362`).
 
 ## CI build from Mac (GitHub Actions)
 

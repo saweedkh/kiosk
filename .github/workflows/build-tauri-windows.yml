@@ -38,10 +38,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python (32-bit — required for pna.pcpos.dll / pythonnet)
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          architecture: 'x86'
           cache: pip
           cache-dependency-path: kiosk_backend/requirements/base.txt
 
@@ -167,9 +168,13 @@ jobs:
             "5. Logs are written to the logs\\ folder next to kiosk.exe",
             "   (kiosk.log, django.log, django-app.log).",
             "",
-            "Required:",
+            "Required (same folder):",
             "- kiosk.exe",
-            "- kiosk-backend-x86_64-pc-windows-msvc.exe"
+            "- kiosk-backend-x86_64-pc-windows-msvc.exe (32-bit Python sidecar for POS DLL)",
+            "- pna.pcpos.dll (official PNA card reader — PE32)",
+            "",
+            "POS: in-process DLL (PAYMENT_GATEWAY_NAME=dll). No PosBridge, no raw TCP.",
+            "Configure POS/printer IP in Admin → Settings → Hardware.",
           ) | Set-Content -Encoding utf8 "release/README.txt"
 
           Get-ChildItem release | Format-Table Name, Length

@@ -31,3 +31,24 @@ def ensure_data_dirs() -> Path:
     (data / 'media').mkdir(parents=True, exist_ok=True)
     (data / 'logs').mkdir(parents=True, exist_ok=True)
     return data
+
+
+def resolve_pos_dll_path() -> Path:
+    """
+    Locate pna.pcpos.dll beside the desktop app (same folder as kiosk.exe / backend exe).
+    """
+    env = os.environ.get('POS_DLL_PATH', '').strip()
+    if env:
+        return Path(env)
+
+    root = get_package_root()
+    candidates = [
+        root / 'pna.pcpos.dll',
+        root.parent / 'pna.pcpos.dll',
+        root / 'kiosk_backend' / 'pna.pcpos.dll',
+        Path(__file__).resolve().parents[2] / 'pna.pcpos.dll',
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    return root / 'pna.pcpos.dll'

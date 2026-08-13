@@ -12,8 +12,28 @@ use crate::config::AppConfig;
 use crate::logutil;
 
 pub struct BackendHandle {
-    #[allow(dead_code)]
     child: Mutex<Child>,
+    /// Windows job with KILL_ON_JOB_CLOSE: backend dies if kiosk.exe exits or crashes.
+    #[cfg(windows)]
+    _job: Option<WinJob>,
+}
+
+impl BackendHandle {
+    fn kill_child(&self) {
+        if let Ok(mut child) = self.child.lock() {
+            let pid = child.id();
+            logutil::info(&format!("stopping backend pid={pid}"));
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+/// Kill the Django sidecar when the window / app closes.
+pub fn stop(app: &AppHandle) {
+    if let Some(state) = app.try_state::<BackendHandle>() {
+        state.kill_child();
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -69,9 +89,14 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         config.api_port
     ));
 
-    let child = spawn_backend(&config, &data_dir, &log_dir)?;
+    // Previous kiosk.exe may have left an orphan sidecar on :8000.
+    kill_stale_backend_processes();
+
+    let spawned = spawn_backend(&config, &data_dir, &log_dir)?;
     app.manage(BackendHandle {
-        child: Mutex::new(child),
+        child: Mutex::new(spawned.child),
+        #[cfg(windows)]
+        _job: spawned.job,
     });
     // Health wait runs in a background thread (see lib.rs) so boot.html can show.
     Ok(())
@@ -123,7 +148,13 @@ fn find_backend_binary() -> Result<PathBuf, String> {
     ))
 }
 
-fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<Child, String> {
+struct SpawnedBackend {
+    child: Child,
+    #[cfg(windows)]
+    job: Option<WinJob>,
+}
+
+fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<SpawnedBackend, String> {
     let path = find_backend_binary()?;
     logutil::info(&format!("starting backend {}", path.display()));
 
@@ -184,7 +215,148 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<
         });
     }
 
-    Ok(child)
+    #[cfg(windows)]
+    let job = unsafe { winjob::create() };
+    #[cfg(windows)]
+    {
+        if let Some(ref job) = job {
+            if !unsafe { winjob::assign(&child, job) } {
+                logutil::error("could not assign backend to Windows job (crash may orphan it)");
+            }
+        }
+    }
+
+    Ok(SpawnedBackend {
+        child,
+        #[cfg(windows)]
+        job,
+    })
+}
+
+fn kill_stale_backend_processes() {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        for name in [
+            "kiosk-backend-x86_64-pc-windows-msvc.exe",
+            "kiosk-backend.exe",
+        ] {
+            let _ = Command::new("taskkill")
+                .args(["/F", "/IM", name, "/T"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+        std::thread::sleep(Duration::from_millis(400));
+    }
+}
+
+#[cfg(windows)]
+struct WinJob {
+    handle: *mut core::ffi::c_void,
+}
+
+#[cfg(windows)]
+unsafe impl Send for WinJob {}
+#[cfg(windows)]
+unsafe impl Sync for WinJob {}
+
+#[cfg(windows)]
+impl Drop for WinJob {
+    fn drop(&mut self) {
+        if !self.handle.is_null() {
+            unsafe {
+                winjob::CloseHandle(self.handle);
+            }
+            self.handle = std::ptr::null_mut();
+        }
+    }
+}
+
+#[cfg(windows)]
+mod winjob {
+    use super::WinJob;
+    use std::process::Child;
+    use std::ptr::null_mut;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateJobObjectW(attrs: *mut core::ffi::c_void, name: *const u16) -> *mut core::ffi::c_void;
+        fn SetInformationJobObject(
+            job: *mut core::ffi::c_void,
+            info_class: i32,
+            info: *mut core::ffi::c_void,
+            len: u32,
+        ) -> i32;
+        fn AssignProcessToJobObject(
+            job: *mut core::ffi::c_void,
+            process: *mut core::ffi::c_void,
+        ) -> i32;
+        pub fn CloseHandle(handle: *mut core::ffi::c_void) -> i32;
+    }
+
+    const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: i32 = 9;
+    const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
+
+    #[repr(C)]
+    struct JobObjectBasicLimitInformation {
+        per_process_user_time_limit: i64,
+        per_job_user_time_limit: i64,
+        limit_flags: u32,
+        minimum_working_set_size: usize,
+        maximum_working_set_size: usize,
+        active_process_limit: u32,
+        affinity: usize,
+        priority_class: u32,
+        scheduling_class: u32,
+    }
+
+    #[repr(C)]
+    struct IoCounters {
+        read_operation_count: u64,
+        write_operation_count: u64,
+        other_operation_count: u64,
+        read_transfer_count: u64,
+        write_transfer_count: u64,
+        other_transfer_count: u64,
+    }
+
+    #[repr(C)]
+    struct JobObjectExtendedLimitInformation {
+        basic: JobObjectBasicLimitInformation,
+        io: IoCounters,
+        process_memory_limit: usize,
+        job_memory_limit: usize,
+        peak_process_memory_used: usize,
+        peak_job_memory_used: usize,
+    }
+
+    pub unsafe fn create() -> Option<WinJob> {
+        let handle = CreateJobObjectW(null_mut(), null_mut());
+        if handle.is_null() {
+            return None;
+        }
+        let mut info: JobObjectExtendedLimitInformation = std::mem::zeroed();
+        info.basic.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let ok = SetInformationJobObject(
+            handle,
+            JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+            &mut info as *mut _ as *mut core::ffi::c_void,
+            std::mem::size_of::<JobObjectExtendedLimitInformation>() as u32,
+        );
+        if ok == 0 {
+            CloseHandle(handle);
+            return None;
+        }
+        Some(WinJob { handle })
+    }
+
+    pub unsafe fn assign(child: &Child, job: &WinJob) -> bool {
+        use std::os::windows::io::AsRawHandle;
+        AssignProcessToJobObject(job.handle, child.as_raw_handle() as *mut core::ffi::c_void) != 0
+    }
 }
 
 fn wait_for_health(config: &AppConfig) -> Result<(), String> {

@@ -293,6 +293,11 @@ export interface Settings {
   receipt_template_mode?: 'normal' | 'random' | string
   active_receipt_template?: string
   receipt_copy_mode?: 'single' | 'dual' | string
+  pos_ip?: string
+  pos_port?: number
+  printer_enabled?: boolean
+  printer_ip?: string
+  printer_port?: number
   service_enabled?: boolean
   coupons_enabled?: boolean
   service_fee?: number

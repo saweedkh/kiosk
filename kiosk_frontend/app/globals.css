@@ -145,18 +145,23 @@
     text-wrap: balance;
   }
 
-  /* Vertical scroll panes inside flex layouts */
+  /*
+   * Touch scroll for kiosk / WebView2:
+   * Avoid strict pan-y / pan-x — they fight nested scrollers on Windows.
+   * manipulation keeps taps fast and allows finger scrolling.
+   */
   .kiosk-scroll {
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    overscroll-behavior-y: contain;
+    touch-action: manipulation;
+    overscroll-behavior: auto;
+    overflow-y: auto;
   }
 
-  /* Horizontal chip / tab rows */
   .kiosk-scroll-x {
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x;
+    touch-action: manipulation;
     overscroll-behavior-x: contain;
+    overflow-x: auto;
   }
 }
 

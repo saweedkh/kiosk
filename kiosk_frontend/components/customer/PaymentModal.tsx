@@ -69,7 +69,8 @@ export function PaymentModal({
             </div>
           ),
           title: 'پرداخت انجام نشد',
-          message: 'متأسفانه پرداخت شما انجام نشد. لطفا دوباره تلاش کنید.',
+          message:
+            'پرداخت تأیید نشد (مثلاً موجودی ناکافی). سبد خرید شما حفظ شده؛ می‌توانید دوباره پرداخت کنید.',
           gradient: 'from-red-500 to-red-600',
           bgGradient: 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/10',
         }
@@ -98,7 +99,7 @@ export function PaymentModal({
             </motion.div>
           ),
           title: 'لغو شد',
-          message: 'پرداخت لغو شد',
+          message: 'پرداخت لغو شد. سبد خرید شما حفظ شده است.',
           gradient: 'from-orange-500 to-amber-600',
           bgGradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10',
         }
@@ -227,7 +228,7 @@ export function PaymentModal({
                   {status === 'failed' && (
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-6">
                       <p className="text-sm text-red-700 dark:text-red-300 text-center">
-                        لطفا دوباره تلاش کنید
+                        سبد خرید حفظ شده — می‌توانید دوباره پرداخت کنید
                       </p>
                     </div>
                   )}
@@ -244,14 +245,14 @@ export function PaymentModal({
                       >
                         {isLoading ? 'در حال پردازش...' : 'در انتظار پرداخت...'}
                       </Button>
-                    ) : status === 'failed' ? (
+                    ) : status === 'failed' || status === 'cancelled' ? (
                       <Button
                         variant="primary"
                         size="lg"
                         className={cn('w-full bg-gradient-to-r shadow-lg hover:shadow-xl transition-all', config.gradient)}
                         onClick={onCancel}
                       >
-                        سفارش مجدد
+                        بازگشت به سبد
                       </Button>
                     ) : (
                       <Button
@@ -260,7 +261,7 @@ export function PaymentModal({
                         className={cn('w-full bg-gradient-to-r shadow-lg hover:shadow-xl transition-all', config.gradient)}
                         onClick={onConfirm || onCancel}
                       >
-                        {status === 'success' ? 'بستن' : 'متوجه شدم'}
+                        بستن
                       </Button>
                     )}
                   </div>

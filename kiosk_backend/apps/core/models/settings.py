@@ -274,6 +274,35 @@ class SiteSettings(models.Model):
         help_text='محل نمایش سبد روی صفحه منوی کیوسک',
     )
 
+    # سخت‌افزار کیوسک (کارتخوان / پرینتر)
+    pos_ip = models.CharField(
+        max_length=45,
+        default='192.168.1.102',
+        verbose_name='آی‌پی کارتخوان',
+        help_text='آدرس IP دستگاه POS روی شبکه محلی',
+    )
+    pos_port = models.PositiveIntegerField(
+        default=1362,
+        verbose_name='پورت کارتخوان',
+        help_text='پورت TCP دستگاه POS (معمولاً 1362)',
+    )
+    printer_enabled = models.BooleanField(
+        default=True,
+        verbose_name='فعال‌سازی چاپگر',
+        help_text='اگر خاموش باشد، فیش بعد از پرداخت چاپ نمی‌شود',
+    )
+    printer_ip = models.CharField(
+        max_length=45,
+        default='192.168.1.100',
+        verbose_name='آی‌پی چاپگر',
+        help_text='آدرس IP پرینتر حرارتی ESC/POS',
+    )
+    printer_port = models.PositiveIntegerField(
+        default=9100,
+        verbose_name='پورت چاپگر',
+        help_text='پورت TCP پرینتر (معمولاً 9100)',
+    )
+
     # Bumped when products/categories change so kiosks can refresh menu cache
     catalog_revision = models.PositiveIntegerField(
         default=0,
@@ -356,6 +385,11 @@ class SiteSettings(models.Model):
                 'dine_in_enabled': True,
                 'takeaway_enabled': True,
                 'fulfillment_choice_enabled': True,
+                'pos_ip': '192.168.1.102',
+                'pos_port': 1362,
+                'printer_enabled': True,
+                'printer_ip': '192.168.1.100',
+                'printer_port': 9100,
                 'catalog_revision': 0,
                 'last_receipt_number': 0,
                 'receipt_number_mode': cls.RECEIPT_NUMBER_MODE_MANUAL,

@@ -45,7 +45,7 @@ class POSPaymentGateway(BasePaymentGateway):
             warnings.warn('Serial connection requested but using TCP/IP instead. Set POS_CONNECTION_TYPE=tcp in .env')
         
         self.connection_type = 'tcp'  # Always TCP/IP for socket connection
-        self.tcp_host = self.config.get('tcp_host', '192.168.1.100')
+        self.tcp_host = self.config.get('tcp_host', '192.168.1.102')
         self.tcp_port = self.config.get('tcp_port', 1362)
         self.timeout = self.config.get('timeout', 30)
         self.merchant_id = self.config.get('merchant_id', '')
@@ -130,20 +130,7 @@ class POSPaymentGateway(BasePaymentGateway):
                 }
             )
             
-            # Ensure connection is clean before starting new transaction
-            # Disconnect any existing connection to start fresh
-            if self.connection.is_connected():
-                LogService.log_info(
-                    'payment',
-                    'pos_cleaning_connection_before_transaction',
-                    details={
-                        'order_number': order_number,
-                        'note': 'Disconnecting existing connection to start fresh transaction'
-                    }
-                )
-                self.connection.disconnect()
-            
-            # Process payment
+            # Process payment (connects on first send_command)
             result = self.payment_operations.initiate_payment(amount, order_details)
             
             LogService.log_info(

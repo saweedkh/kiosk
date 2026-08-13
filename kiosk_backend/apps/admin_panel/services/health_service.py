@@ -2,8 +2,6 @@ from typing import Any, Dict
 import socket
 import time
 
-from django.conf import settings
-
 
 class HealthMonitorService:
     """Probe POS, network printer, and Bale bot health."""
@@ -42,7 +40,9 @@ class HealthMonitorService:
 
     @staticmethod
     def check_pos() -> Dict[str, Any]:
-        cfg = getattr(settings, 'PAYMENT_GATEWAY_CONFIG', {}) or {}
+        from apps.core.hardware_config import get_pos_config, merge_payment_gateway_config
+
+        cfg = merge_payment_gateway_config()
         gateway = (
             cfg.get('GATEWAY_TYPE')
             or cfg.get('gateway_name')
@@ -60,25 +60,21 @@ class HealthMonitorService:
                 'message': 'درگاه پرداخت در حالت mock است',
             }
 
-        host = (
-            cfg.get('POS_TCP_HOST')
-            or cfg.get('tcp_host')
-            or '127.0.0.1'
-        )
-        port = int(
-            cfg.get('POS_TCP_PORT')
-            or cfg.get('tcp_port')
-            or 1362
-        )
+        pos = get_pos_config()
+        host = pos['tcp_host']
+        port = int(pos['tcp_port'])
         result = HealthMonitorService._tcp_probe(host, port, timeout=2.0)
         result['message'] = 'کارتخوان در دسترس است' if result['ok'] else 'اتصال به کارتخوان برقرار نشد'
         return result
 
     @staticmethod
     def check_printer() -> Dict[str, Any]:
-        enabled = bool(getattr(settings, 'PRINTER_ENABLED', False))
-        host = getattr(settings, 'PRINTER_IP', '192.168.1.100')
-        port = int(getattr(settings, 'PRINTER_PORT', 9100))
+        from apps.core.hardware_config import get_printer_config
+
+        printer = get_printer_config()
+        enabled = bool(printer.get('enabled', False))
+        host = printer.get('ip', '192.168.1.100')
+        port = int(printer.get('port', 9100))
         if not enabled:
             return {
                 'ok': False,

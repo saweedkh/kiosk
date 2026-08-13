@@ -243,7 +243,7 @@ PAYMENT_GATEWAY_CONFIG = {
     'gateway_name': _PAYMENT_GATEWAY_NAME,
     'merchant_id': _env('PAYMENT_GATEWAY_MERCHANT_ID', ''),
     'terminal_id': _env('PAYMENT_GATEWAY_TERMINAL_ID', ''),
-    'tcp_host': _env('POS_TCP_HOST', '192.168.1.100'),
+    'tcp_host': _env('POS_TCP_HOST', '192.168.1.102'),
     'tcp_port': int(_env('POS_TCP_PORT', '1362') or 1362),
     'timeout': int(_env('POS_TIMEOUT', '30') or 30),
     'mock_payment_delay': float(_env('MOCK_PAYMENT_DELAY', '3') or 3),

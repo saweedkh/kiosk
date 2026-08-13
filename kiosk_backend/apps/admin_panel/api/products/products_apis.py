@@ -26,6 +26,15 @@ class AdminProductListAPIView(generics.ListCreateAPIView):
         'POST': 'add_products',
     }
     filterset_class = AdminProductFilter
+    search_fields = ['name', 'description', 'category__name']
+    ordering_fields = [
+        'id',
+        'name',
+        'price',
+        'stock_quantity',
+        'created_at',
+        'updated_at',
+    ]
     
     def get_serializer_class(self):
         """

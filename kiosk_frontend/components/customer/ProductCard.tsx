@@ -88,10 +88,9 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        whileHover={{ y: -4 }}
-        className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg dark:border-border-dark dark:bg-card-dark"
+        className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow dark:border-border-dark dark:bg-card-dark touch-manipulation"
       >
         <div className="relative h-56 w-full bg-gray-100 dark:bg-gray-800">
           {imageUrl ? (

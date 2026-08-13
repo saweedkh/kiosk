@@ -41,7 +41,7 @@ import {
   type LandingThemeId,
 } from '@/components/customer/landing/types'
 
-type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt'
+type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt' | 'hardware'
 
 /** Fields that require an explicit save (theme / copy-mode patch instantly). */
 const DIRTY_FIELDS = [
@@ -66,6 +66,11 @@ const DIRTY_FIELDS = [
   'fulfillment_choice_enabled',
   'dine_in_enabled',
   'takeaway_enabled',
+  'pos_ip',
+  'pos_port',
+  'printer_enabled',
+  'printer_ip',
+  'printer_port',
 ] as const
 
 const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landing_background', string> = {
@@ -90,6 +95,11 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   fulfillment_choice_enabled: 'انتخاب نوع سفارش',
   dine_in_enabled: 'داخل سالن',
   takeaway_enabled: 'بیرون‌بر',
+  pos_ip: 'آی‌پی کارتخوان',
+  pos_port: 'پورت کارتخوان',
+  printer_enabled: 'چاپگر',
+  printer_ip: 'آی‌پی چاپگر',
+  printer_port: 'پورت چاپگر',
   logo: 'لوگو',
   landing_background: 'پس‌زمینه',
 }
@@ -126,6 +136,14 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       a = Boolean(a)
       b = Boolean(b)
     }
+    if (key === 'printer_enabled') {
+      a = a !== false
+      b = b !== false
+    }
+    if (key === 'pos_port' || key === 'printer_port') {
+      a = Number(a || 0)
+      b = Number(b || 0)
+    }
     if (norm(a) !== norm(b)) labels.push(DIRTY_FIELD_LABELS[key])
   }
   if (current.logo_file instanceof File) labels.push(DIRTY_FIELD_LABELS.logo)
@@ -150,6 +168,7 @@ const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'cart', label: 'سبد', hint: 'چیدمان و نوع سفارش' },
   { id: 'service', label: 'سرویس', hint: 'هزینه سرویس' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
+  { id: 'hardware', label: 'سخت‌افزار', hint: 'POS و پرینتر' },
 ]
 
 const RECEIPT_TEMPLATES = [
@@ -537,6 +556,11 @@ export function SettingsManager() {
       fulfillment_choice_enabled: settings.fulfillment_choice_enabled !== false,
       dine_in_enabled: settings.dine_in_enabled !== false,
       takeaway_enabled: settings.takeaway_enabled !== false,
+      pos_ip: settings.pos_ip || '192.168.1.102',
+      pos_port: Number(settings.pos_port || 1362),
+      printer_enabled: settings.printer_enabled !== false,
+      printer_ip: settings.printer_ip || '192.168.1.100',
+      printer_port: Number(settings.printer_port || 9100),
     }
 
     if (settings.logo_file instanceof File) data.logo = settings.logo_file
@@ -558,6 +582,7 @@ export function SettingsManager() {
   const serviceTakeawayOn = settings.service_fee_takeaway !== false
   const serviceAppliesNowhere =
     serviceOn && serviceFeeAmount > 0 && !serviceDineInOn && !serviceTakeawayOn
+  const printerOn = settings.printer_enabled !== false
 
   const applyPalette = (palette: LandingPalette) => {
     setSettings((prev) => ({
@@ -1764,6 +1789,105 @@ export function SettingsManager() {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {tab === 'hardware' && (
+            <div className="space-y-8">
+              <SectionHeader
+                title="سخت‌افزار کیوسک"
+                description="آدرس کارتخوان و پرینتر فیش. پس از ذخیره، تراکنش‌های بعدی از همین مقادیر استفاده می‌کنند."
+              />
+
+              <AdminSurface className="space-y-5">
+                <SectionHeader
+                  title="کارتخوان (POS)"
+                  description="اتصال TCP مستقیم به دستگاه پرداخت روی شبکه محلی."
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input
+                    label="آی‌پی کارتخوان"
+                    dir="ltr"
+                    value={settings.pos_ip || ''}
+                    onChange={(e) => handleChange('pos_ip', e.target.value)}
+                    error={apiErrors.pos_ip?.[0]}
+                    placeholder="192.168.1.102"
+                  />
+                  <Input
+                    label="پورت کارتخوان"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    dir="ltr"
+                    value={
+                      settings.pos_port === undefined || settings.pos_port === null
+                        ? ''
+                        : String(settings.pos_port)
+                    }
+                    onChange={(e) =>
+                      handleChange('pos_port', Number(e.target.value) || 1362)
+                    }
+                    error={apiErrors.pos_port?.[0]}
+                    placeholder="1362"
+                  />
+                </div>
+              </AdminSurface>
+
+              <AdminSurface className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-base font-black text-foreground">چاپگر فیش</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      پرینتر حرارتی ESC/POS روی پورت 9100
+                    </p>
+                  </div>
+                  <Switch
+                    checked={printerOn}
+                    onChange={(v) => handleChange('printer_enabled', v)}
+                    label={printerOn ? 'فعال' : 'غیرفعال'}
+                  />
+                </div>
+                {apiErrors.printer_enabled?.[0] ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.printer_enabled[0]}
+                  </p>
+                ) : null}
+                <div
+                  className={cn(
+                    'grid gap-4 sm:grid-cols-2 transition-opacity',
+                    !printerOn && 'pointer-events-none opacity-45'
+                  )}
+                >
+                  <Input
+                    label="آی‌پی چاپگر"
+                    dir="ltr"
+                    disabled={!printerOn}
+                    value={settings.printer_ip || ''}
+                    onChange={(e) => handleChange('printer_ip', e.target.value)}
+                    error={apiErrors.printer_ip?.[0]}
+                    placeholder="192.168.1.100"
+                  />
+                  <Input
+                    label="پورت چاپگر"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    dir="ltr"
+                    disabled={!printerOn}
+                    value={
+                      settings.printer_port === undefined ||
+                      settings.printer_port === null
+                        ? ''
+                        : String(settings.printer_port)
+                    }
+                    onChange={(e) =>
+                      handleChange('printer_port', Number(e.target.value) || 9100)
+                    }
+                    error={apiErrors.printer_port?.[0]}
+                    placeholder="9100"
+                  />
+                </div>
+              </AdminSurface>
             </div>
           )}
         </motion.div>

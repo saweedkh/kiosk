@@ -6,22 +6,23 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
-  // اطمینان از اینکه مبلغ عدد صحیح است
-  const roundedAmount = Math.round(amount)
-  const formatted = new Intl.NumberFormat('fa-IR', {
-    style: 'currency',
-    currency: 'IRR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(roundedAmount)
-  // اطمینان از تبدیل اعداد به فارسی
-  return toPersianDigits(formatted)
+  // Avoid Intl currency (shows "IRR" on Windows WebView without fa locale).
+  const roundedAmount = Math.round(Number(amount) || 0)
+  const withSeparators = Math.abs(roundedAmount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  const signed = roundedAmount < 0 ? `-${withSeparators}` : withSeparators
+  return `${toPersianDigits(signed)} ریال`
 }
 
 export function formatNumber(num: number): string {
-  const formatted = new Intl.NumberFormat('fa-IR').format(num)
-  // اطمینان از تبدیل اعداد به فارسی
-  return toPersianDigits(formatted)
+  // Manual digits — do not rely on Intl fa-IR (missing on some WebViews).
+  const n = Math.round(Number(num) || 0)
+  const withSeparators = Math.abs(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  const signed = n < 0 ? `-${withSeparators}` : withSeparators
+  return toPersianDigits(signed)
 }
 
 /**

@@ -42,6 +42,15 @@ class SiteSettingsAdmin(admin.ModelAdmin):
                 'receipt_number_date',
             )
         }),
+        ('سخت‌افزار کیوسک', {
+            'fields': (
+                'pos_ip',
+                'pos_port',
+                'printer_enabled',
+                'printer_ip',
+                'printer_port',
+            )
+        }),
         ('اطلاعات تماس', {
             'fields': ('contact_phone', 'contact_email', 'contact_address')
         }),

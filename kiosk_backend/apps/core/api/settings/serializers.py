@@ -75,6 +75,11 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'dine_in_enabled',
             'takeaway_enabled',
             'cart_layout',
+            'pos_ip',
+            'pos_port',
+            'printer_enabled',
+            'printer_ip',
+            'printer_port',
             'catalog_revision',
             'receipt_number_mode',
             'last_receipt_number',
@@ -105,6 +110,18 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
 
     def validate_landing_muted_color(self, value):
         return _clean_hex_color(value)
+
+    def validate_pos_port(self, value):
+        port = int(value)
+        if port < 1 or port > 65535:
+            raise serializers.ValidationError('پورت باید بین ۱ تا ۶۵۵۳۵ باشد.')
+        return port
+
+    def validate_printer_port(self, value):
+        port = int(value)
+        if port < 1 or port > 65535:
+            raise serializers.ValidationError('پورت باید بین ۱ تا ۶۵۵۳۵ باشد.')
+        return port
 
     def get_logo_url(self, obj):
         return _media_url(obj.logo)

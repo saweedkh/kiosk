@@ -434,7 +434,10 @@ class OrderService:
             order.receipt_number = ReceiptService.allocate_receipt_number()
             order.save(update_fields=['receipt_number'])
 
-        OrderService.update_payment_status(order.id, 'paid')
+        OrderService.update_payment_status(order.id, 'paid', print_receipt=False)
+        from apps.orders.services.print_service import PrintService
+
+        PrintService.schedule_print(order.id)
         order.refresh_from_db()
         
         LogService.log_info(
@@ -504,7 +507,9 @@ class OrderService:
     
     @staticmethod
     @transaction.atomic
-    def update_payment_status(order_id: int, payment_status: str) -> Order:
+    def update_payment_status(
+        order_id: int, payment_status: str, *, print_receipt: bool = True
+    ) -> Order:
         """
         Update order payment status.
         
@@ -534,9 +539,10 @@ class OrderService:
             order.status = 'paid'
             order.payment_status = payment_status
             order.save()
-            from apps.orders.services.print_service import PrintService
+            if print_receipt:
+                from apps.orders.services.print_service import PrintService
 
-            PrintService.print_receipt(order)
+                PrintService.print_receipt(order)
         else:
             order.payment_status = payment_status
             order.save()

@@ -3,7 +3,6 @@ Payment operations for POS gateway.
 """
 
 import socket
-import time
 from typing import Dict, Any
 from django.utils import timezone
 from ..exceptions import GatewayException
@@ -59,56 +58,25 @@ class POSPaymentOperations:
         payment_id = order_details.get('payment_id', '')
         bill_id = order_details.get('bill_id', '')
         
-        # IMPORTANT: Follow DLL's exact flow
-        # Step 1: Test connection first (like DLL's TestConnection())
-        LogService.log_info('payment', 'pos_testing_connection', details={
+        # IMPORTANT: Follow DLL flow — connect once in send_command (skip redundant test/disconnect)
+        LogService.log_info('payment', 'pos_connecting_for_payment', details={
             'host': self.connection.tcp_host,
-            'port': self.connection.tcp_port
+            'port': self.connection.tcp_port,
+            'order_number': order_number,
         })
         try:
-            connection_test = self.connection.test_connection()
-            if not connection_test.get('success', False):
-                LogService.log_error('payment', 'pos_connection_test_failed', details={
-                    'host': self.connection.tcp_host,
-                    'port': self.connection.tcp_port,
-                    'test_result': connection_test
-                })
-                raise GatewayException('اتصال به دستگاه POS برقرار نشد. لطفاً IP و Port را بررسی کنید.')
-            LogService.log_info('payment', 'pos_connection_test_success', details={
-                'host': self.connection.tcp_host,
-                'port': self.connection.tcp_port
-            })
+            if not self.connection.is_connected():
+                self.connection.connect()
         except GatewayException:
             raise
         except (socket.error, ConnectionError, TimeoutError) as e:
-            LogService.log_warning(
-                'payment',
-                'pos_connection_test_error',
-                details={'error': str(e), 'error_type': type(e).__name__}
-            )
-            # Try to reconnect
-            try:
-                if self.connection.is_connected():
-                    self.connection.disconnect()
-                time.sleep(1)
-                self.connection.connect()
-                LogService.log_info('payment', 'pos_reconnection_success', details={
-                    'host': self.connection.tcp_host,
-                    'port': self.connection.tcp_port
-                })
-            except Exception as reconnect_error:
-                LogService.log_error('payment', 'pos_reconnection_failed', details={
-                    'error': str(reconnect_error),
-                    'error_type': type(reconnect_error).__name__
-                })
-                raise GatewayException(f'اتصال به دستگاه POS برقرار نشد: {str(reconnect_error)}')
-        except Exception as e:
-            LogService.log_error(
-                'payment',
-                'pos_connection_test_unexpected_error',
-                details={'error': str(e), 'error_type': type(e).__name__}
-            )
-            raise GatewayException(f'خطای غیرمنتظره در تست اتصال: {str(e)}')
+            LogService.log_error('payment', 'pos_connection_failed', details={
+                'host': self.connection.tcp_host,
+                'port': self.connection.tcp_port,
+                'error': str(e),
+                'error_type': type(e).__name__,
+            })
+            raise GatewayException(f'اتصال به دستگاه POS برقرار نشد: {str(e)}')
         
         # Step 2: Build additional_data dictionary (like DLL sets properties)
         additional_data = {}

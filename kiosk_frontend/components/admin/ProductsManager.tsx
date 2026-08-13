@@ -10,6 +10,14 @@ import { ProductOptionsEditor } from './ProductOptionsEditor'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   AdminAlert,
   AdminEmpty,
   AdminMeta,
@@ -19,7 +27,7 @@ import {
   AdminSurface,
   AdminToolbar,
 } from '@/components/admin/ui/primitives'
-import { formatCurrency, translateError } from '@/lib/utils'
+import { formatCurrency, formatNumber, translateError } from '@/lib/utils'
 import type { Product, Category } from '@/types'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { hasPermission } from '@/lib/auth/permissions'
@@ -297,18 +305,24 @@ export function ProductsManager() {
       )}
 
       {stockProduct && (
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
+        <Dialog
+          open={Boolean(stockProduct)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setStockProduct(null)
+              setStockError(null)
+            }
+          }}
         >
-          <AdminSurface className="space-y-4">
-            <h3 className="text-base font-bold text-foreground">
-              تغییر موجودی — {stockProduct.name}
-            </h3>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>تغییر موجودی</DialogTitle>
+              <DialogDescription>{stockProduct.name}</DialogDescription>
+            </DialogHeader>
             {stockError && (
               <p className="text-sm text-red-600 dark:text-red-400">{stockError}</p>
             )}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid gap-4 py-1">
               <Input
                 label="موجودی جدید"
                 type="number"
@@ -325,7 +339,10 @@ export function ProductsManager() {
                 placeholder="مثلاً شمارش انبار"
               />
             </div>
-            <div className="flex gap-3">
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setStockProduct(null)}>
+                انصراف
+              </Button>
               <Button
                 onClick={() =>
                   stockMutation.mutate({
@@ -338,12 +355,9 @@ export function ProductsManager() {
               >
                 ذخیره موجودی
               </Button>
-              <Button variant="outline" onClick={() => setStockProduct(null)}>
-                انصراف
-              </Button>
-            </div>
-          </AdminSurface>
-        </motion.div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {deleteError && (
@@ -442,7 +456,7 @@ export function ProductsManager() {
                     {formatCurrency(product.price)}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    موجودی: {product.stock_quantity}
+                    موجودی: {formatNumber(product.stock_quantity)} عدد
                   </span>
                 </div>
                 <div className="mb-4 flex items-center justify-between">

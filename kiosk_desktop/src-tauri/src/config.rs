@@ -21,7 +21,7 @@ impl AppConfig {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8000),
-            pos_host: std::env::var("POS_TCP_HOST").unwrap_or_else(|_| "192.168.1.100".into()),
+            pos_host: std::env::var("POS_TCP_HOST").unwrap_or_else(|_| "192.168.1.102".into()),
             pos_port: std::env::var("POS_TCP_PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())

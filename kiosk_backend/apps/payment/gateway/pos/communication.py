@@ -110,7 +110,7 @@ class POSCommunication:
                 raise GatewayException(f'Failed to send data to POS: {str(e)}')
             
             # Small delay to ensure data is sent and device processes it
-            time.sleep(0.5)
+            time.sleep(0.1)
             
             if not wait_for_response:
                 # For commands that don't need response

@@ -3,8 +3,10 @@ Print service for sending receipts to network printers using python-escpos.
 """
 from typing import Dict, Any, List
 import os
+import threading
 from PIL import Image, ImageFont
 from django.conf import settings
+from django.db import connection
 from apps.orders.models import Order
 from apps.orders.services.receipt_service import ReceiptService
 from apps.orders.services.receipt_constants import ReceiptConstants
@@ -28,11 +30,45 @@ class PrintService:
 
     @staticmethod
     def get_printer_config() -> Dict[str, Any]:
-        return {
-            'enabled': getattr(settings, 'PRINTER_ENABLED', False),
-            'ip': getattr(settings, 'PRINTER_IP', '192.168.1.100'),
-            'port': getattr(settings, 'PRINTER_PORT', 9100),
-        }
+        from apps.core.hardware_config import get_printer_config
+
+        return get_printer_config()
+
+    @staticmethod
+    def schedule_print(order_id: int) -> None:
+        """Print receipt in a background thread so payment API can return immediately."""
+
+        def _run() -> None:
+            try:
+                order = Order.objects.select_related('user').prefetch_related(
+                    'items__product'
+                ).get(pk=order_id)
+                PrintService.print_receipt(order)
+            except Order.DoesNotExist:
+                LogService.log_warning(
+                    'print',
+                    'async_print_order_missing',
+                    details={'order_id': order_id},
+                )
+            except Exception as exc:
+                LogService.log_error(
+                    'print',
+                    'async_print_failed',
+                    details={
+                        'order_id': order_id,
+                        'error': str(exc),
+                        'error_type': type(exc).__name__,
+                    },
+                )
+            finally:
+                connection.close()
+
+        thread = threading.Thread(
+            target=_run,
+            name=f'print-order-{order_id}',
+            daemon=True,
+        )
+        thread.start()
 
     @staticmethod
     def _load_fonts() -> Dict[str, ImageFont.ImageFont]:

@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import type { Category } from '@/types'
 
 interface CategoryFilterProps {
@@ -19,35 +18,32 @@ export function CategoryFilter({
 
   return (
     <div className="kiosk-scroll-x -mx-1 flex items-center gap-3 overflow-x-auto px-1 pb-3">
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+      <button
+        type="button"
         onClick={() => onSelectCategory(null)}
-        className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors ${
+        className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors touch-manipulation ${
           selectedCategory === null
             ? 'bg-primary text-white'
             : 'bg-gray dark:bg-gray-dark text-text-secondary dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
         }`}
       >
         همه موارد
-      </motion.button>
+      </button>
 
       {categoriesArray.map((category) => (
-        <motion.button
+        <button
+          type="button"
           key={category.id}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
           onClick={() => onSelectCategory(category.id)}
-          className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors ${
+          className={`px-6 py-3 rounded-full font-bold text-sm whitespace-nowrap transition-colors touch-manipulation ${
             selectedCategory === category.id
               ? 'bg-primary text-white'
               : 'bg-gray dark:bg-gray-dark text-text-secondary dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
           }`}
         >
           {category.name}
-        </motion.button>
+        </button>
       ))}
     </div>
   )
 }
-

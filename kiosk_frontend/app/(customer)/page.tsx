@@ -158,18 +158,23 @@ export default function CustomerPage() {
     };
   }, []);
 
-  const goToAttract = () => {
+  const clearPaymentTimers = () => {
     if (paymentModalTimeoutRef.current) {
       clearTimeout(paymentModalTimeoutRef.current);
       paymentModalTimeoutRef.current = null;
     }
-    if (idleTimeoutRef.current) {
-      clearTimeout(idleTimeoutRef.current);
-      idleTimeoutRef.current = null;
-    }
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
+    }
+  };
+
+  /** Full session reset → attract (clears cart). Use after success or idle. */
+  const goToAttract = () => {
+    clearPaymentTimers();
+    if (idleTimeoutRef.current) {
+      clearTimeout(idleTimeoutRef.current);
+      idleTimeoutRef.current = null;
     }
     setIsPaymentModalOpen(false);
     setCurrentOrder(null);
@@ -178,6 +183,15 @@ export default function CustomerPage() {
     setSelectedCategory(null);
     clearCart();
     setShowAttract(true);
+  };
+
+  /** Close payment UI but keep cart so customer can retry without re-ordering. */
+  const returnToMenuKeepingCart = () => {
+    clearPaymentTimers();
+    setIsPaymentModalOpen(false);
+    setCurrentOrder(null);
+    setPaymentStatus("waiting");
+    // keep pendingFulfillment / cart items for retry
   };
 
   const startOrdering = () => {
@@ -191,7 +205,7 @@ export default function CustomerPage() {
     });
   };
 
-  // تایمر برای بستن خودکار مودال در صورت موفق یا ناموفق بودن پرداخت → بازگشت به لندینگ
+  // Auto-close payment modal: success → attract; fail/cancel → keep cart on menu
   useEffect(() => {
     if (
       (paymentStatus === "success" ||
@@ -207,7 +221,11 @@ export default function CustomerPage() {
       paymentModalTimeoutRef.current = setTimeout(() => {
         setIsPaymentModalOpen((prevIsOpen) => {
           if (prevIsOpen) {
-            goToAttract();
+            if (paymentStatus === "success") {
+              goToAttract();
+            } else {
+              returnToMenuKeepingCart();
+            }
             return false;
           }
           return prevIsOpen;
@@ -715,34 +733,27 @@ export default function CustomerPage() {
   };
 
   const handlePaymentCancel = () => {
-    // اگر درخواست در حال انجام است یا وضعیت waiting است، نمی‌توانیم آن را لغو کنیم
-    // چون API در حال انتظار برای پرداخت است
-    // کاربر باید منتظر بماند تا پاسخ از بک‌اند بیاید
+    // While waiting for POS, do not abort — request is still in flight
     if (createOrderMutation.isPending || paymentStatus === "waiting") {
-      // نمی‌توانیم در حین پردازش یا waiting لغو کنیم
-      // کاربر باید منتظر بماند تا پاسخ از بک‌اند بیاید
       return;
     }
-    
-    // پاک کردن timeout قبلی اگر وجود داشته باشد
-    if (paymentModalTimeoutRef.current) {
-      clearTimeout(paymentModalTimeoutRef.current);
-      paymentModalTimeoutRef.current = null;
-    }
-    
-    // فقط برای وضعیت‌های نهایی (success, failed, cancelled) مودال را ببند
-    if (paymentStatus === "success" || paymentStatus === "failed" || paymentStatus === "cancelled") {
+
+    clearPaymentTimers();
+
+    if (paymentStatus === "success") {
       goToAttract();
+      return;
+    }
+    // failed / cancelled: keep cart so they can pay again
+    if (paymentStatus === "failed" || paymentStatus === "cancelled") {
+      returnToMenuKeepingCart();
     }
   };
 
   const handlePaymentConfirm = () => {
-    // فقط برای success مودال را ببند
     if (paymentStatus === "success") {
       goToAttract();
     }
-    // برای failed و cancelled، مودال را باز نگه دار
-    // کاربر باید با دکمه "بستن" یا کلیک روی backdrop ببندد
   };
 
   const hasMenuData = Array.isArray(allProducts) && allProducts.length > 0;
@@ -897,7 +908,7 @@ export default function CustomerPage() {
         </header>
 
         {/* Products Section - Scrollable (min-h-0 required for flex touch scroll) */}
-        <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 py-8">
+        <main className="kiosk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-8">
           <div className="mb-8">
             {categoriesPending && categories.length === 0 ? (
               <CategoryFilterSkeleton />

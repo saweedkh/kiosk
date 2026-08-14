@@ -15,15 +15,23 @@ def get_package_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+NO_DEMO_SEED_FILENAME = 'no_demo_seed'
+
+
 def get_data_dir() -> Path:
     """
     Writable app data directory.
-    Tauri sets KIOSK_DATA_DIR to %APPDATA%/com.kiosk.app before spawning backend.
+    Tauri sets KIOSK_DATA_DIR to %APPDATA%\\com.kiosk.desktop before spawning backend.
     """
     env = os.environ.get('KIOSK_DATA_DIR', '').strip()
     if env:
         return Path(env)
     return get_package_root().parent / 'data'
+
+
+def demo_seed_blocked() -> bool:
+    """True after a Postgres→SQLite import so EXE must not plant cafe demo rows."""
+    return (get_data_dir() / NO_DEMO_SEED_FILENAME).is_file()
 
 
 def ensure_data_dirs() -> Path:

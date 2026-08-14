@@ -4,6 +4,7 @@ Kiosk desktop backend entry — Waitress WSGI for Tauri sidecar / dev.
 
 Usage:
   DJANGO_SETTINGS_MODULE=config.settings.desktop python main.py
+  python main.py import-json <fixture.json> [kiosk.db]
 """
 
 from __future__ import annotations
@@ -112,7 +113,12 @@ def _run_bootstrap_commands() -> None:
         _log('seed: disabled (SEED_DEMO_DATA=0)')
         return
 
+    from apps.core.desktop_paths import demo_seed_blocked
+
     t2 = time.perf_counter()
+    if demo_seed_blocked():
+        _log('seed: skipped (imported from Postgres — no demo catalog)')
+        return
     if _catalog_ready():
         _log(f'seed: skipped (catalog exists) in {time.perf_counter() - t2:.1f}s')
         return
@@ -122,9 +128,47 @@ def _run_bootstrap_commands() -> None:
     _log(f'seed: done in {time.perf_counter() - t2:.1f}s')
 
 
+def _run_cli(argv: list[str]) -> int | None:
+    """Handle sidecar CLI. Return exit code, or None to start the API server."""
+    if not argv:
+        return None
+
+    cmd = argv[0].lstrip('-').replace('_', '-')
+    if cmd in ('help', 'h'):
+        print('kiosk-backend.exe')
+        print('kiosk-backend.exe import-json <fixture.json> [kiosk.db]')
+        return 0
+    if cmd not in ('import-json', 'importjson'):
+        return None
+    if len(argv) < 2:
+        print('Usage: kiosk-backend.exe import-json <fixture.json> [kiosk.db]', file=sys.stderr)
+        return 2
+
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
+    os.environ['SEED_DEMO_DATA'] = '0'
+    _bootstrap_django()
+    from apps.core.management.commands._sqlite_postgres_utils import import_dumpdata_json
+
+    dest = import_dumpdata_json(
+        argv[1],
+        sqlite_path=argv[2] if len(argv) > 2 else '',
+    )
+    print(f'KIOSK_IMPORT_OK {dest}', flush=True)
+    return 0
+
+
 def main() -> None:
     started = time.perf_counter()
     _configure_stdio_utf8()
+
+    try:
+        cli = _run_cli(sys.argv[1:])
+    except Exception as exc:  # noqa: BLE001 — CLI must not start Waitress on failure
+        print(f'Import failed: {exc}', file=sys.stderr, flush=True)
+        raise SystemExit(1) from exc
+    if cli is not None:
+        raise SystemExit(cli)
+
     _log('starting…')
 
     t0 = time.perf_counter()

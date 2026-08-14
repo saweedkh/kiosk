@@ -2,8 +2,6 @@ mod backend;
 mod config;
 mod logutil;
 
-use tauri::Emitter;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logutil::init_tracing();
@@ -11,26 +9,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Open the UI immediately. Never block (or MessageBox) on /health/.
-            // If Django is already running, leave it alone; otherwise spawn it
-            // in the background.
+            // Splash is boot.html (no /health/ poll). Spawn Django only if
+            // the sidecar is not already running.
             if let Err(err) = backend::start(app.handle()) {
                 logutil::error(&format!("backend start: {err}"));
             }
-
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                match backend::wait_until_ready() {
-                    Ok(()) => {
-                        logutil::info("backend health OK (background waiter)");
-                        let _ = handle.emit("backend-ready", ());
-                    }
-                    Err(err) => {
-                        logutil::error(&format!("backend health wait: {err}"));
-                    }
-                }
-            });
-
             Ok(())
         })
         .build(tauri::generate_context!())

@@ -1,5 +1,7 @@
 """Shared helpers for SQLite ↔ PostgreSQL data migration commands."""
 
+from __future__ import annotations
+
 from copy import deepcopy
 from pathlib import Path
 
@@ -110,7 +112,7 @@ def retarget_default_sqlite(sqlite_path: str) -> None:
     connections['default'].ensure_connection()
 
 
-def sanitize_dumpdata_fixture(input_path: Path) -> Path:
+def sanitize_dumpdata_fixture(input_path: Path, out_path: Path | None = None) -> Path:
     """
     Drop/rename fixture fields that no longer exist on current models.
 
@@ -164,7 +166,10 @@ def sanitize_dumpdata_fixture(input_path: Path) -> Path:
                 dropped += 1
         cleaned.append({**obj, 'fields': new_fields})
 
-    out = Path(input_path).with_name(Path(input_path).stem + '.sanitized.json')
+    out = Path(out_path) if out_path is not None else Path(input_path).with_name(
+        Path(input_path).stem + '.sanitized.json'
+    )
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2), encoding='utf-8')
     return out
 
@@ -175,3 +180,66 @@ def require_sqlite_engine(engine: str) -> None:
             f'Target is not SQLite (ENGINE={engine}). '
             'Aborting to avoid writing into the wrong database.'
         )
+
+
+def import_dumpdata_json(
+    input_path: str | Path,
+    sqlite_path: str = '',
+    keep_existing: bool = False,
+    log=print,
+) -> str:
+    """
+    Load a dumpdata JSON into a SQLite file.
+
+    Wipes the target DB by default. Safe for the desktop EXE: pass KIOSK_DATA_DIR
+    so settings.desktop points at %APPDATA%\\com.kiosk.desktop\\kiosk.db.
+    """
+    from django.core.management import call_command
+
+    input_path = Path(input_path)
+    if not input_path.is_file():
+        raise CommandError(f'Import file not found: {input_path}')
+    size = input_path.stat().st_size
+    if size < 3:
+        raise CommandError('Import file is empty.')
+
+    sqlite_path = (sqlite_path or '').strip()
+    if sqlite_path:
+        retarget_default_sqlite(sqlite_path)
+
+    engine = settings.DATABASES['default'].get('ENGINE', '')
+    sqlite_path = str(settings.DATABASES['default'].get('NAME', ''))
+    require_sqlite_engine(engine)
+    log(f'Target SQLite: {sqlite_path}')
+
+    if not keep_existing:
+        log('Wiping existing SQLite file (including WAL)...')
+        connections.close_all()
+        for extra in ('', '-wal', '-shm', '-journal'):
+            leftover = Path(str(sqlite_path) + extra)
+            if leftover.is_file():
+                leftover.unlink()
+        retarget_default_sqlite(sqlite_path)
+
+    log('Applying migrations...')
+    call_command('migrate', database='default', interactive=False, verbosity=1)
+
+    if not keep_existing:
+        log('Flushing existing SQLite data (schema kept)...')
+        call_command('flush', interactive=False, database='default', verbosity=1)
+
+    dest_dir = Path(sqlite_path).resolve().parent
+    sanitized = sanitize_dumpdata_fixture(
+        input_path,
+        out_path=dest_dir / '_import_sanitized.json',
+    )
+    log(f'Loading fixture ({sanitized.stat().st_size} bytes, sanitized from {size})...')
+    call_command('loaddata', str(sanitized), database='default', verbosity=1)
+    try:
+        call_command('setup_permission_groups', verbosity=0)
+    except Exception as exc:  # noqa: BLE001 — old bundles may lack this command
+        log(f'setup_permission_groups skipped: {exc}')
+
+    (dest_dir / 'no_demo_seed').write_text('postgres\n', encoding='utf-8')
+    log('Import complete.')
+    return sqlite_path

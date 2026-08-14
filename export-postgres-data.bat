@@ -46,8 +46,10 @@ echo [OK] EXPORT DONE
 echo File: %CD%\%HOST_OUTPUT%
 echo ==========================================
 echo.
-echo Next:
+echo Next (Postgres can be stopped now):
 echo   import-data-to-sqlite.bat %HOST_OUTPUT%
+echo Or just:
+echo   import-data-to-sqlite.bat
 echo.
 echo Also copy images:
 echo   docker cp %BACKEND_CONTAINER%:/app/media/. data\media\

@@ -445,9 +445,7 @@
 
     <script>
       (function () {
-        var HEALTH = "http://127.0.0.1:18765/health/";
-        var TIMEOUT_MS = 180000;
-        var INTERVAL_MS = 500;
+        var SHOW_MS = 1800;
         var started = Date.now();
         var timer = null;
 
@@ -461,18 +459,14 @@
         var markIcon = document.getElementById("markIcon");
 
         var messages = [
-          "در حال شروع سرویس بک‌اند…",
-          "در حال آماده‌سازی پایگاه داده…",
-          "هنوز صبر کنید — مهاجرت اولیه ممکن است طول بکشد…",
-          "در حال بررسی سلامت سرویس…",
+          "در حال راه‌اندازی…",
+          "در حال آماده‌سازی برنامه…",
         ];
 
         var ICON_KIOSK =
           '<path d="M4 7.5h16v2.2H4V7.5zm2.2-4h2.2v4.4H6.2V3.5zm4.4 0h2.2v4.4h-2.2V3.5zm4.4 0h2.2v4.4h-2.2V3.5zM7.5 14h9v1.2a3.3 3.3 0 01-3.3 3.3h-2.4A3.3 3.3 0 017.5 15.2V14z" fill="currentColor"/>';
         var ICON_OK =
           '<path d="M5 12.5l4.2 4.2L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
-        var ICON_ERR =
-          '<path d="M12 7.5v5.5M12 16.8h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/>';
 
         function toFaDigits(n) {
           return String(n).replace(/\d/g, function (d) {
@@ -488,28 +482,10 @@
         function setBusy(msg) {
           var idx = Math.min(
             messages.length - 1,
-            Math.floor((Date.now() - started) / 25000)
+            Math.floor((Date.now() - started) / 900)
           );
           statusEl.textContent = msg || messages[idx];
           elapsedEl.textContent = elapsedLabel();
-        }
-
-        function showError(detail) {
-          if (timer) clearInterval(timer);
-          document.body.classList.add("is-error");
-          document.body.classList.remove("is-ready");
-          barEl.classList.remove("done");
-          metaEl.classList.add("hidden");
-          titleEl.textContent = "راه‌اندازی ناموفق";
-          statusEl.textContent = "اپلیکیشن نتوانست به سرور داخلی وصل شود.";
-          markIcon.setAttribute("viewBox", "0 0 24 24");
-          markIcon.innerHTML = ICON_ERR;
-          errorEl.textContent =
-            detail +
-            "\n\nلاگ‌ها را کنار فایل kiosk.exe در پوشه logs ببینید:\n" +
-            "• kiosk.log\n• django.log";
-          errorEl.classList.add("visible");
-          retryBtn.classList.remove("hidden");
         }
 
         function goApp() {
@@ -526,43 +502,11 @@
           }, 420);
         }
 
-        function tick() {
-          if (Date.now() - started > TIMEOUT_MS) {
-            showError(
-              "بک‌اند تا ۳ دقیقه پاسخ نداد.\nآدرس: " +
-                HEALTH +
-                "\nفایل kiosk-backend-x86_64-pc-windows-msvc.exe باید کنار kiosk.exe باشد."
-            );
-            return;
-          }
-          setBusy();
-          fetch(HEALTH, { cache: "no-store" })
-            .then(function (r) {
-              if (r.ok) goApp();
-            })
-            .catch(function () {
-              /* still starting */
-            });
-        }
-
-        retryBtn.addEventListener("click", function () {
-          started = Date.now();
-          document.body.classList.remove("is-error", "is-ready");
-          barEl.classList.remove("done");
-          metaEl.classList.remove("hidden");
-          titleEl.textContent = "در حال راه‌اندازی…";
-          markIcon.innerHTML = ICON_KIOSK;
-          errorEl.classList.remove("visible");
-          errorEl.textContent = "";
-          retryBtn.classList.add("hidden");
-          setBusy();
-          timer = setInterval(tick, INTERVAL_MS);
-          tick();
-        });
-
+        retryBtn.classList.add("hidden");
+        errorEl.classList.remove("visible");
         setBusy();
-        timer = setInterval(tick, INTERVAL_MS);
-        tick();
+        timer = setInterval(setBusy, 250);
+        setTimeout(goApp, SHOW_MS);
       })();
     </script>
   </body>

@@ -29,7 +29,11 @@ if [ -z "$LATEST" ]; then
 fi
 
 echo
-echo "Copying media from ${BACKEND_CONTAINER}..."
+echo "Wiping old SQLite + WAL so leftover demo rows cannot come back..."
+rm -f "${SQLITE_PATH}" "${SQLITE_PATH}-wal" "${SQLITE_PATH}-shm" "${SQLITE_PATH}-journal"
+
+echo "Replacing media folder (old demo images removed)..."
+rm -rf "${MEDIA_DIR}"
 mkdir -p "${MEDIA_DIR}"
 if docker ps --format '{{.Names}}' | grep -q "^${BACKEND_CONTAINER}$"; then
   docker cp "${BACKEND_CONTAINER}:/app/media/." "${MEDIA_DIR}/" || true
@@ -39,3 +43,4 @@ fi
 
 echo
 "${SCRIPT_DIR}/import-data-to-sqlite.sh" "${LATEST}" "${SQLITE_PATH}"
+printf 'postgres\n' > "$(dirname "$SQLITE_PATH")/no_demo_seed"

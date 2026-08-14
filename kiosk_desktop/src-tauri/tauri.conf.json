@@ -14,7 +14,7 @@
       {
         "label": "main",
         "title": "Kiosk",
-        "url": "index.html",
+        "url": "boot.html",
         "width": 1280,
         "height": 800,
         "fullscreen": false,

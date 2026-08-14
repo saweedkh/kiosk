@@ -62,6 +62,14 @@ def main() -> int:
         return 1
 
     print(f'Target SQLite: {sqlite_path}')
+    connections.close_all()
+    for extra in ('', '-wal', '-shm', '-journal'):
+        leftover = Path(str(sqlite_path) + extra)
+        if leftover.is_file():
+            leftover.unlink()
+            print(f'Removed old {leftover.name}')
+    connections['default'].ensure_connection()
+
     call_command('migrate', interactive=False, verbosity=1)
     call_command('flush', interactive=False, verbosity=1)
     call_command('loaddata', str(fixture), verbosity=1)

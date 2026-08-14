@@ -1,14 +1,8 @@
 from pathlib import Path
 
-from django.conf import settings
-from django.core.management import call_command
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 
-from ._sqlite_postgres_utils import (
-    require_sqlite_engine,
-    retarget_default_sqlite,
-    sanitize_dumpdata_fixture,
-)
+from ._sqlite_postgres_utils import import_dumpdata_json
 
 
 class Command(BaseCommand):
@@ -35,38 +29,13 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        input_path = Path(options['input'])
-        if not input_path.is_file():
-            raise CommandError(f'Import file not found: {input_path}')
-
-        size = input_path.stat().st_size
-        if size < 3:
-            raise CommandError('Import file is empty.')
-
-        sqlite_path = (options.get('sqlite_path') or '').strip()
-        if sqlite_path:
-            retarget_default_sqlite(sqlite_path)
-        database = 'default'
-        engine = settings.DATABASES['default'].get('ENGINE', '')
-        sqlite_path = str(settings.DATABASES['default'].get('NAME', ''))
-
-        require_sqlite_engine(engine)
-
-        self.stdout.write(f'Target SQLite: {sqlite_path}')
-        self.stdout.write('Applying migrations...')
-        call_command('migrate', database=database, interactive=False, verbosity=1)
-
-        if not options['keep_existing']:
-            self.stdout.write('Flushing existing SQLite data (schema kept)...')
-            call_command('flush', interactive=False, database=database, verbosity=1)
-
-        sanitized = sanitize_dumpdata_fixture(input_path)
-        load_size = sanitized.stat().st_size
-        self.stdout.write(f'Loading fixture ({load_size} bytes, sanitized from {size})...')
-        call_command('loaddata', str(sanitized), database=database, verbosity=1)
-        call_command('setup_permission_groups', verbosity=0)
-
+        dest = import_dumpdata_json(
+            options['input'],
+            sqlite_path=options.get('sqlite_path') or '',
+            keep_existing=options['keep_existing'],
+            log=self.stdout.write,
+        )
         self.stdout.write(self.style.SUCCESS(
-            'Import complete. Copy product/logo images into this app media folder too '
-            '(Docker: backend_media → data/media or %APPDATA%\\com.kiosk.app\\media).'
+            f'Import complete: {dest}. Copy product/logo images into the media folder '
+            'next to this DB (%APPDATA%\\com.kiosk.desktop\\media).'
         ))

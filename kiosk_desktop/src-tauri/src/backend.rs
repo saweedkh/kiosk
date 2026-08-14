@@ -1,10 +1,9 @@
-//! Spawn bundled Django backend next to the app EXE and wait until /health/ is ready.
+//! Spawn bundled Django backend next to the app EXE.
 
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager};
 
@@ -75,15 +74,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     let config = AppConfig::from_env();
     let log_dir = logutil::logs_dir();
 
-    // Operator-started backend: never taskkill it. If it is already up (or the
-    // process exists), just wait for /health/ in the background thread.
-    if probe_health_with_timeout(&config, Duration::from_secs(2)) {
-        logutil::info(&format!(
-            "backend already healthy at {} — skipping sidecar spawn",
-            health_url(&config)
-        ));
-        return Ok(());
-    }
+    // Operator-started backend: never taskkill / respawn it.
     if backend_process_running() {
         logutil::info(
             "backend EXE already running — not killing it, not spawning another",
@@ -112,24 +103,6 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         #[cfg(windows)]
         _job: spawned.job,
     });
-    // Health wait runs in a background thread (see lib.rs) so boot.html can show.
-    Ok(())
-}
-
-/// Block until `/health/` returns 200 or the deadline expires.
-pub fn wait_until_ready() -> Result<(), String> {
-    let config = AppConfig::from_env();
-    wait_for_health(&config)?;
-    logutil::info(&format!(
-        "Django ready http://{}:{}/ (bound {})",
-        if config.api_host == "0.0.0.0" {
-            "127.0.0.1"
-        } else {
-            config.api_host.as_str()
-        },
-        config.api_port,
-        config.api_host
-    ));
     Ok(())
 }
 
@@ -386,54 +359,4 @@ mod winjob {
         use std::os::windows::io::AsRawHandle;
         AssignProcessToJobObject(job.handle, child.as_raw_handle() as *mut core::ffi::c_void) != 0
     }
-}
-
-fn health_url(config: &AppConfig) -> String {
-    // Binding 0.0.0.0 is for listen; health probes must hit loopback.
-    let probe_host = if config.api_host == "0.0.0.0" {
-        "127.0.0.1"
-    } else {
-        config.api_host.as_str()
-    };
-    format!("http://{}:{}/health/", probe_host, config.api_port)
-}
-
-pub fn probe_health(config: &AppConfig) -> bool {
-    probe_health_with_timeout(config, Duration::from_secs(2))
-}
-
-fn probe_health_with_timeout(config: &AppConfig, timeout: Duration) -> bool {
-    ureq::get(&health_url(config))
-        .timeout(timeout)
-        .call()
-        .map(|r| r.status() == 200)
-        .unwrap_or(false)
-}
-
-fn wait_for_health(config: &AppConfig) -> Result<(), String> {
-    let url = health_url(config);
-    logutil::info(&format!(
-        "waiting for {url} (listen {}:{}, up to 3 min for first migrate)",
-        config.api_host, config.api_port
-    ));
-    let deadline = Instant::now() + Duration::from_secs(180);
-    let mut attempts = 0u32;
-
-    while Instant::now() < deadline {
-        attempts += 1;
-        if probe_health(config) {
-            logutil::info(&format!("health OK after {attempts} attempts"));
-            return Ok(());
-        }
-        if attempts % 10 == 0 {
-            logutil::info(&format!("still waiting for backend… attempt {attempts}"));
-        }
-        std::thread::sleep(Duration::from_millis(500));
-    }
-    Err(format!(
-        "Backend did not become ready at {url}.\n\n\
-         First launch can take 1–2 minutes (SQLite migrate).\n\n\
-         {}",
-        logutil::open_logs_hint()
-    ))
 }

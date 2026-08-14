@@ -75,13 +75,19 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     let config = AppConfig::from_env();
     let log_dir = logutil::logs_dir();
 
-    // If Django is already serving (operator ran kiosk-backend.exe), reuse it.
-    // Do not taskkill / spawn / own the process — closing kiosk.exe must leave it up.
-    if probe_health_with_timeout(&config, Duration::from_millis(800)) {
+    // Operator-started backend: never taskkill it. If it is already up (or the
+    // process exists), just wait for /health/ in the background thread.
+    if probe_health_with_timeout(&config, Duration::from_secs(2)) {
         logutil::info(&format!(
             "backend already healthy at {} — skipping sidecar spawn",
             health_url(&config)
         ));
+        return Ok(());
+    }
+    if backend_process_running() {
+        logutil::info(
+            "backend EXE already running — not killing it, not spawning another",
+        );
         return Ok(());
     }
 
@@ -99,9 +105,6 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         config.api_host,
         config.api_port
     ));
-
-    // Previous kiosk.exe may have left an orphan sidecar on the API port.
-    kill_stale_backend_processes();
 
     let spawned = spawn_backend(&config, &data_dir, &log_dir)?;
     app.manage(BackendHandle {
@@ -250,7 +253,7 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<
     })
 }
 
-fn kill_stale_backend_processes() {
+fn backend_process_running() -> bool {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -259,14 +262,24 @@ fn kill_stale_backend_processes() {
             "kiosk-backend-x86_64-pc-windows-msvc.exe",
             "kiosk-backend.exe",
         ] {
-            let _ = Command::new("taskkill")
-                .args(["/F", "/IM", name, "/T"])
+            let output = Command::new("tasklist")
+                .args(["/FI", &format!("IMAGENAME eq {name}"), "/NH"])
                 .creation_flags(CREATE_NO_WINDOW)
-                .stdout(Stdio::null())
+                .stdout(Stdio::piped())
                 .stderr(Stdio::null())
-                .status();
+                .output();
+            if let Ok(out) = output {
+                let text = String::from_utf8_lossy(&out.stdout).to_ascii_lowercase();
+                if text.contains(&name.to_ascii_lowercase()) {
+                    return true;
+                }
+            }
         }
-        std::thread::sleep(Duration::from_millis(100));
+        false
+    }
+    #[cfg(not(windows))]
+    {
+        false
     }
 }
 

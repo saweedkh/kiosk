@@ -1,6 +1,6 @@
 //! Spawn bundled Django backend next to the app EXE and wait until /health/ is ready.
 
-use std::io::{BufRead, BufReader};
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
@@ -203,9 +203,20 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<
         .env("POS_TCP_PORT", config.pos_port.to_string())
         .env("SEED_DEMO_DATA", "1")
         .env("KIOSK_QUIET_STARTUP", "1")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .stdin(Stdio::null());
+
+    // Pipe+line-reader deadlocks PyInstaller onefile on some PCs (buffer fills
+    // before a newline). Write straight to django.log so the child can boot.
+    let django_log = log_dir.join("django.log");
+    let log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&django_log)
+        .map_err(|e| format!("cannot write {}: {e}", django_log.display()))?;
+    let log_err = log_file
+        .try_clone()
+        .map_err(|e| format!("cannot clone django.log: {e}"))?;
+    cmd.stdout(Stdio::from(log_file)).stderr(Stdio::from(log_err));
 
     #[cfg(windows)]
     {
@@ -214,26 +225,14 @@ fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
-    let mut child = cmd
+    let child = cmd
         .spawn()
         .map_err(|e| format!("Failed to start backend {}: {e}", path.display()))?;
-
-    if let Some(out) = child.stdout.take() {
-        std::thread::spawn(move || {
-            for line in BufReader::new(out).lines().flatten() {
-                logutil::django_line("stdout", &line);
-                tracing::info!(target: "django", "{line}");
-            }
-        });
-    }
-    if let Some(err) = child.stderr.take() {
-        std::thread::spawn(move || {
-            for line in BufReader::new(err).lines().flatten() {
-                logutil::django_line("stderr", &line);
-                tracing::warn!(target: "django", "{line}");
-            }
-        });
-    }
+    logutil::info(&format!(
+        "backend pid={} logging to {}",
+        child.id(),
+        django_log.display()
+    ));
 
     #[cfg(windows)]
     let job = unsafe { winjob::create() };

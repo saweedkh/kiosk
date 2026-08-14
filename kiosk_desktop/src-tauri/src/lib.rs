@@ -2,7 +2,7 @@ mod backend;
 mod config;
 mod logutil;
 
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

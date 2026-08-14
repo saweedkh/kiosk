@@ -1,9 +1,10 @@
 @echo off
 REM Build Django backend sidecar for Tauri (Windows — use Python 3.11 **32-bit** for PNA DLL)
+REM Output: onedir folder dist\kiosk-backend\ (fast warm starts — no TEMP unpack)
 setlocal EnableExtensions
 cd /d "%~dp0..\.."
 
-echo === Build kiosk-backend sidecar (PyInstaller, 32-bit Python required) ===
+echo === Build kiosk-backend sidecar (PyInstaller onedir, 32-bit Python required) ===
 echo PNA pna.pcpos.dll is PE32 — use py -3.11-32 or Python311-32 in venv.
 
 set "VENV=%CD%\kiosk_backend\venv"
@@ -20,14 +21,12 @@ cd kiosk_backend
 pyinstaller --noconfirm --clean kiosk-backend.spec
 cd ..
 
-set "OUT=kiosk_backend\dist\kiosk-backend.exe"
-set "DEST=kiosk_desktop\src-tauri\binaries\kiosk-backend-x86_64-pc-windows-msvc.exe"
+set "OUT=kiosk_backend\dist\kiosk-backend\kiosk-backend.exe"
 if not exist "%OUT%" (
-  echo PyInstaller output missing: %OUT%
+  echo PyInstaller onedir output missing: %OUT%
   exit /b 1
 )
 
-if not exist "kiosk_desktop\src-tauri\binaries" mkdir "kiosk_desktop\src-tauri\binaries"
-copy /Y "%OUT%" "%DEST%" >nul
-echo Sidecar ready: %DEST%
+echo Sidecar onedir ready: kiosk_backend\dist\kiosk-backend\
+echo Copy that whole folder next to kiosk.exe as "kiosk-backend\".
 endlocal

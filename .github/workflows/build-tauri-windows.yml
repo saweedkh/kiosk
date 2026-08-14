@@ -76,7 +76,7 @@ jobs:
         working-directory: kiosk_desktop
         run: npm ci
 
-      - name: Build Django sidecar (PyInstaller)
+      - name: Build Django sidecar (PyInstaller onedir)
         working-directory: kiosk_backend
         shell: cmd
         env:
@@ -85,20 +85,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements/base.txt pyinstaller
           pyinstaller --noconfirm --clean kiosk-backend.spec
-          if not exist "..\kiosk_desktop\src-tauri\binaries" mkdir "..\kiosk_desktop\src-tauri\binaries"
-          if not exist "dist\kiosk-backend.exe" (
-            echo PyInstaller did not produce dist\kiosk-backend.exe
+          if not exist "dist\kiosk-backend\kiosk-backend.exe" (
+            echo PyInstaller did not produce dist\kiosk-backend\kiosk-backend.exe
             dir dist
+            if exist dist\kiosk-backend dir dist\kiosk-backend
             exit /b 1
           )
-          copy /Y "dist\kiosk-backend.exe" "..\kiosk_desktop\src-tauri\binaries\kiosk-backend-x86_64-pc-windows-msvc.exe"
+          echo Sidecar onedir OK
+          dir dist\kiosk-backend
 
-      - name: Verify sidecar binary
+      - name: Verify sidecar onedir
         shell: pwsh
         run: |
-          $sidecar = "kiosk_desktop/src-tauri/binaries/kiosk-backend-x86_64-pc-windows-msvc.exe"
-          if (-not (Test-Path $sidecar)) { throw "Missing sidecar: $sidecar" }
-          Write-Host "Sidecar OK:" (Get-Item $sidecar).Length "bytes"
+          $exe = "kiosk_backend/dist/kiosk-backend/kiosk-backend.exe"
+          if (-not (Test-Path $exe)) { throw "Missing onedir sidecar: $exe" }
+          Write-Host "Sidecar OK:" (Get-Item $exe).Length "bytes"
+          Get-ChildItem "kiosk_backend/dist/kiosk-backend" | Select-Object -First 15 Name, Length
 
       - name: Build Next.js static export for Tauri
         working-directory: kiosk_frontend
@@ -144,41 +146,41 @@ jobs:
           }
           Copy-Item $exe "release/kiosk.exe"
 
-          # Tauri expects this exact sidecar filename beside the app
-          $sidecarName = "kiosk-backend-x86_64-pc-windows-msvc.exe"
-          $sidecarSrc = @(
-            "$releaseDir/$sidecarName",
-            "kiosk_desktop/src-tauri/binaries/$sidecarName",
-            "$releaseDir/kiosk-backend.exe"
-          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $sidecarSrc) { throw "Sidecar binary not found for packaging" }
-          Copy-Item $sidecarSrc "release/$sidecarName"
+          # onedir backend — no TEMP unpack on every boot
+          $sidecarDir = "kiosk_backend/dist/kiosk-backend"
+          if (-not (Test-Path "$sidecarDir/kiosk-backend.exe")) {
+            throw "Sidecar onedir not found at $sidecarDir"
+          }
+          Copy-Item $sidecarDir "release/kiosk-backend" -Recurse -Force
 
           if (Test-Path "kiosk_backend/pna.pcpos.dll") {
             Copy-Item "kiosk_backend/pna.pcpos.dll" "release/"
           }
+          if (Test-Path "scripts/windows/start-kiosk-startup.vbs") {
+            Copy-Item "scripts/windows/start-kiosk-startup.vbs" "release/"
+          }
 
           @(
-            "Kiosk Windows build",
-            "===================",
-            "1. Keep ALL files in the same folder.",
-            "2. Backend listens on http://127.0.0.1:18765 (not 8000).",
-            "3. Health check: http://127.0.0.1:18765/health/",
-            "4. First screen is a loading page (boot) while Django starts.",
-            "5. First start may take 1-2 minutes (database migrate).",
-            "6. Logs are written to the logs folder next to kiosk.exe",
-            "   (kiosk.log, django.log, django-app.log).",
+            "Kiosk Windows build (fast onedir backend)",
+            "========================================",
+            "1. Keep ALL files in the same folder (including kiosk-backend\).",
+            "2. Startup: shortcut to start-kiosk-startup.vbs only (not the EXEs).",
+            "3. Backend: folder kiosk-backend\kiosk-backend.exe (no single fat EXE).",
+            "4. API: http://127.0.0.1:18765/health/",
+            "5. DB: %APPDATA%\com.kiosk.desktop\kiosk.db",
+            "6. Warm start should be ~10-30s; first migrate can be longer.",
             "",
-            "Required (same folder):",
+            "Required:",
             "- kiosk.exe",
-            "- kiosk-backend-x86_64-pc-windows-msvc.exe (32-bit Python sidecar for POS DLL)",
-            "- pna.pcpos.dll (official PNA card reader, PE32)",
+            "- kiosk-backend\  (whole folder)",
+            "- start-kiosk-startup.vbs",
+            "- pna.pcpos.dll (card reader)",
             "",
-            "POS: in-process DLL (PAYMENT_GATEWAY_NAME=dll). No PosBridge, no raw TCP.",
-            "Configure POS/printer IP in Admin > Settings > Hardware."
+            "POS: PAYMENT_GATEWAY_NAME=dll. Configure in Admin > Settings > Hardware."
           ) | Set-Content -Encoding utf8 "release/README.txt"
 
           Get-ChildItem release | Format-Table Name, Length
+          Get-ChildItem release/kiosk-backend -ErrorAction SilentlyContinue | Select-Object -First 8 Name | Format-Table
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

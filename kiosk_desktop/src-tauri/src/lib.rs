@@ -20,13 +20,6 @@ pub fn run() {
                 let _ = win.show();
                 let _ = win.set_focus();
             }
-            // Occasional hide of backend console if it flashed from Startup.
-            std::thread::spawn(|| {
-                for _ in 0..20 {
-                    backend::hide_backend_console_windows();
-                    std::thread::sleep(std::time::Duration::from_secs(3));
-                }
-            });
             Ok(())
         })
         .build(tauri::generate_context!())

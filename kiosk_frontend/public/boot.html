@@ -446,10 +446,12 @@
     <script>
       (function () {
         var HEALTH = "http://127.0.0.1:18765/health/";
-        // Slow probes — rapid /health/ floods starve PyInstaller unpack + Django boot.
-        var INTERVAL_MS = 5000;
+        // Health every 5s so we don't starve backend boot. Clock ticks every 1s.
+        var HEALTH_MS = 5000;
+        var CLOCK_MS = 1000;
         var started = Date.now();
-        var timer = null;
+        var healthTimer = null;
+        var clockTimer = null;
         var inFlight = false;
         var done = false;
 
@@ -490,10 +492,17 @@
           elapsedEl.textContent = elapsedLabel();
         }
 
+        function clearTimers() {
+          if (healthTimer) clearInterval(healthTimer);
+          if (clockTimer) clearInterval(clockTimer);
+          healthTimer = null;
+          clockTimer = null;
+        }
+
         function goApp() {
           if (done) return;
           done = true;
-          if (timer) clearInterval(timer);
+          clearTimers();
           document.body.classList.add("is-ready");
           document.body.classList.remove("is-error");
           barEl.classList.add("done");
@@ -506,9 +515,8 @@
           }, 420);
         }
 
-        function tick() {
+        function probe() {
           if (done || inFlight) return;
-          setBusy();
           inFlight = true;
           fetch(HEALTH, { cache: "no-store" })
             .then(function (r) {
@@ -523,11 +531,12 @@
         retryBtn.classList.add("hidden");
         errorEl.classList.remove("visible");
         setBusy();
-        // Give backend a few seconds to unpack before the first probe.
+        clockTimer = setInterval(setBusy, CLOCK_MS);
+        // First health after 2s, then every 5s.
         setTimeout(function () {
-          tick();
-          timer = setInterval(tick, INTERVAL_MS);
-        }, 4000);
+          probe();
+          healthTimer = setInterval(probe, HEALTH_MS);
+        }, 2000);
       })();
     </script>
   </body>

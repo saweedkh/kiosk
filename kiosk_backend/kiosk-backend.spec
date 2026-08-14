@@ -1,7 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 # Build (Windows): pyinstaller kiosk-backend.spec
-# Output: dist/kiosk-backend.exe — copy beside Tauri as
-#   kiosk-backend-x86_64-pc-windows-msvc.exe
+# Output: dist/kiosk-backend/  (onedir — no TEMP unpack every launch)
 
 import os
 
@@ -93,24 +92,32 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# onedir: files stay on disk next to the EXE — warm start is seconds, not minutes.
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name="kiosk-backend",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="kiosk-backend",
 )

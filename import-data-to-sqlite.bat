@@ -4,7 +4,7 @@ REM Close kiosk.exe first.
 REM
 REM Usage:
 REM   import-data-to-sqlite.bat exports\kiosk_postgres_....json
-REM   import-data-to-sqlite.bat exports\foo.json C:\Users\you\AppData\Roaming\com.kiosk.app\kiosk.db
+REM   import-data-to-sqlite.bat exports\foo.json C:\Users\you\AppData\Roaming\com.kiosk.desktop\kiosk.db
 
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
@@ -25,7 +25,7 @@ if not exist "%JSON_PATH%" (
 
 if "%SQLITE_PATH%"=="" (
     if defined APPDATA (
-        set "SQLITE_PATH=%APPDATA%\com.kiosk.app\kiosk.db"
+        set "SQLITE_PATH=%APPDATA%\com.kiosk.desktop\kiosk.db"
     ) else (
         set "SQLITE_PATH=%CD%\data\kiosk.db"
     )

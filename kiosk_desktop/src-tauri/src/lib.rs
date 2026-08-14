@@ -11,26 +11,22 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Spawn Django immediately; do not block the UI on /health/.
-            // Window opens on boot.html which shows loading / errors.
+            // Open the UI immediately. Never block (or MessageBox) on /health/.
+            // If Django is already running, leave it alone; otherwise spawn it
+            // in the background.
             if let Err(err) = backend::start(app.handle()) {
-                backend::show_fatal(&err);
-                return Err(err.into());
+                logutil::error(&format!("backend start: {err}"));
             }
 
             let handle = app.handle().clone();
             std::thread::spawn(move || {
-                if let Err(err) = backend::wait_until_ready() {
-                    // MessageBox backup if the splash times out / user misses it
-                    backend::show_fatal(&err);
-                } else {
-                    logutil::info("backend health OK (background waiter)");
-                    let _ = handle.emit("backend-ready", ());
-                    // Ensure WebView leaves boot.html even if splash JS stalls
-                    if let Some(win) = handle.get_webview_window("main") {
-                        let _ = win.eval(
-                            "if (!/index\\.html?$/i.test(location.pathname)) { location.replace('index.html'); }",
-                        );
+                match backend::wait_until_ready() {
+                    Ok(()) => {
+                        logutil::info("backend health OK (background waiter)");
+                        let _ = handle.emit("backend-ready", ());
+                    }
+                    Err(err) => {
+                        logutil::error(&format!("backend health wait: {err}"));
                     }
                 }
             });

@@ -29,7 +29,7 @@ pub fn run() {
                     // Ensure WebView leaves boot.html even if splash JS stalls
                     if let Some(win) = handle.get_webview_window("main") {
                         let _ = win.eval(
-                            "if (!/index\\.html?$/i.test(location.pathname) && location.pathname.indexOf('boot') !== -1) { location.replace('index.html'); }",
+                            "if (!/index\\.html?$/i.test(location.pathname)) { location.replace('index.html'); }",
                         );
                     }
                 }

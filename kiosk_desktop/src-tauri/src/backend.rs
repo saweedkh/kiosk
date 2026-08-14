@@ -73,13 +73,24 @@ pub fn show_fatal(msg: &str) {
 
 pub fn start(app: &AppHandle) -> Result<(), String> {
     let config = AppConfig::from_env();
+    let log_dir = logutil::logs_dir();
+
+    // If Django is already serving (operator ran kiosk-backend.exe), reuse it.
+    // Do not taskkill / spawn / own the process — closing kiosk.exe must leave it up.
+    if probe_health_with_timeout(&config, Duration::from_millis(800)) {
+        logutil::info(&format!(
+            "backend already healthy at {} — skipping sidecar spawn",
+            health_url(&config)
+        ));
+        return Ok(());
+    }
+
     let data_dir = app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
 
-    let log_dir = logutil::logs_dir();
     logutil::info(&format!(
         "exe_dir={:?} data_dir={} log_dir={} api={}:{}",
         logutil::exe_dir(),
@@ -365,14 +376,30 @@ mod winjob {
     }
 }
 
-fn wait_for_health(config: &AppConfig) -> Result<(), String> {
+fn health_url(config: &AppConfig) -> String {
     // Binding 0.0.0.0 is for listen; health probes must hit loopback.
     let probe_host = if config.api_host == "0.0.0.0" {
         "127.0.0.1"
     } else {
         config.api_host.as_str()
     };
-    let url = format!("http://{}:{}/health/", probe_host, config.api_port);
+    format!("http://{}:{}/health/", probe_host, config.api_port)
+}
+
+pub fn probe_health(config: &AppConfig) -> bool {
+    probe_health_with_timeout(config, Duration::from_secs(2))
+}
+
+fn probe_health_with_timeout(config: &AppConfig, timeout: Duration) -> bool {
+    ureq::get(&health_url(config))
+        .timeout(timeout)
+        .call()
+        .map(|r| r.status() == 200)
+        .unwrap_or(false)
+}
+
+fn wait_for_health(config: &AppConfig) -> Result<(), String> {
+    let url = health_url(config);
     logutil::info(&format!(
         "waiting for {url} (listen {}:{}, up to 3 min for first migrate)",
         config.api_host, config.api_port
@@ -382,12 +409,7 @@ fn wait_for_health(config: &AppConfig) -> Result<(), String> {
 
     while Instant::now() < deadline {
         attempts += 1;
-        if ureq::get(&url)
-            .timeout(Duration::from_secs(2))
-            .call()
-            .map(|r| r.status() == 200)
-            .unwrap_or(false)
-        {
+        if probe_health(config) {
             logutil::info(&format!("health OK after {attempts} attempts"));
             return Ok(());
         }

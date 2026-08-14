@@ -425,7 +425,7 @@
 
       <div class="panel">
         <h1 id="title">در حال راه‌اندازی…</h1>
-        <p id="status">لطفاً صبر کنید. اولین اجرا ممکن است ۱ تا ۲ دقیقه طول بکشد.</p>
+        <p id="status">لطفاً صبر کنید. آماده‌سازی بک‌اند و پوز در جریان است.</p>
 
         <div class="track" id="track">
           <div class="bar" id="bar"></div>
@@ -465,12 +465,15 @@
 
         var messages = [
           "در انتظار بک‌اند…",
-          "بک‌اند در حال آماده‌سازی است — لطفاً صبر کنید…",
-          "هنوز صبر کنید؛ اولین اجرا ممکن است طول بکشد…",
+          "در حال آماده‌سازی پوز…",
+          "هنوز صبر کنید؛ لود اولیه DLL ممکن است طول بکشد…",
         ];
 
         var ICON_OK =
           '<path d="M5 12.5l4.2 4.2L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+
+        var healthOkAt = 0;
+        var WARM_GRACE_MS = 90000;
 
         function toFaDigits(n) {
           return String(n).replace(/\d/g, function (d) {
@@ -515,12 +518,38 @@
           }, 420);
         }
 
+        function posWarmSettled(data) {
+          var w = data && data.pos_warm;
+          if (!w) return true;
+          // worker: ready | degraded | failed | down | starting
+          return (
+            w === "ready" ||
+            w === "degraded" ||
+            w === "failed" ||
+            w === "skipped"
+          );
+        }
+
         function probe() {
           if (done || inFlight) return;
           inFlight = true;
           fetch(HEALTH, { cache: "no-store" })
             .then(function (r) {
-              if (r.ok) goApp();
+              if (!r.ok) return null;
+              return r.json().catch(function () {
+                return {};
+              });
+            })
+            .then(function (data) {
+              if (!data) return;
+              if (!healthOkAt) healthOkAt = Date.now();
+              if (posWarmSettled(data)) {
+                goApp();
+                return;
+              }
+              if (Date.now() - healthOkAt >= WARM_GRACE_MS) {
+                goApp();
+              }
             })
             .catch(function () {})
             .then(function () {

@@ -1,6 +1,6 @@
 //! Wait for an operator-started Django backend. kiosk.exe does not spawn it.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::config::AppConfig;
 use crate::logutil;
@@ -20,29 +20,67 @@ fn health_url(config: &AppConfig) -> String {
     format!("http://{}:{}/health/", probe_host, config.api_port)
 }
 
-fn probe_health(config: &AppConfig) -> bool {
-    ureq::get(&health_url(config))
+/// True when POS warm-up finished (or field missing on older backends).
+fn pos_warm_settled(body: &str) -> bool {
+    if !body.contains("pos_warm") {
+        return true;
+    }
+    for value in ["ready", "failed", "skipped"] {
+        let spaced = format!("\"pos_warm\": \"{value}\"");
+        let compact = format!("\"pos_warm\":\"{value}\"");
+        if body.contains(&spaced) || body.contains(&compact) {
+            return true;
+        }
+    }
+    false
+}
+
+fn probe_health(config: &AppConfig) -> Option<String> {
+    let response = ureq::get(&health_url(config))
         .timeout(Duration::from_secs(2))
         .call()
-        .map(|r| r.status() == 200)
-        .unwrap_or(false)
+        .ok()?;
+    if response.status() != 200 {
+        return None;
+    }
+    response.into_string().ok()
 }
 
 fn wait_for_health(config: &AppConfig) -> Result<(), String> {
     let url = health_url(config);
     logutil::info(&format!(
-        "native wait for {url} every 5s (WebView fetch may be blocked)"
+        "native wait for {url} every 5s (incl. POS warm-up)"
     ));
     let mut attempts = 0u32;
+    let mut health_since: Option<Instant> = None;
+    // Don't block the UI forever if the POS is offline — CLR may still be loaded.
+    let warm_grace = Duration::from_secs(90);
+
     loop {
         attempts += 1;
         if attempts == 1 {
             hide_backend_console_windows();
         }
-        if probe_health(config) {
-            logutil::info(&format!("health OK after {attempts} native attempts"));
-            return Ok(());
+
+        if let Some(body) = probe_health(config) {
+            if health_since.is_none() {
+                health_since = Some(Instant::now());
+                logutil::info("health OK — waiting for POS warm-up if needed");
+            }
+            if pos_warm_settled(&body) {
+                logutil::info(&format!(
+                    "backend ready after {attempts} native attempts (pos warm settled)"
+                ));
+                return Ok(());
+            }
+            if health_since.unwrap().elapsed() >= warm_grace {
+                logutil::info(
+                    "POS warm-up still pending after 90s — entering app anyway",
+                );
+                return Ok(());
+            }
         }
+
         if attempts == 1 || attempts % 6 == 0 {
             logutil::info(&format!("still waiting for backend… attempt {attempts}"));
         }
@@ -89,7 +127,10 @@ mod winhide {
         let mut title_buf = [0u16; 512];
         let tn = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
         let title = utf16_to_lower(&title_buf, tn);
-        if title.contains("kiosk-backend") {
+        if title.contains("kiosk-backend")
+            || title.contains("kiosk-bale-poll")
+            || title.contains("kiosk-pos-worker")
+        {
             if IsWindowVisible(hwnd) != 0 {
                 ShowWindow(hwnd, SW_HIDE);
             }

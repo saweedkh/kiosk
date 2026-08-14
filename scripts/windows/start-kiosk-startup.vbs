@@ -1,6 +1,7 @@
 ' Copy this file next to kiosk.exe.
 ' Startup folder: Win+R → shell:startup → shortcut to THIS .vbs only.
 ' Prefers onedir folder (fast). Falls back to a single .exe beside kiosk.exe.
+' Starts API + Bale poll + POS worker as SEPARATE processes (crash isolation).
 
 Option Explicit
 Dim sh, fso, dir, backend, kiosk, f
@@ -26,7 +27,9 @@ If backend = "" Or Not fso.FileExists(kiosk) Then
   WScript.Quit 1
 End If
 
-' 0 = hidden. onedir starts in a few seconds — short wait only.
+' 0 = hidden
 sh.Run """" & backend & """", 0, False
+sh.Run """" & backend & """ bale_poll", 0, False
+sh.Run """" & backend & """ pos_worker", 0, False
 WScript.Sleep 3000
 sh.Run """" & kiosk & """", 1, False

@@ -5,6 +5,7 @@ Kiosk desktop backend entry — Waitress WSGI for Tauri sidecar / dev.
 Usage:
   DJANGO_SETTINGS_MODULE=config.settings.desktop python main.py
   python main.py import-json <fixture.json> [kiosk.db]
+  python main.py bale_poll
 """
 
 from __future__ import annotations
@@ -16,6 +17,14 @@ import time
 
 def _configure_stdio_utf8() -> None:
     """Windows console defaults to cp1252; Persian log lines crash colorama/Django."""
+    if os.name == 'nt':
+        try:
+            import ctypes
+
+            # Helps Task Manager / hide scripts identify this job.
+            ctypes.windll.kernel32.SetConsoleTitleW('kiosk-backend')
+        except Exception:
+            pass
     if os.name != 'nt':
         return
     for name in ('stdout', 'stderr'):
@@ -137,7 +146,13 @@ def _run_cli(argv: list[str]) -> int | None:
     if cmd in ('help', 'h'):
         print('kiosk-backend.exe')
         print('kiosk-backend.exe import-json <fixture.json> [kiosk.db]')
+        print('kiosk-backend.exe bale_poll')
+        print('kiosk-backend.exe pos_worker')
         return 0
+    if cmd in ('bale-poll', 'balepoll'):
+        return _run_bale_poll_cli()
+    if cmd in ('pos-worker', 'posworker'):
+        return _run_pos_worker_cli()
     if cmd not in ('import-json', 'importjson'):
         return None
     if len(argv) < 2:
@@ -154,6 +169,63 @@ def _run_cli(argv: list[str]) -> int | None:
         sqlite_path=argv[2] if len(argv) > 2 else '',
     )
     print(f'KIOSK_IMPORT_OK {dest}', flush=True)
+    return 0
+
+
+def _run_bale_poll_cli() -> int:
+    """Separate OS process for Bale long-poll — crash-isolated from Waitress."""
+    if os.name == 'nt':
+        try:
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleTitleW('kiosk-bale-poll')
+        except Exception:
+            pass
+
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
+    # Poller must not migrate/seed — API process owns bootstrap.
+    os.environ['SEED_DEMO_DATA'] = '0'
+    _bootstrap_django()
+
+    from django.conf import settings as dj_settings
+    from django.core.management import call_command
+
+    if not getattr(dj_settings, 'BALE_BOT_ENABLED', True):
+        _log('bale_poll: BALE_BOT_ENABLED=False — exit')
+        return 0
+
+    _log('bale_poll: starting separate worker process')
+    call_command('bale_poll')
+    return 0
+
+
+def _run_pos_worker_cli() -> int:
+    """
+    Isolated POS DLL process — pythonnet / timeout crashes stay here.
+    API talks to this over http://127.0.0.1:18766
+    """
+    if os.name == 'nt':
+        try:
+            import ctypes
+
+            ctypes.windll.kernel32.SetConsoleTitleW('kiosk-pos-worker')
+        except Exception:
+            pass
+
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
+    os.environ['SEED_DEMO_DATA'] = '0'
+    # Worker loads the DLL; API must not also load it.
+    os.environ['POS_WORKER_ENABLED'] = '0'
+    _bootstrap_django()
+
+    from django.conf import settings as dj_settings
+
+    from apps.payment.gateway.pos_dll.worker_server import serve_forever
+
+    host = getattr(dj_settings, 'POS_WORKER_HOST', '127.0.0.1')
+    port = int(getattr(dj_settings, 'POS_WORKER_PORT', 18766) or 18766)
+    _log(f'pos_worker: starting on {host}:{port}')
+    serve_forever(host=host, port=port)
     return 0
 
 
@@ -192,7 +264,23 @@ def main() -> None:
     )
     if not _is_packaged():
         print(f'Kiosk backend (Django) http://{host}:{port}/', flush=True)
-    serve(application, host=host, port=port, threads=6, channel_timeout=120)
+
+    # POS DLL lives in kiosk-backend.exe pos_worker — do not load it here.
+    from django.conf import settings as dj_settings
+
+    if getattr(dj_settings, 'POS_WORKER_ENABLED', False):
+        try:
+            from apps.payment.gateway.pos_dll import worker_client
+
+            if worker_client.ensure_running(wait_s=5):
+                _log('pos worker: already up')
+            else:
+                _log('pos worker: not up yet (VBS should start it; API can spawn later)')
+        except Exception as exc:  # noqa: BLE001
+            _log(f'pos worker probe failed: {exc}')
+
+    # Bale: kiosk-backend.exe bale_poll | POS: kiosk-backend.exe pos_worker
+    serve(application, host=host, port=port, threads=6, channel_timeout=180)
 
 
 if __name__ == '__main__':

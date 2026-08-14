@@ -25,8 +25,25 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': str(DATA_DIR / 'kiosk.db'),
+        # API + bale_poll are separate processes sharing one DB.
+        'OPTIONS': {
+            'timeout': 30,
+        },
     }
 }
+
+
+def _enable_sqlite_wal(sender, connection, **kwargs):
+    if connection.vendor != 'sqlite':
+        return
+    cursor = connection.cursor()
+    cursor.execute('PRAGMA journal_mode=WAL;')
+    cursor.execute('PRAGMA busy_timeout=30000;')
+
+
+from django.db.backends.signals import connection_created  # noqa: E402
+
+connection_created.connect(_enable_sqlite_wal)
 
 MEDIA_ROOT = DATA_DIR / 'media'
 
@@ -47,7 +64,19 @@ if _PAYMENT_GATEWAY_NAME in ('bridge', 'pos_bridge', 'dll_bridge', 'pos'):
 PAYMENT_GATEWAY_CONFIG = {
     **PAYMENT_GATEWAY_CONFIG,
     'gateway_name': _PAYMENT_GATEWAY_NAME,
+    # Card + PIN needs far more than the legacy TCP default (30s).
+    'timeout': int(_env('POS_TIMEOUT', '120') or 120),
 }
+
+# Isolate pna.pcpos.dll in a sibling process so timeout/native crash ≠ dead API.
+POS_WORKER_ENABLED = _env('POS_WORKER_ENABLED', 'True').lower() in (
+    '1',
+    'true',
+    'yes',
+    'on',
+)
+POS_WORKER_HOST = _env('POS_WORKER_HOST', '127.0.0.1')
+POS_WORKER_PORT = int(_env('POS_WORKER_PORT', '18766') or 18766)
 
 # Override file logging path from base.py → same logs folder as Tauri
 for handler in LOGGING.get('handlers', {}).values():

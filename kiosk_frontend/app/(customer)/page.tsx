@@ -60,8 +60,8 @@ import {
 
 /** Return to attract screen after this much idle time on the menu */
 const KIOSK_IDLE_MS = 90_000;
-/** Clear cart if customer does not complete POS payment in this window */
-const PAYMENT_DEVICE_IDLE_MS = 90_000;
+/** Must stay above backend POS DLL timeout (desktop default 120s). */
+const PAYMENT_DEVICE_IDLE_MS = 130_000;
 /** Menu refreshes on mount; catalog_revision still invalidates after admin edits. */
 const MENU_STALE_MS = 15_000;
 const MENU_GC_MS = 24 * 60 * 60 * 1000;

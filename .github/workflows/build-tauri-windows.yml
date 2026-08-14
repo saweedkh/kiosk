@@ -159,6 +159,9 @@ jobs:
           if (Test-Path "scripts/windows/start-kiosk-startup.vbs") {
             Copy-Item "scripts/windows/start-kiosk-startup.vbs" "release/"
           }
+          if (Test-Path "scripts/windows/start-kiosk.vbs") {
+            Copy-Item "scripts/windows/start-kiosk.vbs" "release/"
+          }
 
           @(
             "Kiosk Windows build (fast onedir backend)",
@@ -169,6 +172,11 @@ jobs:
             "4. API: http://127.0.0.1:18765/health/",
             "5. DB: %APPDATA%\com.kiosk.desktop\kiosk.db",
             "6. Warm start should be ~10-30s; first migrate can be longer.",
+            "7. Processes (VBS starts all three):",
+            "   - kiosk-backend.exe           → API :18765",
+            "   - kiosk-backend.exe bale_poll → Bale bot",
+            "   - kiosk-backend.exe pos_worker → POS DLL :18766",
+            "   (POS timeout/DLL crash will NOT kill the API).",
             "",
             "Required:",
             "- kiosk.exe",

@@ -1,9 +1,23 @@
 from django.http import JsonResponse, HttpRequest
 from django.db import connection
-from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _pos_warm_status():
+    try:
+        from django.conf import settings as dj_settings
+
+        if getattr(dj_settings, 'POS_WORKER_ENABLED', False):
+            from apps.payment.gateway.pos_dll.worker_client import warm_status
+
+            return warm_status()
+        from apps.payment.gateway.pos_dll.warmup import get_status
+
+        return get_status().get('status', 'unknown')
+    except Exception:
+        return 'unknown'
 
 
 def health_check(request: HttpRequest) -> JsonResponse:
@@ -35,7 +49,8 @@ def health_check(request: HttpRequest) -> JsonResponse:
         return JsonResponse({
             'status': 'healthy',
             'database': 'connected',
-            'service': 'kiosk_backend'
+            'service': 'kiosk_backend',
+            'pos_warm': _pos_warm_status(),
         }, status=200)
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")

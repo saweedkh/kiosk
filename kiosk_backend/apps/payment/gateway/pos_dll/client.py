@@ -8,6 +8,7 @@ Requires Windows + Python 32-bit (PE32 DLL) + .NET Framework.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 import time
@@ -21,6 +22,9 @@ CANCEL_CODES = {'81', '99'}
 INSUFFICIENT_FUNDS_CODES = {'02', '51'}
 WRONG_PIN_CODES = {'03', '55'}
 _RS_RE = re.compile(r'RS(\d{2,5})')
+
+# PNA LAN sessions often die after ~30s idle — keep under that.
+_DEFAULT_KEEPALIVE_S = float(os.environ.get('POS_KEEPALIVE_SECONDS', '20') or 20)
 
 _ERROR_MESSAGES = {
     '02': 'تراکنش ناموفق - موجودی کافی نیست',
@@ -67,15 +71,20 @@ class PosDllClient:
         pos_ip: str,
         pos_port: int = 1362,
         timeout_seconds: int = 120,
+        keepalive_seconds: float = _DEFAULT_KEEPALIVE_S,
     ):
         self.dll_path = Path(dll_path)
         self.pos_ip = pos_ip
         self.pos_port = int(pos_port)
         self.timeout_seconds = int(timeout_seconds)
+        self.keepalive_seconds = max(5.0, float(keepalive_seconds))
         self._lock = threading.Lock()
         self._clr_ready = False
         self._PCPOS = None
         self._cn_lan = None
+        self._last_probe_ok_at = 0.0
+        self._keepalive_stop = threading.Event()
+        self._keepalive_thread: Optional[threading.Thread] = None
 
     def ensure_loaded(self) -> None:
         if self._clr_ready:
@@ -103,6 +112,48 @@ class PosDllClient:
         self._clr_ready = True
         logger.info('Loaded POS DLL %s (Intek.PcPosLibrary.PCPOS)', self.dll_path)
 
+    def start_keepalive(self) -> None:
+        """Background TestConnection so LAN session does not die after ~30s idle."""
+        if self._keepalive_thread and self._keepalive_thread.is_alive():
+            return
+        self._keepalive_stop.clear()
+
+        def _loop() -> None:
+            # First tick soon after start so splash/warmup stay hot.
+            interval = self.keepalive_seconds
+            while not self._keepalive_stop.wait(interval):
+                if not self._lock.acquire(blocking=False):
+                    # Pay in progress — try again next interval.
+                    continue
+                try:
+                    if not self._clr_ready:
+                        continue
+                    ok = self._test_connection_locked().get('success')
+                    logger.debug(
+                        'POS keepalive %s (%s:%s)',
+                        'ok' if ok else 'fail',
+                        self.pos_ip,
+                        self.pos_port,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning('POS keepalive error: %s', exc)
+                finally:
+                    self._lock.release()
+
+        self._keepalive_thread = threading.Thread(
+            target=_loop,
+            name='pos-dll-keepalive',
+            daemon=True,
+        )
+        self._keepalive_thread.start()
+        logger.info(
+            'POS keepalive started every %.0fs (under typical 30s LAN idle drop)',
+            self.keepalive_seconds,
+        )
+
+    def stop_keepalive(self) -> None:
+        self._keepalive_stop.set()
+
     def _new_pcpos(self):
         self.ensure_loaded()
         pos = self._PCPOS()
@@ -113,20 +164,27 @@ class PosDllClient:
 
     def test_connection(self) -> Dict[str, Any]:
         with self._lock:
-            pos = self._new_pcpos()
-            ok = bool(pos.TestConnection())
-            return {
-                'success': ok,
-                'message': (
-                    f'TestConnection OK ({self.pos_ip}:{self.pos_port})'
-                    if ok
-                    else f'TestConnection failed ({self.pos_ip}:{self.pos_port})'
-                ),
-                'connection_type': 'dll',
-                'pos_ip': self.pos_ip,
-                'pos_port': self.pos_port,
-                'dll': str(self.dll_path),
-            }
+            return self._test_connection_locked()
+
+    def _test_connection_locked(self) -> Dict[str, Any]:
+        pos = self._new_pcpos()
+        ok = bool(pos.TestConnection())
+        if ok:
+            self._last_probe_ok_at = time.monotonic()
+        else:
+            self._last_probe_ok_at = 0.0
+        return {
+            'success': ok,
+            'message': (
+                f'TestConnection OK ({self.pos_ip}:{self.pos_port})'
+                if ok
+                else f'TestConnection failed ({self.pos_ip}:{self.pos_port})'
+            ),
+            'connection_type': 'dll',
+            'pos_ip': self.pos_ip,
+            'pos_port': self.pos_port,
+            'dll': str(self.dll_path),
+        }
 
     def pay(
         self,
@@ -153,6 +211,8 @@ class PosDllClient:
         payment_id: str,
         bill_id: str,
     ) -> PayResult:
+        # Always probe on the same PCPOS instance we will pay with.
+        # Skipping this after idle (~30s) is why packets stopped reaching the device.
         pos = self._new_pcpos()
         pos.Amount = str(int(amount))
         if payment_id:
@@ -167,9 +227,13 @@ class PosDllClient:
                 pass
 
         done = threading.Event()
-        box: Dict[str, Any] = {'raw': '', 'error': None}
+        box: Dict[str, Any] = {'raw': '', 'error': None, 'timed_out': False}
 
         def on_response(*args):
+            if box.get('timed_out'):
+                # Late callback after we already returned — ignore safely.
+                done.set()
+                return
             try:
                 raw_response = args[0] if len(args) == 1 else (args[1] if len(args) > 1 else '')
                 box['raw'] = str(raw_response) if raw_response is not None else ''
@@ -179,9 +243,13 @@ class PosDllClient:
                 done.set()
 
         pos.GetResponse += on_response
+        # Keep strong refs so a late native callback after timeout cannot crash
+        # on a collected delegate (typical pythonnet + POS DLL hard crash).
+        box['pos'] = pos
+        box['handler'] = on_response
 
         try:
-            if not bool(pos.TestConnection()):
+            if not self._ensure_link_locked(pos):
                 return PayResult(
                     success=False,
                     status='failed',
@@ -199,6 +267,14 @@ class PosDllClient:
             pos.send_transaction()
 
             if not done.wait(timeout=self.timeout_seconds):
+                logger.warning(
+                    'POS DLL timeout after %ss — abandoning PCPOS (no unsubscribe)',
+                    self.timeout_seconds,
+                )
+                box['timed_out'] = True
+                self._invalidate_link()
+                self._abandon(pos, on_response, box)
+                # Do NOT GetResponse -= handler here: that race kills the process.
                 return PayResult(
                     success=False,
                     status='failed',
@@ -210,6 +286,7 @@ class PosDllClient:
                 )
 
             if box['error']:
+                self._invalidate_link()
                 return PayResult(
                     success=False,
                     status='failed',
@@ -224,9 +301,15 @@ class PosDllClient:
                 except Exception:
                     raw = ''
 
-            return self._parse_raw(raw, pos, amount, order_number)
+            result = self._parse_raw(raw, pos, amount, order_number)
+            if result.success:
+                self._last_probe_ok_at = time.monotonic()
+            else:
+                self._invalidate_link()
+            return result
         except Exception as e:
             logger.exception('DLL pay failed')
+            self._invalidate_link()
             return PayResult(
                 success=False,
                 status='failed',
@@ -234,11 +317,49 @@ class PosDllClient:
                 response_message=f'خطای DLL: {e}',
             )
         finally:
-            try:
-                pos.GetResponse -= on_response
-            except Exception:
-                pass
+            if not box.get('timed_out'):
+                try:
+                    pos.GetResponse -= on_response
+                except Exception:
+                    pass
             time.sleep(0.2)
+
+    def _ensure_link_locked(self, pos) -> bool:
+        """TestConnection (+ one retry) before send — recovers after LAN idle drop."""
+        for attempt in range(2):
+            try:
+                if bool(pos.TestConnection()):
+                    self._last_probe_ok_at = time.monotonic()
+                    return True
+            except Exception as exc:  # noqa: BLE001
+                logger.warning('TestConnection attempt %s raised: %s', attempt + 1, exc)
+            if attempt == 0:
+                time.sleep(0.5)
+                try:
+                    pos.Ip = str(self.pos_ip)
+                    pos.Port = int(self.pos_port)
+                    pos.ConnectionType = self._cn_lan
+                except Exception:
+                    pass
+        self._last_probe_ok_at = 0.0
+        return False
+
+    def _invalidate_link(self) -> None:
+        self._last_probe_ok_at = 0.0
+
+    # Timed-out PCPOS instances + handlers must stay alive until native callback
+    # finishes; unsubscribing/GC during that window hard-crashes the process.
+    _abandoned: list = []
+    _abandoned_lock = threading.Lock()
+
+    def _abandon(self, pos, handler, box: Dict[str, Any]) -> None:
+        with PosDllClient._abandoned_lock:
+            PosDllClient._abandoned.append(
+                {'pos': pos, 'handler': handler, 'box': box, 'at': time.monotonic()}
+            )
+            # Bound memory if many timeouts occur.
+            if len(PosDllClient._abandoned) > 8:
+                PosDllClient._abandoned = PosDllClient._abandoned[-8:]
 
     def _parse_raw(self, raw: str, pos, amount: int, order_number: str) -> PayResult:
         parsed = ''

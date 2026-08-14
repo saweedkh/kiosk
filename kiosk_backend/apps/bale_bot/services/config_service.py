@@ -194,14 +194,16 @@ class BaleConfigService:
             elif not obj.last_poll_at:
                 result['message'] = (
                     'API وصل است ولی هنوز polling ثبت نشده. '
-                    'سرویس Docker با نام bale_bot را بالا بیاورید '
-                    '(docker compose up -d bale_bot) و چند ثانیه صبر کنید.'
+                    'روی Docker: docker compose up -d bale_bot — '
+                    'روی دسکتاپ: پروسه جدا '
+                    'kiosk-backend.exe bale_poll را با VBS استارت کنید.'
                 )
             else:
                 age = result['last_poll_age_seconds']
                 result['message'] = (
                     f'API وصل است ولی آخرین heartbeat حدود {age} ثانیه پیش بوده. '
-                    'احتمالاً سرویس polling متوقف شده — '
-                    'docker compose restart bale_bot را امتحان کنید.'
+                    'polling متوقف شده — روی Docker: docker compose restart bale_bot؛ '
+                    'روی دسکتاپ دوباره start-kiosk*.vbs را بزنید '
+                    '(پروسه bale_poll جدا از API است).'
                 )
         return result

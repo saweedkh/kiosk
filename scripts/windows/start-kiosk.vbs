@@ -1,4 +1,5 @@
 ' Put next to kiosk.exe. Prefers onedir kiosk-backend\kiosk-backend.exe.
+' Starts API + Bale poll + POS worker as SEPARATE processes.
 Option Explicit
 
 Dim fso, sh, dir, backend, kiosk
@@ -17,6 +18,8 @@ kiosk = dir & "\kiosk.exe"
 
 If fso.FileExists(backend) Then
   sh.Run """" & backend & """", 0, False
+  sh.Run """" & backend & """ bale_poll", 0, False
+  sh.Run """" & backend & """ pos_worker", 0, False
 End If
 
 WScript.Sleep 3000

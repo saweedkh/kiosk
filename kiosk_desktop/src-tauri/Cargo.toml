@@ -22,7 +22,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-ureq = { version = "2", default-features = false, features = ["tls"] }
+ureq = "2"
 
 [features]
 default = []

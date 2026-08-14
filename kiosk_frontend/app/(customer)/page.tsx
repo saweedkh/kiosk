@@ -461,6 +461,15 @@ export default function CustomerPage() {
     
     return [];
   })();
+
+  useEffect(() => {
+    if (!Array.isArray(categories) || categories.length === 0) return
+    const stillValid =
+      selectedCategory != null &&
+      categories.some((c) => c.id === selectedCategory)
+    if (stillValid) return
+    setSelectedCategory(categories[0].id)
+  }, [categories, selectedCategory])
   
   // Fetch all active products once; filter by category client-side for instant switches
   const {
@@ -989,11 +998,11 @@ export default function CustomerPage() {
 
       {/* Header + categories span full page width; cart sits below */}
       <header className="z-30 w-full flex-shrink-0 border-b border-border bg-card dark:border-border-dark dark:bg-card-dark">
-        <div className="px-6 py-6">
+        <div className="px-6 py-2.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <div
-                className="relative flex h-14 w-14 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-primary transition-opacity hover:opacity-80"
+                className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-primary transition-opacity hover:opacity-80"
                 onClick={handleLogoClick}
                 title="کلیک کنید"
               >
@@ -1001,8 +1010,8 @@ export default function CustomerPage() {
                   <Image
                     src={resolvedLogoUrl}
                     alt={siteName || "لوگو"}
-                    width={56}
-                    height={56}
+                    width={40}
+                    height={40}
                     className="object-cover"
                     unoptimized
                     onError={(e) => {
@@ -1017,22 +1026,22 @@ export default function CustomerPage() {
                   <Image
                     src="/logo.png"
                     alt="لوگو"
-                    width={56}
-                    height={56}
+                    width={40}
+                    height={40}
                     className="object-cover"
                     unoptimized
                     onError={() => setLogoError(true)}
                   />
                 ) : (
-                  <span className="text-xl font-bold text-white">
+                  <span className="text-lg font-bold text-white">
                     {siteName ? siteName.charAt(0) : "ک"}
                   </span>
                 )}
               </div>
               <div>
-                <h1 className="min-h-[2rem] text-2xl font-bold text-text dark:text-text-dark">
+                <h1 className="min-h-[1.5rem] text-xl font-bold text-text dark:text-text-dark">
                   {settingsLoading && !settingsFetched && !siteName ? (
-                    <span className="inline-block h-7 w-40 animate-pulse rounded-lg bg-muted/70 dark:bg-white/10" />
+                    <span className="inline-block h-6 w-36 animate-pulse rounded-lg bg-muted/70 dark:bg-white/10" />
                   ) : (
                     siteName
                   )}

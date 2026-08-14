@@ -48,15 +48,12 @@ export function CustomerMenuSkeleton({
       aria-label="در حال بارگذاری منو"
     >
       <header className="z-30 w-full flex-shrink-0 border-b border-border bg-card dark:border-border-dark dark:bg-card-dark">
-        <div className="flex items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-14 w-14 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-7 w-44 rounded-lg" />
-              <Skeleton className="h-4 w-28 rounded-md" />
-            </div>
+        <div className="flex items-center justify-between px-6 py-2.5">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-6 w-36 rounded-lg" />
           </div>
-          <Skeleton className="h-10 w-10 rounded-lg" />
+          <Skeleton className="h-9 w-9 rounded-lg" />
         </div>
       </header>
 

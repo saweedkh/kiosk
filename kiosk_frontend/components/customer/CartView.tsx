@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ShoppingBag, Trash2, Minus, Plus, TicketPercent, X, UtensilsCrossed, Package } from 'lucide-react'
+import { ShoppingBag, Trash2, Minus, Plus, TicketPercent, X } from 'lucide-react'
 import { useCartStore } from '@/lib/store/cart-store'
 import { couponsApi } from '@/lib/api/dashboard'
 import { formatCurrency, formatNumber, cn } from '@/lib/utils'
@@ -360,8 +360,6 @@ function FulfillmentCheckoutModal({
     {
       id: 'dine_in' as const,
       label: 'داخل سالن',
-      hint: 'سرو در محل',
-      icon: UtensilsCrossed,
       enabled: dineInEnabled,
       service: dineInFee,
       packaging: dineInPackaging,
@@ -371,8 +369,6 @@ function FulfillmentCheckoutModal({
     {
       id: 'takeaway' as const,
       label: 'بیرون‌بر',
-      hint: 'تحویل برای بیرون',
-      icon: Package,
       enabled: takeawayEnabled,
       service: takeawayFee,
       packaging: takeawayPackaging,
@@ -426,63 +422,52 @@ function FulfillmentCheckoutModal({
             )}
           >
             {options.map((opt) => {
-              const Icon = opt.icon
               const active = fulfillment === opt.id
-              const optionTotal = opt.service + opt.packaging
               return (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => onSelectFulfillment(opt.id)}
                   className={cn(
-                    'relative flex min-h-[11rem] flex-col rounded-3xl border-2 p-5 text-right transition-all sm:min-h-[12.5rem] sm:p-6',
+                    'relative flex min-h-[10.5rem] flex-col items-center justify-center rounded-3xl border-2 px-5 py-6 text-center transition-all sm:min-h-[12rem] sm:px-6 sm:py-8',
                     active
                       ? 'border-primary bg-primary/10 shadow-lg shadow-primary/15 scale-[1.01]'
                       : 'border-border/80 bg-card hover:border-primary/40 hover:bg-muted/40'
                   )}
                 >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div
-                      className={cn(
-                        'flex h-14 w-14 items-center justify-center rounded-2xl sm:h-16 sm:w-16',
-                        active
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={2} />
-                    </div>
-                    {active ? (
-                      <span className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
-                        انتخاب شده
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="text-xl font-black sm:text-2xl">{opt.label}</p>
-                  <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-                    {opt.hint}
+                  {active ? (
+                    <span className="absolute start-4 top-4 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
+                      انتخاب شده
+                    </span>
+                  ) : null}
+                  <p
+                    className={cn(
+                      'text-3xl font-black leading-tight tracking-tight sm:text-4xl',
+                      active ? 'text-primary' : 'text-foreground'
+                    )}
+                  >
+                    {opt.label}
                   </p>
-                  <div className="mt-auto space-y-1 pt-4 text-sm">
-                    {opt.service > 0 ? (
-                      <div className="flex justify-between gap-3 text-muted-foreground">
-                        <span>{opt.serviceTitle}</span>
-                        <span className="font-semibold tabular-nums">
-                          {formatCurrency(opt.service)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {opt.packaging > 0 ? (
-                      <div className="flex justify-between gap-3 text-muted-foreground">
-                        <span>{opt.packagingTitle}</span>
-                        <span className="font-semibold tabular-nums">
-                          {formatCurrency(opt.packaging)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {optionTotal === 0 ? (
-                      <p className="text-muted-foreground">بدون هزینه اضافه</p>
-                    ) : null}
-                  </div>
+                  {(opt.service > 0 || opt.packaging > 0) && (
+                    <div className="mt-4 w-full space-y-1 text-sm sm:text-base">
+                      {opt.service > 0 ? (
+                        <div className="flex justify-center gap-2 text-muted-foreground">
+                          <span>{opt.serviceTitle}</span>
+                          <span className="font-semibold tabular-nums">
+                            {formatCurrency(opt.service)}
+                          </span>
+                        </div>
+                      ) : null}
+                      {opt.packaging > 0 ? (
+                        <div className="flex justify-center gap-2 text-muted-foreground">
+                          <span>{opt.packagingTitle}</span>
+                          <span className="font-semibold tabular-nums">
+                            {formatCurrency(opt.packaging)}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </button>
               )
             })}

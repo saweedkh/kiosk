@@ -112,7 +112,11 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
 
 /** Soft failures where the customer can retry without losing the cart. */
 export function shouldKeepCartOnPaymentFailure(kind: PaymentFailureKind): boolean {
-  return kind === 'insufficient_funds' || kind === 'wrong_pin'
+  return (
+    kind === 'insufficient_funds' ||
+    kind === 'wrong_pin' ||
+    kind === 'cancelled'
+  )
 }
 
 /** Flatten DRF CustomJSONRenderer error envelopes into usable fields. */

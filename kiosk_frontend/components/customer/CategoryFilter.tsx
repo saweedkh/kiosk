@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import { LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { resolveMediaUrl } from '@/lib/media-url'
 import { useDragScroll } from '@/lib/use-drag-scroll'
@@ -11,16 +10,6 @@ interface CategoryFilterProps {
   categories: Category[]
   selectedCategory: number | null
   onSelectCategory: (categoryId: number | null) => void
-}
-
-function tileClass(selected: boolean) {
-  return cn(
-    'group relative h-[7.5rem] w-[13.5rem] flex-shrink-0 overflow-hidden rounded-2xl text-start transition-all duration-200',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-    selected
-      ? 'ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg shadow-primary/20 scale-[1.02]'
-      : 'ring-1 ring-black/5 dark:ring-white/10 hover:ring-primary/35 hover:shadow-md'
-  )
 }
 
 export function CategoryFilter({
@@ -34,29 +23,8 @@ export function CategoryFilter({
   return (
     <div
       ref={scrollRef}
-      className="kiosk-scroll-x -mx-1 flex cursor-grab items-center gap-3 overflow-x-auto px-1 py-1 active:cursor-grabbing"
-    >      <button
-        type="button"
-        onClick={() => onSelectCategory(null)}
-        className={tileClass(selectedCategory === null)}
-      >
-        <div
-          className={cn(
-            'absolute inset-0 bg-gradient-to-br transition-opacity',
-            selectedCategory === null
-              ? 'from-primary via-[#F08A1A] to-[#C45E00]'
-              : 'from-primary/85 via-primary to-[#C45E00] opacity-90 group-hover:opacity-100'
-          )}
-        />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_45%)]" />
-        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-2 px-4 text-white">
-          <LayoutGrid className="h-8 w-8 drop-shadow-sm" strokeWidth={2} />
-          <span className="text-lg font-bold tracking-tight drop-shadow-sm">
-            همه موارد
-          </span>
-        </div>
-      </button>
-
+      className="kiosk-scroll-x -mx-1 flex cursor-grab items-center gap-3 overflow-x-auto px-1.5 py-2 active:cursor-grabbing"
+    >
       {categoriesArray.map((category) => {
         const selected = selectedCategory === category.id
         const imageUrl = resolveMediaUrl(category.image)
@@ -66,26 +34,35 @@ export function CategoryFilter({
             type="button"
             key={category.id}
             onClick={() => onSelectCategory(category.id)}
-            className={tileClass(selected)}
-          >
-            {imageUrl ? (
-              <>
-                <Image
-                  src={imageUrl}
-                  alt=""
-                  fill
-                  sizes="216px"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 bg-gradient-to-br from-[#FFE0C2] via-[#FFF3E8] to-[#F5C896] dark:from-[#3a2a1a] dark:via-[#2a2118] dark:to-[#1f1812]" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(225,113,0,0.22),transparent_55%)]" />
-              </>
+            className={cn(
+              'group relative isolate h-[7.5rem] w-[13.5rem] flex-shrink-0 overflow-hidden rounded-2xl text-start',
+              'border-2 transition-colors duration-200',
+              'focus-visible:outline-none focus-visible:border-primary',
+              selected
+                ? 'border-primary shadow-md shadow-primary/15'
+                : 'border-black/[0.08] hover:border-primary/40 dark:border-white/15'
             )}
+          >
+            <div className="absolute inset-0 overflow-hidden rounded-[14px]">
+              {imageUrl ? (
+                <>
+                  <Image
+                    src={imageUrl}
+                    alt=""
+                    fill
+                    sizes="216px"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#FFE0C2] via-[#FFF3E8] to-[#F5C896] dark:from-[#3a2a1a] dark:via-[#2a2118] dark:to-[#1f1812]" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(225,113,0,0.22),transparent_55%)]" />
+                </>
+              )}
+            </div>
 
             <div className="relative z-10 flex h-full flex-col justify-end p-3.5">
               <span

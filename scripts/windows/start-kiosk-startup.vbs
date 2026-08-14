@@ -25,8 +25,8 @@ If backend = "" Or Not fso.FileExists(kiosk) Then
   WScript.Quit 1
 End If
 
-' 0 = hidden (no black console). Do not wait.
+' 0 = hidden (no black console). Give PyInstaller time before kiosk polls /health/.
 sh.Run """" & backend & """", 0, False
-WScript.Sleep 2500
+WScript.Sleep 12000
 ' 1 = normal window, focused
 sh.Run """" & kiosk & """", 1, False

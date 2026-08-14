@@ -437,8 +437,8 @@ export default function CustomerPage() {
     gcTime: MENU_GC_MS,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    retry: 12,
-    retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+    retry: 6,
+    retryDelay: (n) => Math.min(2000 * 2 ** n, 8000),
     refetchInterval: (q) => {
       const result = q.state.data?.result as { results?: unknown[] } | unknown[] | undefined;
       const list = Array.isArray(result)
@@ -446,7 +446,7 @@ export default function CustomerPage() {
         : Array.isArray((result as { results?: unknown[] } | undefined)?.results)
           ? (result as { results: unknown[] }).results
           : [];
-      return list.length > 0 ? false : 2000;
+      return list.length > 0 ? false : 8000;
     },
   });
 
@@ -502,11 +502,11 @@ export default function CustomerPage() {
     gcTime: MENU_GC_MS,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    retry: 12,
-    retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+    retry: 6,
+    retryDelay: (n) => Math.min(2000 * 2 ** n, 8000),
     refetchInterval: (q) => {
       const n = q.state.data?.result?.results?.length ?? 0;
-      return n > 0 ? false : 2000;
+      return n > 0 ? false : 8000;
     },
   });
 
@@ -583,9 +583,9 @@ export default function CustomerPage() {
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    refetchInterval: 5_000,
-    retry: 12,
-    retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+    refetchInterval: 15_000,
+    retry: 6,
+    retryDelay: (n) => Math.min(2000 * 2 ** n, 8000),
   });
 
   // When admin changes products/categories, catalog_revision bumps → refresh menu

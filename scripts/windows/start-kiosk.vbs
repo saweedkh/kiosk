@@ -17,7 +17,7 @@ If fso.FileExists(backend) Then
   sh.Run """" & backend & """", 0, False
 End If
 
-WScript.Sleep 800
+WScript.Sleep 12000
 
 If fso.FileExists(kiosk) Then
   sh.Run """" & kiosk & """", 1, False

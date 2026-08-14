@@ -446,9 +446,12 @@
     <script>
       (function () {
         var HEALTH = "http://127.0.0.1:18765/health/";
-        var INTERVAL_MS = 500;
+        // Slow probes — rapid /health/ floods starve PyInstaller unpack + Django boot.
+        var INTERVAL_MS = 5000;
         var started = Date.now();
         var timer = null;
+        var inFlight = false;
+        var done = false;
 
         var statusEl = document.getElementById("status");
         var titleEl = document.getElementById("title");
@@ -460,8 +463,8 @@
 
         var messages = [
           "در انتظار بک‌اند…",
-          "بک‌اند را جدا اجرا کنید اگر هنوز باز نیست…",
-          "صبر کنید تا سرویس آماده شود…",
+          "بک‌اند در حال آماده‌سازی است — لطفاً صبر کنید…",
+          "هنوز صبر کنید؛ اولین اجرا ممکن است طول بکشد…",
         ];
 
         var ICON_OK =
@@ -481,13 +484,15 @@
         function setBusy() {
           var idx = Math.min(
             messages.length - 1,
-            Math.floor((Date.now() - started) / 8000)
+            Math.floor((Date.now() - started) / 15000)
           );
           statusEl.textContent = messages[idx];
           elapsedEl.textContent = elapsedLabel();
         }
 
         function goApp() {
+          if (done) return;
+          done = true;
           if (timer) clearInterval(timer);
           document.body.classList.add("is-ready");
           document.body.classList.remove("is-error");
@@ -502,19 +507,27 @@
         }
 
         function tick() {
+          if (done || inFlight) return;
           setBusy();
+          inFlight = true;
           fetch(HEALTH, { cache: "no-store" })
             .then(function (r) {
               if (r.ok) goApp();
             })
-            .catch(function () {});
+            .catch(function () {})
+            .then(function () {
+              inFlight = false;
+            });
         }
 
         retryBtn.classList.add("hidden");
         errorEl.classList.remove("visible");
         setBusy();
-        timer = setInterval(tick, INTERVAL_MS);
-        tick();
+        // Give backend a few seconds to unpack before the first probe.
+        setTimeout(function () {
+          tick();
+          timer = setInterval(tick, INTERVAL_MS);
+        }, 4000);
       })();
     </script>
   </body>

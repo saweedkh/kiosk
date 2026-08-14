@@ -12,12 +12,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             // Menu stays fresh via catalog_revision; avoid noisy background refetches
-            staleTime: 15 * 1000,
+            staleTime: 30 * 1000,
             gcTime: 24 * 60 * 60 * 1000,
             refetchOnWindowFocus: true,
             refetchOnReconnect: true,
-            retry: 8,
-            retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+            retry: 4,
+            retryDelay: (n) => Math.min(2000 * 2 ** n, 8000),
           },
         },
       })

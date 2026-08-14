@@ -62,8 +62,8 @@ import {
 const KIOSK_IDLE_MS = 90_000;
 /** Clear cart if customer does not complete POS payment in this window */
 const PAYMENT_DEVICE_IDLE_MS = 90_000;
-/** Menu stays cached until catalog_revision bumps (admin product/category change). */
-const MENU_STALE_MS = Infinity;
+/** Menu refreshes on mount; catalog_revision still invalidates after admin edits. */
+const MENU_STALE_MS = 15_000;
 const MENU_GC_MS = 24 * 60 * 60 * 1000;
 
 export default function CustomerPage() {
@@ -435,8 +435,19 @@ export default function CustomerPage() {
     placeholderData: cachedCategories ?? undefined,
     staleTime: MENU_STALE_MS,
     gcTime: MENU_GC_MS,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    retry: 12,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+    refetchInterval: (q) => {
+      const result = q.state.data?.result as { results?: unknown[] } | unknown[] | undefined;
+      const list = Array.isArray(result)
+        ? result
+        : Array.isArray((result as { results?: unknown[] } | undefined)?.results)
+          ? (result as { results: unknown[] }).results
+          : [];
+      return list.length > 0 ? false : 2000;
+    },
   });
 
   // Extract categories array from response (handle both array and paginated response)
@@ -489,8 +500,14 @@ export default function CustomerPage() {
     placeholderData: cachedProducts ?? undefined,
     staleTime: MENU_STALE_MS,
     gcTime: MENU_GC_MS,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    retry: 12,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
+    refetchInterval: (q) => {
+      const n = q.state.data?.result?.results?.length ?? 0;
+      return n > 0 ? false : 2000;
+    },
   });
 
   const allProducts = productsData?.result?.results ?? [];
@@ -567,7 +584,8 @@ export default function CustomerPage() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     refetchInterval: 5_000,
-    retry: 2,
+    retry: 12,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 4000),
   });
 
   // When admin changes products/categories, catalog_revision bumps → refresh menu

@@ -21,7 +21,10 @@
         "decorations": true,
         "resizable": true,
         "maximized": true,
-        "center": true
+        "center": true,
+        "focus": true,
+        "alwaysOnTop": true,
+        "visible": true
       }
     ],
     "security": {

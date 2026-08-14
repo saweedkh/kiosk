@@ -174,6 +174,9 @@ def main() -> None:
     t0 = time.perf_counter()
     _bootstrap_django()
     _log(f'django.setup: {time.perf_counter() - t0:.1f}s')
+    from apps.core.desktop_paths import get_data_dir
+
+    _log(f'data dir: {get_data_dir()}')
 
     _run_bootstrap_commands()
 

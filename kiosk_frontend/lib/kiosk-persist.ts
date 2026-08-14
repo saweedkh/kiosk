@@ -9,8 +9,8 @@ import type { ApiResponse, Category, PaginatedResponse, Product } from '@/types'
 /** Bump when settings shape / semantics change so stale exe WebView caches drop. */
 const SETTINGS_KEY = 'kiosk-settings-cache-v3'
 const SETTINGS_UPDATED_EVENT = 'kiosk-settings-cache-updated'
-const CATEGORIES_KEY = 'kiosk-categories-cache-v2'
-const PRODUCTS_KEY = 'kiosk-products-cache-v1'
+const CATEGORIES_KEY = 'kiosk-categories-cache-v3'
+const PRODUCTS_KEY = 'kiosk-products-cache-v2'
 const PRELOADED = new Set<string>()
 
 /** Max age before we still show cache but treat as soft-stale (always ok for placeholder). */
@@ -96,6 +96,8 @@ export function migrateSettingsCache(): void {
   try {
     localStorage.removeItem('kiosk-settings-cache-v1')
     localStorage.removeItem('kiosk-settings-cache-v2')
+    localStorage.removeItem('kiosk-categories-cache-v2')
+    localStorage.removeItem('kiosk-products-cache-v1')
   } catch {
     // ignore
   }
@@ -205,6 +207,12 @@ export function writeCachedCategories(
   data?: ApiResponse<Category[] | PaginatedResponse<Category>> | null
 ): void {
   if (!data?.result) return
+  const list = Array.isArray(data.result)
+    ? data.result
+    : Array.isArray((data.result as PaginatedResponse<Category>).results)
+      ? (data.result as PaginatedResponse<Category>).results
+      : []
+  if (list.length === 0) return
   writeJson(CATEGORIES_KEY, { data, cached_at: Date.now() } satisfies CachedEnvelope<typeof data>)
 }
 
@@ -221,11 +229,10 @@ export function writeCachedProducts(
   data?: ApiResponse<PaginatedResponse<Product>> | null
 ): void {
   if (!data?.result) return
-  writeJson(PRODUCTS_KEY, { data, cached_at: Date.now() } satisfies CachedEnvelope<typeof data>)
   const results = data.result?.results
-  if (Array.isArray(results)) {
-    preloadImages(results.map((p) => p.image).filter(Boolean))
-  }
+  if (!Array.isArray(results) || results.length === 0) return
+  writeJson(PRODUCTS_KEY, { data, cached_at: Date.now() } satisfies CachedEnvelope<typeof data>)
+  preloadImages(results.map((p) => p.image).filter(Boolean))
 }
 
 /** Warm browser image cache (and decode) for logos / product thumbs. */

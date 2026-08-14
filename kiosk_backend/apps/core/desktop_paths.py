@@ -7,26 +7,29 @@ import sys
 from pathlib import Path
 
 
+APP_ID = 'com.kiosk.desktop'
+NO_DEMO_SEED_FILENAME = 'no_demo_seed'
+
+
 def get_package_root() -> Path:
-    """Django project root (kiosk_backend/)."""
+    """Django project root (kiosk_backend/) or folder of the frozen EXE."""
     if getattr(sys, 'frozen', False):
-        # PyInstaller one-file/one-dir: resources next to executable
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parents[2]
 
 
-NO_DEMO_SEED_FILENAME = 'no_demo_seed'
+def _appdata_dir() -> Path:
+    if os.name == 'nt':
+        roaming = (os.environ.get('APPDATA') or '').strip()
+        if roaming:
+            return Path(roaming) / APP_ID
+        return Path.home() / 'AppData' / 'Roaming' / APP_ID
+    return Path.home() / 'Library' / 'Application Support' / APP_ID
 
 
 def get_data_dir() -> Path:
-    """
-    Writable app data directory.
-    Tauri sets KIOSK_DATA_DIR to %APPDATA%\\com.kiosk.desktop before spawning backend.
-    """
-    env = os.environ.get('KIOSK_DATA_DIR', '').strip()
-    if env:
-        return Path(env)
-    return get_package_root().parent / 'data'
+    """Always %APPDATA%\\com.kiosk.desktop (or macOS equivalent)."""
+    return _appdata_dir()
 
 
 def demo_seed_blocked() -> bool:

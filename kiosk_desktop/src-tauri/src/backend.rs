@@ -1,362 +1,106 @@
-//! Spawn bundled Django backend next to the app EXE.
+//! Wait for an operator-started Django backend. kiosk.exe does not spawn it.
 
-use std::fs::OpenOptions;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
-
-use tauri::{AppHandle, Manager};
+use std::time::{Duration, Instant};
 
 use crate::config::AppConfig;
 use crate::logutil;
 
-pub struct BackendHandle {
-    child: Mutex<Child>,
-    /// Windows job with KILL_ON_JOB_CLOSE: backend dies if kiosk.exe exits or crashes.
-    #[cfg(windows)]
-    _job: Option<WinJob>,
+/// Block until `/health/` returns 200.
+pub fn wait_until_ready() -> Result<(), String> {
+    let config = AppConfig::from_env();
+    wait_for_health(&config)
 }
 
-impl BackendHandle {
-    fn kill_child(&self) {
-        if let Ok(mut child) = self.child.lock() {
-            let pid = child.id();
-            logutil::info(&format!("stopping backend pid={pid}"));
-            let _ = child.kill();
-            let _ = child.wait();
+fn health_url(config: &AppConfig) -> String {
+    let probe_host = if config.api_host == "0.0.0.0" {
+        "127.0.0.1"
+    } else {
+        config.api_host.as_str()
+    };
+    format!("http://{}:{}/health/", probe_host, config.api_port)
+}
+
+fn probe_health(config: &AppConfig) -> bool {
+    ureq::get(&health_url(config))
+        .timeout(Duration::from_secs(2))
+        .call()
+        .map(|r| r.status() == 200)
+        .unwrap_or(false)
+}
+
+fn wait_for_health(config: &AppConfig) -> Result<(), String> {
+    let url = health_url(config);
+    logutil::info(&format!(
+        "waiting for {url} (start kiosk-backend.exe separately if needed)"
+    ));
+    let mut attempts = 0u32;
+    loop {
+        attempts += 1;
+        hide_backend_console_windows();
+        if probe_health(config) {
+            logutil::info(&format!("health OK after {attempts} attempts"));
+            hide_backend_console_windows();
+            return Ok(());
         }
+        if attempts == 1 || attempts % 10 == 0 {
+            logutil::info(&format!("still waiting for backend… attempt {attempts}"));
+        }
+        std::thread::sleep(Duration::from_millis(500));
     }
 }
 
-/// Kill the Django sidecar when the window / app closes.
-pub fn stop(app: &AppHandle) {
-    if let Some(state) = app.try_state::<BackendHandle>() {
-        state.kill_child();
-    }
+/// Hide the black backend console if the sidecar was started from Startup.
+pub fn hide_backend_console_windows() {
+    #[cfg(windows)]
+    winhide::hide_kiosk_backend_consoles();
 }
 
-#[cfg(target_os = "windows")]
-pub fn show_fatal(msg: &str) {
-    logutil::error(&format!("FATAL: {msg}"));
-    use std::ffi::OsStr;
-    use std::os::windows::ffi::OsStrExt;
+#[cfg(windows)]
+mod winhide {
     use std::ptr::null_mut;
+
+    const SW_HIDE: i32 = 0;
 
     #[link(name = "user32")]
     extern "system" {
-        fn MessageBoxW(
-            hwnd: *mut core::ffi::c_void,
-            text: *const u16,
-            caption: *const u16,
-            flags: u32,
+        fn EnumWindows(
+            cb: unsafe extern "system" fn(*mut core::ffi::c_void, isize) -> i32,
+            lparam: isize,
         ) -> i32;
+        fn GetClassNameW(hwnd: *mut core::ffi::c_void, buf: *mut u16, max: i32) -> i32;
+        fn GetWindowTextW(hwnd: *mut core::ffi::c_void, buf: *mut u16, max: i32) -> i32;
+        fn ShowWindow(hwnd: *mut core::ffi::c_void, cmd: i32) -> i32;
+        fn IsWindowVisible(hwnd: *mut core::ffi::c_void) -> i32;
     }
 
-    fn wide(s: &str) -> Vec<u16> {
-        OsStr::new(s).encode_wide().chain(Some(0)).collect()
-    }
-
-    let full = format!("{msg}\n\n{}", logutil::open_logs_hint());
-    let text = wide(&full);
-    let caption = wide("Kiosk");
-    unsafe {
-        MessageBoxW(null_mut(), text.as_ptr(), caption.as_ptr(), 0x10);
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn show_fatal(msg: &str) {
-    logutil::error(&format!("FATAL: {msg}"));
-    eprintln!("Kiosk fatal: {msg}\n{}", logutil::open_logs_hint());
-}
-
-pub fn start(app: &AppHandle) -> Result<(), String> {
-    let config = AppConfig::from_env();
-    let log_dir = logutil::logs_dir();
-
-    // Operator-started backend: never taskkill / respawn it.
-    if backend_process_running() {
-        logutil::info(
-            "backend EXE already running — not killing it, not spawning another",
-        );
-        return Ok(());
-    }
-
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
-
-    logutil::info(&format!(
-        "exe_dir={:?} data_dir={} log_dir={} api={}:{}",
-        logutil::exe_dir(),
-        data_dir.display(),
-        log_dir.display(),
-        config.api_host,
-        config.api_port
-    ));
-
-    let spawned = spawn_backend(&config, &data_dir, &log_dir)?;
-    app.manage(BackendHandle {
-        child: Mutex::new(spawned.child),
-        #[cfg(windows)]
-        _job: spawned.job,
-    });
-    Ok(())
-}
-
-fn find_backend_binary() -> Result<PathBuf, String> {
-    let dir = logutil::exe_dir().ok_or_else(|| "cannot resolve kiosk.exe directory".to_string())?;
-    let names = [
-        "kiosk-backend-x86_64-pc-windows-msvc.exe",
-        "kiosk-backend.exe",
-        "kiosk-backend-aarch64-pc-windows-msvc.exe",
-        "kiosk-backend-x86_64-unknown-linux-gnu",
-        "kiosk-backend-aarch64-apple-darwin",
-        "kiosk-backend-x86_64-apple-darwin",
-    ];
-    for name in names {
-        let path = dir.join(name);
-        if path.is_file() {
-            return Ok(path);
+    fn utf16_to_lower(buf: &[u16], n: i32) -> String {
+        if n <= 0 {
+            return String::new();
         }
+        String::from_utf16_lossy(&buf[..n as usize]).to_ascii_lowercase()
     }
 
-    let cwd = std::env::current_dir().unwrap_or_else(|_| dir.clone());
-    let main_py = cwd.join("kiosk_backend").join("main.py");
-    if main_py.is_file() {
-        return Ok(main_py);
-    }
-
-    Err(format!(
-        "Backend EXE not found next to kiosk.exe.\n\n\
-         Folder: {}\n\n\
-         Put one of these files beside kiosk.exe:\n\
-         - kiosk-backend-x86_64-pc-windows-msvc.exe\n\
-         - kiosk-backend.exe\n\n\
-         {}",
-        dir.display(),
-        logutil::open_logs_hint()
-    ))
-}
-
-struct SpawnedBackend {
-    child: Child,
-    #[cfg(windows)]
-    job: Option<WinJob>,
-}
-
-fn spawn_backend(config: &AppConfig, data_dir: &Path, log_dir: &Path) -> Result<SpawnedBackend, String> {
-    let path = find_backend_binary()?;
-    logutil::info(&format!("starting backend {}", path.display()));
-
-    let mut cmd = if path.extension().and_then(|e| e.to_str()) == Some("py") {
-        let mut c = Command::new(if cfg!(windows) { "python" } else { "python3" });
-        c.arg(&path);
-        if let Some(parent) = path.parent().and_then(|p| p.parent()) {
-            c.current_dir(parent);
+    unsafe extern "system" fn enum_cb(hwnd: *mut core::ffi::c_void, _lparam: isize) -> i32 {
+        let mut class_buf = [0u16; 64];
+        let cn = GetClassNameW(hwnd, class_buf.as_mut_ptr(), class_buf.len() as i32);
+        let class_name = utf16_to_lower(&class_buf, cn);
+        if class_name != "consolewindowclass" {
+            return 1;
         }
-        c
-    } else {
-        let mut c = Command::new(&path);
-        if let Some(dir) = path.parent() {
-            c.current_dir(dir);
-        }
-        c
-    };
-
-    cmd.env("KIOSK_DATA_DIR", data_dir)
-        .env("KIOSK_LOG_DIR", log_dir)
-        .env("KIOSK_API_HOST", &config.api_host)
-        .env("KIOSK_API_PORT", config.api_port.to_string())
-        .env("DJANGO_SETTINGS_MODULE", "config.settings.desktop")
-        .env("PAYMENT_GATEWAY_NAME", &config.payment_gateway)
-        .env("POS_TCP_HOST", &config.pos_host)
-        .env("POS_TCP_PORT", config.pos_port.to_string())
-        .env("SEED_DEMO_DATA", "1")
-        .env("KIOSK_QUIET_STARTUP", "1")
-        .stdin(Stdio::null());
-
-    // Pipe+line-reader deadlocks PyInstaller onefile on some PCs (buffer fills
-    // before a newline). Write straight to django.log so the child can boot.
-    let django_log = log_dir.join("django.log");
-    let log_file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&django_log)
-        .map_err(|e| format!("cannot write {}: {e}", django_log.display()))?;
-    let log_err = log_file
-        .try_clone()
-        .map_err(|e| format!("cannot clone django.log: {e}"))?;
-    cmd.stdout(Stdio::from(log_file)).stderr(Stdio::from(log_err));
-
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        cmd.creation_flags(CREATE_NO_WINDOW);
-    }
-
-    let child = cmd
-        .spawn()
-        .map_err(|e| format!("Failed to start backend {}: {e}", path.display()))?;
-    logutil::info(&format!(
-        "backend pid={} logging to {}",
-        child.id(),
-        django_log.display()
-    ));
-
-    #[cfg(windows)]
-    let job = unsafe { winjob::create() };
-    #[cfg(windows)]
-    {
-        if let Some(ref job) = job {
-            if !unsafe { winjob::assign(&child, job) } {
-                logutil::error("could not assign backend to Windows job (crash may orphan it)");
+        let mut title_buf = [0u16; 512];
+        let tn = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+        let title = utf16_to_lower(&title_buf, tn);
+        if title.contains("kiosk-backend") {
+            if IsWindowVisible(hwnd) != 0 {
+                ShowWindow(hwnd, SW_HIDE);
             }
         }
+        1
     }
 
-    Ok(SpawnedBackend {
-        child,
-        #[cfg(windows)]
-        job,
-    })
-}
-
-fn backend_process_running() -> bool {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        for name in [
-            "kiosk-backend-x86_64-pc-windows-msvc.exe",
-            "kiosk-backend.exe",
-        ] {
-            let output = Command::new("tasklist")
-                .args(["/FI", &format!("IMAGENAME eq {name}"), "/NH"])
-                .creation_flags(CREATE_NO_WINDOW)
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .output();
-            if let Ok(out) = output {
-                let text = String::from_utf8_lossy(&out.stdout).to_ascii_lowercase();
-                if text.contains(&name.to_ascii_lowercase()) {
-                    return true;
-                }
-            }
+    pub fn hide_kiosk_backend_consoles() {
+        unsafe {
+            EnumWindows(enum_cb, 0);
         }
-        false
-    }
-    #[cfg(not(windows))]
-    {
-        false
-    }
-}
-
-#[cfg(windows)]
-struct WinJob {
-    handle: *mut core::ffi::c_void,
-}
-
-#[cfg(windows)]
-unsafe impl Send for WinJob {}
-#[cfg(windows)]
-unsafe impl Sync for WinJob {}
-
-#[cfg(windows)]
-impl Drop for WinJob {
-    fn drop(&mut self) {
-        if !self.handle.is_null() {
-            unsafe {
-                winjob::CloseHandle(self.handle);
-            }
-            self.handle = std::ptr::null_mut();
-        }
-    }
-}
-
-#[cfg(windows)]
-mod winjob {
-    use super::WinJob;
-    use std::process::Child;
-    use std::ptr::null_mut;
-
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn CreateJobObjectW(attrs: *mut core::ffi::c_void, name: *const u16) -> *mut core::ffi::c_void;
-        fn SetInformationJobObject(
-            job: *mut core::ffi::c_void,
-            info_class: i32,
-            info: *mut core::ffi::c_void,
-            len: u32,
-        ) -> i32;
-        fn AssignProcessToJobObject(
-            job: *mut core::ffi::c_void,
-            process: *mut core::ffi::c_void,
-        ) -> i32;
-        pub fn CloseHandle(handle: *mut core::ffi::c_void) -> i32;
-    }
-
-    const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: i32 = 9;
-    const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
-
-    #[repr(C)]
-    struct JobObjectBasicLimitInformation {
-        per_process_user_time_limit: i64,
-        per_job_user_time_limit: i64,
-        limit_flags: u32,
-        minimum_working_set_size: usize,
-        maximum_working_set_size: usize,
-        active_process_limit: u32,
-        affinity: usize,
-        priority_class: u32,
-        scheduling_class: u32,
-    }
-
-    #[repr(C)]
-    struct IoCounters {
-        read_operation_count: u64,
-        write_operation_count: u64,
-        other_operation_count: u64,
-        read_transfer_count: u64,
-        write_transfer_count: u64,
-        other_transfer_count: u64,
-    }
-
-    #[repr(C)]
-    struct JobObjectExtendedLimitInformation {
-        basic: JobObjectBasicLimitInformation,
-        io: IoCounters,
-        process_memory_limit: usize,
-        job_memory_limit: usize,
-        peak_process_memory_used: usize,
-        peak_job_memory_used: usize,
-    }
-
-    pub unsafe fn create() -> Option<WinJob> {
-        let handle = CreateJobObjectW(null_mut(), null_mut());
-        if handle.is_null() {
-            return None;
-        }
-        let mut info: JobObjectExtendedLimitInformation = std::mem::zeroed();
-        info.basic.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        let ok = SetInformationJobObject(
-            handle,
-            JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
-            &mut info as *mut _ as *mut core::ffi::c_void,
-            std::mem::size_of::<JobObjectExtendedLimitInformation>() as u32,
-        );
-        if ok == 0 {
-            CloseHandle(handle);
-            return None;
-        }
-        Some(WinJob { handle })
-    }
-
-    pub unsafe fn assign(child: &Child, job: &WinJob) -> bool {
-        use std::os::windows::io::AsRawHandle;
-        AssignProcessToJobObject(job.handle, child.as_raw_handle() as *mut core::ffi::c_void) != 0
     }
 }

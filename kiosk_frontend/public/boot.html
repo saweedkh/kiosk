@@ -445,7 +445,8 @@
 
     <script>
       (function () {
-        var SHOW_MS = 1800;
+        var HEALTH = "http://127.0.0.1:18765/health/";
+        var INTERVAL_MS = 500;
         var started = Date.now();
         var timer = null;
 
@@ -455,16 +456,14 @@
         var retryBtn = document.getElementById("retry");
         var elapsedEl = document.getElementById("elapsed");
         var barEl = document.getElementById("bar");
-        var metaEl = document.getElementById("meta");
         var markIcon = document.getElementById("markIcon");
 
         var messages = [
-          "در حال راه‌اندازی…",
-          "در حال آماده‌سازی برنامه…",
+          "در انتظار بک‌اند…",
+          "بک‌اند را جدا اجرا کنید اگر هنوز باز نیست…",
+          "صبر کنید تا سرویس آماده شود…",
         ];
 
-        var ICON_KIOSK =
-          '<path d="M4 7.5h16v2.2H4V7.5zm2.2-4h2.2v4.4H6.2V3.5zm4.4 0h2.2v4.4h-2.2V3.5zm4.4 0h2.2v4.4h-2.2V3.5zM7.5 14h9v1.2a3.3 3.3 0 01-3.3 3.3h-2.4A3.3 3.3 0 017.5 15.2V14z" fill="currentColor"/>';
         var ICON_OK =
           '<path d="M5 12.5l4.2 4.2L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
 
@@ -479,12 +478,12 @@
           return toFaDigits(s) + " ثانیه";
         }
 
-        function setBusy(msg) {
+        function setBusy() {
           var idx = Math.min(
             messages.length - 1,
-            Math.floor((Date.now() - started) / 900)
+            Math.floor((Date.now() - started) / 8000)
           );
-          statusEl.textContent = msg || messages[idx];
+          statusEl.textContent = messages[idx];
           elapsedEl.textContent = elapsedLabel();
         }
 
@@ -502,11 +501,20 @@
           }, 420);
         }
 
+        function tick() {
+          setBusy();
+          fetch(HEALTH, { cache: "no-store" })
+            .then(function (r) {
+              if (r.ok) goApp();
+            })
+            .catch(function () {});
+        }
+
         retryBtn.classList.add("hidden");
         errorEl.classList.remove("visible");
         setBusy();
-        timer = setInterval(setBusy, 250);
-        setTimeout(goApp, SHOW_MS);
+        timer = setInterval(tick, INTERVAL_MS);
+        tick();
       })();
     </script>
   </body>

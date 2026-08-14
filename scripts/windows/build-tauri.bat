@@ -12,7 +12,7 @@ echo === Next.js static export ===
 cd kiosk_frontend
 if not exist node_modules call npm install
 set TAURI_BUILD=1
-set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api
+set NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18765/api
 call npx next build
 if errorlevel 1 exit /b 1
 if not exist out\index.html (

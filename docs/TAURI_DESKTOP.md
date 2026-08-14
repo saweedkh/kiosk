@@ -16,7 +16,7 @@ Tauri only provides the window + lifecycle; **no partial Rust API rewrite**.
 ```text
 kiosk.exe (Tauri)
   ├── WebView → Next.js out/  (/, /admin, …)
-  └── sidecar: kiosk-backend-x86_64-pc-windows-msvc.exe (Django + Waitress :8000)
+          └── sidecar: kiosk-backend-x86_64-pc-windows-msvc.exe (Django + Waitress :18765)
         └── SQLite + media + full /api/kiosk/*
 ```
 
@@ -93,9 +93,9 @@ Contains `kiosk.db`, `media/`, `logs/`.
 
 All `/api/kiosk/*` routes from Django — products, orders, payment, admin auth, settings, coupons, reports, accounts, bale, analytics.
 
-Frontend `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api` at build time
-(WebView talks to loopback). The Django sidecar **listens on `0.0.0.0:8000`**
-so other devices on the LAN can call `http://<pc-ip>:8000/api` if needed.
+Frontend `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18765/api` at build time
+(WebView talks to loopback). The Django sidecar **listens on `0.0.0.0:18765`**
+so other devices on the LAN can call `http://<pc-ip>:18765/api` if needed.
 Override with `KIOSK_API_HOST` / `KIOSK_API_PORT` if you must.
 
 Relative `/media/` URLs are resolved via `lib/media-url.ts` in the WebView.
@@ -103,7 +103,7 @@ Relative `/media/` URLs are resolved via `lib/media-url.ts` in the WebView.
 ## Startup UI
 
 The window opens on `boot.html` (Persian loading screen) while Django migrates/starts.
-When `http://127.0.0.1:8000/health/` is OK it redirects into the app (`index.html`).
+When `http://127.0.0.1:18765/health/` is OK it redirects into the app (`index.html`).
 On failure it shows an error and points to the `logs/` folder (MessageBox backup too).
 
 ### Why first launch can take ~30–60s

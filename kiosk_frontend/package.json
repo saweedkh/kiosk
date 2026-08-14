@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:tauri": "cross-env TAURI_BUILD=1 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api next build && node -e \"const fs=require('fs'); if(!fs.existsSync('out/index.html')){console.error('ERROR: out/index.html missing after Tauri build'); process.exit(1)} console.log('Tauri static export OK:', fs.readdirSync('out').slice(0,10).join(', '));\"",
-    "dev:tauri": "cross-env NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api next dev",
+    "build:tauri": "cross-env TAURI_BUILD=1 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18765/api next build && node -e \"const fs=require('fs'); if(!fs.existsSync('out/index.html')){console.error('ERROR: out/index.html missing after Tauri build'); process.exit(1)} console.log('Tauri static export OK:', fs.readdirSync('out').slice(0,10).join(', '));\"",
+    "dev:tauri": "cross-env NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18765/api next dev",
     "start": "next start",
     "lint": "next lint"
   },

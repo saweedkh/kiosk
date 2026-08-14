@@ -100,7 +100,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
         config.api_port
     ));
 
-    // Previous kiosk.exe may have left an orphan sidecar on :8000.
+    // Previous kiosk.exe may have left an orphan sidecar on the API port.
     kill_stale_backend_processes();
 
     let spawned = spawn_backend(&config, &data_dir, &log_dir)?;

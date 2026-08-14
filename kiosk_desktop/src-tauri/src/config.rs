@@ -20,7 +20,7 @@ impl AppConfig {
             api_port: std::env::var("KIOSK_API_PORT")
                 .ok()
                 .and_then(|p| p.parse().ok())
-                .unwrap_or(8000),
+                .unwrap_or(18765),
             pos_host: std::env::var("POS_TCP_HOST").unwrap_or_else(|_| "192.168.1.102".into()),
             pos_port: std::env::var("POS_TCP_PORT")
                 .ok()

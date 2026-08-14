@@ -1,5 +1,7 @@
 import { getBrowserApiBaseUrl } from '@/lib/api/base-url'
 
+const DESKTOP_BACKEND_ORIGIN = 'http://127.0.0.1:18765'
+
 /** Turn /media/... paths into absolute URLs for Tauri / desktop (no nginx). */
 export function resolveMediaUrl(url?: string | null): string | undefined {
   if (!url) return undefined
@@ -13,15 +15,21 @@ export function resolveMediaUrl(url?: string | null): string | undefined {
     if (typeof window !== 'undefined' && window.location?.origin) {
       // Tauri webview origin is not the Django host — prefer explicit backend
       const host = window.location.hostname
-      if (host === '127.0.0.1' || host === 'localhost' || host === '') {
-        origin = 'http://127.0.0.1:8000'
+      if (
+        host === '127.0.0.1' ||
+        host === 'localhost' ||
+        host === '' ||
+        host === 'tauri.localhost' ||
+        host.endsWith('.localhost')
+      ) {
+        origin = DESKTOP_BACKEND_ORIGIN
       } else if (window.location.protocol.startsWith('http')) {
         origin = window.location.origin
       } else {
-        origin = 'http://127.0.0.1:8000'
+        origin = DESKTOP_BACKEND_ORIGIN
       }
     } else {
-      origin = 'http://127.0.0.1:8000'
+      origin = DESKTOP_BACKEND_ORIGIN
     }
   }
 

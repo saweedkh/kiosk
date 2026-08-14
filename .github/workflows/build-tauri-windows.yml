@@ -104,7 +104,7 @@ jobs:
         working-directory: kiosk_frontend
         env:
           TAURI_BUILD: '1'
-          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000/api
+          NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:18765/api
         run: npx next build
 
       - name: Verify frontend out/
@@ -162,10 +162,11 @@ jobs:
             "Kiosk Windows build",
             "===================",
             "1. Keep ALL files in the same folder.",
-            "2. Run kiosk.exe (not the backend alone).",
-            "3. First screen is a loading page (boot) while Django starts.",
-            "4. First start may take 1-2 minutes (database migrate).",
-            "5. Logs are written to the logs folder next to kiosk.exe",
+            "2. Backend listens on http://127.0.0.1:18765 (not 8000).",
+            "3. Health check: http://127.0.0.1:18765/health/",
+            "4. First screen is a loading page (boot) while Django starts.",
+            "5. First start may take 1-2 minutes (database migrate).",
+            "6. Logs are written to the logs folder next to kiosk.exe",
             "   (kiosk.log, django.log, django-app.log).",
             "",
             "Required (same folder):",

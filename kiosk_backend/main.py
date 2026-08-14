@@ -134,7 +134,7 @@ def main() -> None:
     _run_bootstrap_commands()
 
     host = os.environ.get('KIOSK_API_HOST', '0.0.0.0')
-    port = int(os.environ.get('KIOSK_API_PORT', '8000'))
+    port = int(os.environ.get('KIOSK_API_PORT', '18765'))
 
     from waitress import serve
     from config.wsgi import application

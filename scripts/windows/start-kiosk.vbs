@@ -1,7 +1,7 @@
 ' Put next to kiosk.exe. Prefers onedir kiosk-backend\kiosk-backend.exe.
 ' Start API, wait a few seconds so Django can boot, then kiosk.exe.
 ' If a previous backend is still running, kill it first so the port is free.
-' Bale starts ~60s later via cmd (not a sleeping wscript — those get killed).
+' Bale: copy migrate exe → kiosk-bale.exe (has a console; windowed kiosk-backend.exe dies).
 ' Watch progress: kiosk-start.log next to this script.
 Option Explicit
 
@@ -26,7 +26,8 @@ LogLine "kiosk=" & kiosk & " exists=" & CStr(fso.FileExists(kiosk))
 
 ' Does not touch kiosk-backend-migrate.exe
 sh.Run "cmd /c taskkill /F /IM kiosk-backend.exe >nul 2>&1", 0, True
-LogLine "taskkill kiosk-backend.exe done"
+sh.Run "cmd /c taskkill /F /IM kiosk-bale.exe >nul 2>&1", 0, True
+LogLine "taskkill kiosk-backend.exe / kiosk-bale.exe done"
 WScript.Sleep 800
 
 If fso.FileExists(backend) Then
@@ -52,11 +53,28 @@ End If
 
 LogLine "launcher finished (bale still scheduled if logged above)"
 
+Function BaleExePath()
+  Dim migrate, baleExe
+  migrate = dir & "\kiosk-backend\kiosk-backend-migrate.exe"
+  baleExe = dir & "\kiosk-backend\kiosk-bale.exe"
+  If fso.FileExists(migrate) Then
+    On Error Resume Next
+    fso.CopyFile migrate, baleExe, True
+    On Error GoTo 0
+  End If
+  If fso.FileExists(baleExe) Then
+    BaleExePath = baleExe
+  Else
+    BaleExePath = backend
+  End If
+End Function
+
 Sub ScheduleBale()
-  ' ping -n 61 ≈ 60 seconds. start /B so no extra console.
-  Dim cmd
-  cmd = "cmd /c ping 127.0.0.1 -n 61 >nul & start """" /B """ & backend & """ bale_poll"
-  LogLine "scheduling bale_poll in ~60s"
+  ' ping -n 61 ≈ 60 seconds. /MIN = same console exe as start-bale.bat, not covering the kiosk.
+  Dim exe, cmd
+  exe = BaleExePath()
+  cmd = "cmd /c ping 127.0.0.1 -n 61 >nul & start """" /MIN """ & exe & """ bale_poll"
+  LogLine "scheduling bale_poll in ~60s exe=" & exe
   sh.Run cmd, 0, False
 End Sub
 

@@ -79,7 +79,7 @@ export function PaymentModal({
             ),
             title: 'پرداخت انجام نشد',
             message:
-              'اتصال به کارتخوان برقرار نشد یا زمان تمام شد. سبد خرید خالی می‌شود.',
+              'اتصال به کارتخوان برقرار نشد یا زمان تمام شد. سبد خرید شما حفظ شده — می‌توانید دوباره پرداخت کنید.',
             gradient: 'from-amber-500 to-orange-600',
             bgGradient: 'from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10',
           }
@@ -107,6 +107,31 @@ export function PaymentModal({
             message: 'رمز کارت اشتباه بود. سبد خرید شما حفظ شده — می‌توانید دوباره پرداخت کنید.',
             gradient: 'from-red-500 to-red-600',
             bgGradient: 'from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/10',
+          }
+        }
+        if (failureKind === 'busy') {
+          return {
+            icon: (
+              <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <svg
+                  className="w-10 h-10 text-amber-600 dark:text-amber-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+            ),
+            title: 'کارتخوان مشغول است',
+            message: 'سبد خرید شما حفظ شده — لطفاً مجدداً تلاش کنید.',
+            gradient: 'from-amber-500 to-amber-600',
+            bgGradient: 'from-amber-50 to-amber-50 dark:from-amber-900/20 dark:to-amber-900/10',
           }
         }
         if (keepCart) {
@@ -182,7 +207,8 @@ export function PaymentModal({
             </motion.div>
           ),
           title: 'پرداخت لغو شد',
-          message: 'پرداخت لغو شد. سبد خرید خالی می‌شود.',
+          message:
+            'اگر مبلغ هنوز روی کارتخوان است، روی خود دستگاه هم «لغو» را بزنید. بعد می‌توانید دوباره سفارش بدهید.',
           gradient: 'from-orange-500 to-amber-600',
           bgGradient: 'from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10',
         }
@@ -293,11 +319,17 @@ export function PaymentModal({
                           ? 'در حال اتصال به کارتخوان...'
                           : 'منتظر پرداخت از طریق کارتخوان...'}
                       </p>
-                      {isLoading && (
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
-                          در صورت مشکل اتصال، «لغو پرداخت» را بزنید
-                        </p>
-                      )}
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        اگر لغو کردید و مبلغ روی کارتخوان ماند، روی دستگاه هم لغو بزنید
+                      </p>
+                    </div>
+                  )}
+
+                  {status === 'cancelled' && (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-6">
+                      <p className="text-sm text-amber-800 dark:text-amber-200 text-center">
+                        مبلغ روی کارتخوان با لغو کیوسک پاک نمی‌شود. روی خود دستگاه «لغو» را بزنید، بعد سفارش بعدی را ثبت کنید.
+                      </p>
                     </div>
                   )}
 

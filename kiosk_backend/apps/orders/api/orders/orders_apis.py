@@ -164,3 +164,29 @@ class OrderCreateAPIView(generics.GenericAPIView):
                 status=status.HTTP_402_PAYMENT_REQUIRED
             )
 
+
+class OrderPaymentStatusAPIView(generics.GenericAPIView):
+    """Public kiosk poll: did a cancelled/timed-out POS pay later succeed?"""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, order_id: int):
+        from apps.orders.models import Order
+
+        order = (
+            Order.objects.filter(pk=order_id)
+            .only('id', 'order_number', 'payment_status', 'status')
+            .first()
+        )
+        if order is None:
+            return Response({'error': 'not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {
+                'id': order.id,
+                'order_number': order.order_number,
+                'payment_status': order.payment_status,
+                'status': order.status,
+            }
+        )
+

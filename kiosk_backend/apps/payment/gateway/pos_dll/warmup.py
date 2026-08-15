@@ -25,7 +25,7 @@ def get_status() -> Dict[str, Any]:
 
 
 def start_async() -> None:
-    """Load pythonnet / DLL and TestConnection without blocking Waitress."""
+    """Load pythonnet / DLL then keep the LAN session warm (TestConnection in keepalive)."""
     if os.name != 'nt':
         with _lock:
             _state.update(status='skipped', message='not windows')
@@ -46,46 +46,30 @@ def _run() -> None:
     try:
         from apps.payment.gateway.adapter import PaymentGatewayAdapter
 
-        gw = PaymentGatewayAdapter().get_gateway()
-        if not hasattr(gw, 'test_connection'):
+        gw = PaymentGatewayAdapter.get_gateway()
+        client = getattr(gw, '_client_instance', None)
+        if not callable(client):
             with _lock:
                 _state.update(
                     status='skipped',
-                    message='gateway has no test_connection',
+                    message='gateway has no DLL client',
                     elapsed_s=round(time.perf_counter() - t0, 2),
                 )
             return
 
-        # Prefer ensure_loaded even if POS is offline — CLR/DLL cost is the slow part.
-        client = getattr(gw, '_client_instance', None)
-        pos_client = None
-        if callable(client):
-            try:
-                pos_client = client()
-                pos_client.ensure_loaded()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning('POS ensure_loaded during warmup: %s', exc)
-
-        result = gw.test_connection()
-        ok = bool(result.get('success'))
-        if pos_client is not None:
-            try:
-                pos_client.start_keepalive()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning('POS keepalive start failed: %s', exc)
-
+        pos_client = client()
+        pos_client.ensure_loaded()
         with _lock:
             _state.update(
-                status='ready' if ok else 'failed',
-                message=str(result.get('message') or ''),
+                status='ready',
+                message='DLL loaded',
                 elapsed_s=round(time.perf_counter() - t0, 2),
             )
         logger.info(
-            'POS warmup %s in %.1fs: %s',
-            'ok' if ok else 'failed',
+            'POS warmup DLL loaded in %.1fs — TestConnection via keepalive',
             time.perf_counter() - t0,
-            result.get('message'),
         )
+        pos_client.start_keepalive()
     except Exception as exc:  # noqa: BLE001
         with _lock:
             _state.update(

@@ -14,11 +14,13 @@ WRONG_PIN_CODES = frozenset({
     '55',  # ISO 8583 — incorrect PIN (PNA DLL)
 })
 CANCEL_CODES = frozenset({'81', '99'})
+BUSY_CODES = frozenset({'93'})
 
 PAYMENT_FAILURE_INSUFFICIENT_FUNDS = 'insufficient_funds'
 PAYMENT_FAILURE_WRONG_PIN = 'wrong_pin'
 PAYMENT_FAILURE_CANCELLED = 'cancelled'
 PAYMENT_FAILURE_TIMEOUT = 'timeout'
+PAYMENT_FAILURE_BUSY = 'busy'
 PAYMENT_FAILURE_OTHER = 'other'
 
 
@@ -29,7 +31,7 @@ def classify_payment_failure(
     error_message: str = '',
 ) -> str:
     """
-    Returns one of: insufficient_funds | wrong_pin | cancelled | timeout | other
+    Returns one of: insufficient_funds | wrong_pin | cancelled | timeout | busy | other
     """
     gr = gateway_response or {}
     status = (gr.get('status') or payment_status or '').strip().lower()
@@ -51,6 +53,9 @@ def classify_payment_failure(
         return PAYMENT_FAILURE_TIMEOUT
 
     code = _normalize_response_code(gr.get('response_code'))
+    if code in BUSY_CODES or _looks_busy(message):
+        return PAYMENT_FAILURE_BUSY
+
     if code in WRONG_PIN_CODES or _looks_wrong_pin(message):
         return PAYMENT_FAILURE_WRONG_PIN
 
@@ -89,6 +94,11 @@ def _looks_timeout(message: str) -> bool:
         'network error',
         'اتصال',
     )
+    return any(token in message for token in tokens)
+
+
+def _looks_busy(message: str) -> bool:
+    tokens = ('مشغول', 'busy', 'in progress', 'تراکنش قبلی')
     return any(token in message for token in tokens)
 
 

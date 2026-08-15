@@ -47,3 +47,44 @@ class SystemHealthAPIView(APIView):
     )
     def get(self, request):
         return Response(HealthMonitorService.get_overview())
+
+
+class PosTestConnectionAPIView(APIView):
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
+
+    @custom_extend_schema(
+        resource_name='PosTestConnection',
+        status_codes=[ResponseStatusCodes.OK, ResponseStatusCodes.UNAUTHORIZED, ResponseStatusCodes.FORBIDDEN],
+        summary='Test POS / card-reader connection',
+        tags=['Admin - Health'],
+        operation_id='admin_pos_test_connection',
+    )
+    def post(self, request):
+        data = request.data if isinstance(request.data, dict) else {}
+        pos_ip = data.get('pos_ip') or data.get('ip')
+        pos_port = data.get('pos_port') or data.get('port')
+        if isinstance(pos_ip, str):
+            pos_ip = pos_ip.strip() or None
+        else:
+            pos_ip = None
+        try:
+            pos_port = int(pos_port) if pos_port not in (None, '') else None
+        except (TypeError, ValueError):
+            pos_port = None
+        return Response(HealthMonitorService.test_pos_connection(pos_ip, pos_port))
+
+
+class PosResetConnectionAPIView(APIView):
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
+
+    @custom_extend_schema(
+        resource_name='PosResetConnection',
+        status_codes=[ResponseStatusCodes.OK, ResponseStatusCodes.UNAUTHORIZED, ResponseStatusCodes.FORBIDDEN],
+        summary='Reset in-process POS DLL client',
+        tags=['Admin - Health'],
+        operation_id='admin_pos_reset_connection',
+    )
+    def post(self, request):
+        return Response(HealthMonitorService.reset_pos_connection())

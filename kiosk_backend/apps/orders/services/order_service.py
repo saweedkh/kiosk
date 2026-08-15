@@ -467,6 +467,87 @@ class OrderService:
                 'amount': total_amount
             }
         )
+
+    @staticmethod
+    def finalize_late_pos_success(
+        order_id: int,
+        gateway_response: Dict,
+        *,
+        print_receipt: bool = False,
+    ) -> Order:
+        """
+        POS approved after the kiosk already treated the pay as cancel/timeout.
+
+        Records a paid order so the charge is not lost. Receipt is skipped by
+        default — the customer already left the payment screen.
+        """
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update()
+                .prefetch_related('items__product')
+                .get(pk=order_id)
+            )
+            if order.payment_status == 'paid':
+                return order
+
+            transaction_id = (
+                gateway_response.get('transaction_id')
+                or gateway_response.get('reference_number')
+                or order.transaction_id
+            )
+            order.transaction_id = transaction_id
+            order.gateway_response_data = gateway_response
+            order.error_message = (
+                'پرداخت پوز بعد از لغو/تایم‌اوت کیوسک تأیید شد'
+            )
+            order.save(
+                update_fields=[
+                    'transaction_id',
+                    'gateway_response_data',
+                    'error_message',
+                ]
+            )
+
+        if order.receipt_number is None or order.receipt_number <= 0:
+            order.receipt_number = ReceiptService.allocate_receipt_number()
+            order.save(update_fields=['receipt_number'])
+
+        try:
+            OrderService.update_payment_status(
+                order.id, 'paid', print_receipt=print_receipt
+            )
+        except InsufficientStockException:
+            order.status = 'paid'
+            order.payment_status = 'paid'
+            order.save(update_fields=['status', 'payment_status'])
+            LogService.log_warning(
+                'payment',
+                'late_pos_success_stock_short',
+                details={
+                    'order_id': order.id,
+                    'order_number': order.order_number,
+                    'transaction_id': order.transaction_id,
+                },
+            )
+
+        if print_receipt:
+            from apps.orders.services.print_service import PrintService
+
+            PrintService.schedule_print(order.id)
+
+        order.refresh_from_db()
+        LogService.log_info(
+            'payment',
+            'late_pos_success_recorded',
+            details={
+                'order_id': order.id,
+                'order_number': order.order_number,
+                'receipt_number': order.receipt_number,
+                'transaction_id': order.transaction_id,
+                'printed': print_receipt,
+            },
+        )
+        return order
     
     @staticmethod
     def _get_order_or_raise(order_id: int) -> Order:

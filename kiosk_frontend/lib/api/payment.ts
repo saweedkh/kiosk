@@ -23,5 +23,13 @@ export const paymentApi = {
     )
     return response.data
   },
+
+  abortPos: async (): Promise<void> => {
+    try {
+      await apiClient.post('/kiosk/payment/abort/', {}, { timeout: 4000 })
+    } catch {
+      // Best-effort: UI already left the waiting state.
+    }
+  },
 }
 

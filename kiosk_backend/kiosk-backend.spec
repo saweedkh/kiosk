@@ -111,8 +111,28 @@ exe = EXE(
     entitlements_file=None,
 )
 
+# Same bundle, console window — double-click when you need migrate.
+exe_migrate = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="kiosk-backend-migrate",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     exe,
+    exe_migrate,
     a.binaries,
     a.zipfiles,
     a.datas,

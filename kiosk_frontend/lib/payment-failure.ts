@@ -3,6 +3,7 @@ export type PaymentFailureKind =
   | 'wrong_pin'
   | 'cancelled'
   | 'timeout'
+  | 'busy'
   | 'other'
 
 type ResolveInput = {
@@ -22,12 +23,14 @@ const VALID_KINDS: PaymentFailureKind[] = [
   'wrong_pin',
   'cancelled',
   'timeout',
+  'busy',
   'other',
 ]
 
 /** ISO 8583 / PNA: 51 = insufficient funds, 55 = wrong PIN. Also keep legacy 02/03. */
 const INSUFFICIENT_FUNDS_CODES = new Set(['02', '51'])
 const WRONG_PIN_CODES = new Set(['03', '55'])
+const BUSY_CODES = new Set(['93'])
 
 function normalizeCode(code?: string | null): string {
   const text = String(code || '').trim()
@@ -58,6 +61,7 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
   // ISO 8583 51/55 which older classifiers mishandled.
   if (WRONG_PIN_CODES.has(code)) return 'wrong_pin'
   if (INSUFFICIENT_FUNDS_CODES.has(code)) return 'insufficient_funds'
+  if (BUSY_CODES.has(code)) return 'busy'
 
   const hinted = input.paymentFailureKind
   if (
@@ -103,6 +107,15 @@ export function resolvePaymentFailureKind(input: ResolveInput): PaymentFailureKi
     return 'insufficient_funds'
   }
 
+  if (
+    message.includes('مشغول') ||
+    message.includes('busy') ||
+    message.includes('in progress') ||
+    message.includes('تراکنش قبلی')
+  ) {
+    return 'busy'
+  }
+
   if (hinted && VALID_KINDS.includes(hinted as PaymentFailureKind)) {
     return hinted as PaymentFailureKind
   }
@@ -115,7 +128,9 @@ export function shouldKeepCartOnPaymentFailure(kind: PaymentFailureKind): boolea
   return (
     kind === 'insufficient_funds' ||
     kind === 'wrong_pin' ||
-    kind === 'cancelled'
+    kind === 'cancelled' ||
+    kind === 'busy' ||
+    kind === 'timeout'
   )
 }
 

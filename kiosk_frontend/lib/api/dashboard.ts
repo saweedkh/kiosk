@@ -8,6 +8,21 @@ import type {
   SystemHealthData,
 } from '@/types'
 
+export interface PosTestConnectionResult {
+  ok: boolean
+  success?: boolean
+  busy?: boolean
+  timed_out?: boolean
+  reset?: boolean
+  status?: string
+  latency_ms?: number | null
+  host?: string | null
+  port?: number | null
+  error?: string | null
+  message?: string
+  connection_type?: string
+}
+
 export const dashboardApi = {
   getLive: async (days = 7): Promise<LiveDashboardData> => {
     const response = await apiClient.get('/kiosk/admin/dashboard/live/', {
@@ -19,9 +34,37 @@ export const dashboardApi = {
   },
 
   getHealth: async (): Promise<SystemHealthData> => {
-    const response = await apiClient.get('/kiosk/admin/dashboard/health/')
+    const response = await apiClient.get('/kiosk/admin/dashboard/health/', {
+      timeout: 10_000,
+    })
     const data = response.data
     return (data?.result ?? data) as SystemHealthData
+  },
+
+  testPosConnection: async (params?: {
+    pos_ip?: string
+    pos_port?: number | string
+  }): Promise<PosTestConnectionResult> => {
+    const response = await apiClient.post(
+      '/kiosk/admin/dashboard/health/pos-test/',
+      {
+        pos_ip: params?.pos_ip || undefined,
+        pos_port: params?.pos_port || undefined,
+      },
+      { timeout: 8_000 }
+    )
+    const data = response.data
+    return (data?.result ?? data) as PosTestConnectionResult
+  },
+
+  resetPosConnection: async (): Promise<PosTestConnectionResult> => {
+    const response = await apiClient.post(
+      '/kiosk/admin/dashboard/health/pos-reset/',
+      {},
+      { timeout: 8_000 }
+    )
+    const data = response.data
+    return (data?.result ?? data) as PosTestConnectionResult
   },
 }
 

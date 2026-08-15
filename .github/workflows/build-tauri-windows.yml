@@ -98,7 +98,9 @@ jobs:
         shell: pwsh
         run: |
           $exe = "kiosk_backend/dist/kiosk-backend/kiosk-backend.exe"
+          $migrate = "kiosk_backend/dist/kiosk-backend/kiosk-backend-migrate.exe"
           if (-not (Test-Path $exe)) { throw "Missing onedir sidecar: $exe" }
+          if (-not (Test-Path $migrate)) { throw "Missing migrate exe: $migrate" }
           Write-Host "Sidecar OK:" (Get-Item $exe).Length "bytes"
           Get-ChildItem "kiosk_backend/dist/kiosk-backend" | Select-Object -First 15 Name, Length
 
@@ -171,12 +173,12 @@ jobs:
             "3. Backend: folder kiosk-backend\kiosk-backend.exe (no single fat EXE).",
             "4. API: http://127.0.0.1:18765/health/",
             "5. DB: %APPDATA%\com.kiosk.desktop\kiosk.db",
-            "6. Warm start should be ~10-30s; first migrate can be longer.",
-            "7. Processes (VBS starts all three):",
-            "   - kiosk-backend.exe           → API :18765",
-            "   - kiosk-backend.exe bale_poll → Bale bot",
-            "   - kiosk-backend.exe pos_worker → POS DLL :18766",
-            "   (POS timeout/DLL crash will NOT kill the API).",
+            "6. First install / after an update: run kiosk-backend\\kiosk-backend-migrate.exe once (no seed).",
+            "7. Daily start uses kiosk-backend.exe only — no migrate/seed.",
+            "8. Processes (VBS):",
+            "   - kiosk-backend.exe           → API + POS DLL :18765 (fast)",
+            "   - kiosk-backend.exe bale_poll → Bale bot (separate process)",
+            "   - kiosk-backend-migrate.exe   → migrate + permission groups (manual)",
             "",
             "Required:",
             "- kiosk.exe",

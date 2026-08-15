@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { dashboardApi } from '@/lib/api/dashboard'
-import { formatCurrency, formatNumber, cn } from '@/lib/utils'
+import { formatCurrency, formatNumber, cn, translateError } from '@/lib/utils'
 import {
   AdminPageHeader,
   AdminSegmented,
@@ -31,6 +31,9 @@ const STATUS_FA: Record<string, string> = {
   cancelled: 'لغو',
   dine_in: 'سالن',
   takeaway: 'بیرون‌بر',
+  busy: 'مشغول',
+  timeout: 'تایم‌اوت',
+  warming: 'آماده‌سازی',
 }
 
 function fa(status?: string | null) {
@@ -68,7 +71,9 @@ function softOk(c?: HealthComponent) {
     c.ok ||
     c.status === 'mock' ||
     c.status === 'disabled' ||
-    c.status === 'env_disabled'
+    c.status === 'env_disabled' ||
+    c.status === 'busy' ||
+    c.status === 'warming'
   )
 }
 
@@ -125,6 +130,12 @@ function paymentTone(status?: string): 'success' | 'warning' | 'danger' | 'neutr
 
 export function DashboardManager() {
   const [days, setDays] = useState<RangeDays>('7')
+  const [posAction, setPosAction] = useState<{
+    ok: boolean
+    busy?: boolean
+    text: string
+  } | null>(null)
+  const queryClient = useQueryClient()
 
   const dashQuery = useQuery({
     queryKey: ['admin-dashboard-live', days],
@@ -136,6 +147,46 @@ export function DashboardManager() {
     queryKey: ['admin-system-health'],
     queryFn: () => dashboardApi.getHealth(),
     refetchInterval: 45_000,
+  })
+
+  const applyPosResult = (
+    result: {
+      ok?: boolean
+      success?: boolean
+      busy?: boolean
+      timed_out?: boolean
+      message?: string
+    },
+    fallback: string
+  ) => {
+    const timedOut = Boolean(result.timed_out)
+    const busy = Boolean(result.busy) && !timedOut
+    setPosAction({
+      ok: Boolean(result.ok ?? result.success) && !busy && !timedOut,
+      busy,
+      text: result.message || fallback,
+    })
+    void queryClient.invalidateQueries({ queryKey: ['admin-system-health'] })
+  }
+
+  const posTestMutation = useMutation({
+    mutationFn: () => dashboardApi.testPosConnection(),
+    onSuccess: (result) => applyPosResult(result, 'اتصال DLL بررسی شد'),
+    onError: (error: unknown) =>
+      setPosAction({
+        ok: false,
+        text: translateError(error) || 'خطا در بررسی اتصال کارتخوان',
+      }),
+  })
+
+  const posResetMutation = useMutation({
+    mutationFn: () => dashboardApi.resetPosConnection(),
+    onSuccess: (result) => applyPosResult(result, 'اتصال DLL بازنشانی شد'),
+    onError: (error: unknown) =>
+      setPosAction({
+        ok: false,
+        text: translateError(error) || 'خطا در بازنشانی اتصال کارتخوان',
+      }),
   })
 
   const live = dashQuery.data?.live
@@ -254,7 +305,43 @@ export function DashboardManager() {
               آخرین چک {formatClock(health?.checked_at)}
             </span>
           )}
+          <div className="ms-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={posTestMutation.isPending || posResetMutation.isPending}
+              onClick={() => posTestMutation.mutate()}
+              className="inline-flex h-9 items-center rounded-xl border border-border bg-card px-3 text-xs font-semibold hover:bg-muted/50 disabled:opacity-60"
+            >
+              {posTestMutation.isPending ? 'در حال بررسی…' : 'بررسی DLL'}
+            </button>
+            <button
+              type="button"
+              disabled={posTestMutation.isPending || posResetMutation.isPending}
+              onClick={() => posResetMutation.mutate()}
+              className="inline-flex h-9 items-center rounded-xl border border-amber-500/40 bg-amber-50 px-3 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/70"
+            >
+              {posResetMutation.isPending ? 'در حال بازنشانی…' : 'بازنشانی اتصال'}
+            </button>
+          </div>
         </div>
+        {posAction ? (
+          <p
+            className={cn(
+              'mt-3 rounded-xl border px-3 py-2 text-sm font-medium',
+              posAction.busy
+                ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/25 dark:text-amber-200'
+                : posAction.ok
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/25 dark:text-emerald-200'
+                  : 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/25 dark:text-red-200'
+            )}
+          >
+            {posAction.text}
+          </p>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">
+            اگر کارتخوان گیر کرد، «بازنشانی اتصال» را بزنید؛ نیازی به ری‌استارت کل بک‌اند نیست.
+          </p>
+        )}
       </AdminSurface>
 
       {loading ? (

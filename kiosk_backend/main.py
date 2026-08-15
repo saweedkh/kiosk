@@ -3,9 +3,15 @@
 Kiosk desktop backend entry — Waitress WSGI for Tauri sidecar / dev.
 
 Usage:
-  DJANGO_SETTINGS_MODULE=config.settings.desktop python main.py
-  python main.py import-json <fixture.json> [kiosk.db]
+  python main.py                         # fast API (no migrate/seed)
+  python main.py migrate                 # apply migrations (manual)
+  python main.py import-json <file.json> [kiosk.db]
   python main.py bale_poll
+
+Packaged:
+  kiosk-backend.exe                      # fast API
+  kiosk-backend-migrate.exe              # migrations only (console)
+  kiosk-backend.exe bale_poll
 """
 
 from __future__ import annotations
@@ -41,15 +47,6 @@ def _is_packaged() -> bool:
     return getattr(sys, 'frozen', False)
 
 
-def _startup_verbosity() -> int:
-    """Packaged exe: no migration/seed spam in django.log."""
-    if _is_packaged():
-        return 0
-    if os.environ.get('KIOSK_QUIET_STARTUP', '').lower() in ('1', 'true', 'yes', 'on'):
-        return 0
-    return 1
-
-
 def _log(msg: str) -> None:
     """Always emit startup timings (Tauri captures stderr into django.log)."""
     print(f'[kiosk-backend] {msg}', flush=True)
@@ -70,89 +67,79 @@ def _bootstrap_django() -> None:
     django.setup()
 
 
-def _has_pending_migrations() -> bool:
-    from django.db import connections
-    from django.db.migrations.executor import MigrationExecutor
-
-    connection = connections['default']
-    connection.ensure_connection()
-    executor = MigrationExecutor(connection)
-    targets = executor.loader.graph.leaf_nodes()
-    return bool(executor.migration_plan(targets))
-
-
 def _permission_groups_ready() -> bool:
     from django.contrib.auth.models import Group
 
     return Group.objects.filter(name='مدیر').exists()
 
 
-def _catalog_ready() -> bool:
-    from apps.products.models import Product
+def _exe_stem() -> str:
+    if getattr(sys, 'frozen', False):
+        return os.path.splitext(os.path.basename(sys.executable))[0].lower()
+    return ''
 
-    return Product.objects.exists()
 
+def _run_migrate_cli() -> int:
+    """Manual DB setup: migrate + permission groups. No demo seed."""
+    if os.name == 'nt':
+        try:
+            import ctypes
 
-def _run_bootstrap_commands() -> None:
-    """
-    Migrate / seed only when needed so warm starts stay fast.
+            ctypes.windll.kernel32.SetConsoleTitleW('kiosk-backend-migrate')
+        except Exception:
+            pass
 
-    First empty DB still pays for migrate + optional demo seed.
-    """
+    started = time.perf_counter()
+    _log('migrate: starting (no seed)')
+    t0 = time.perf_counter()
+    _bootstrap_django()
+    _log(f'django.setup: {time.perf_counter() - t0:.1f}s')
+
     from django.core.management import call_command
 
-    v = _startup_verbosity()
-    t0 = time.perf_counter()
-
-    if _has_pending_migrations():
-        _log('migrate: pending changes — applying…')
-        call_command('migrate', '--noinput', verbosity=v)
-        _log(f'migrate: done in {time.perf_counter() - t0:.1f}s')
-    else:
-        _log(f'migrate: skipped (already current) in {time.perf_counter() - t0:.1f}s')
-
     t1 = time.perf_counter()
-    if not _permission_groups_ready():
-        call_command('setup_permission_groups', verbosity=0)
-        _log(f'permission groups: created in {time.perf_counter() - t1:.1f}s')
-    else:
-        _log(f'permission groups: skipped in {time.perf_counter() - t1:.1f}s')
-
-    if os.environ.get('SEED_DEMO_DATA', '1') == '0':
-        _log('seed: disabled (SEED_DEMO_DATA=0)')
-        return
-
-    from apps.core.desktop_paths import demo_seed_blocked
+    call_command('migrate', '--noinput', verbosity=1)
+    _log(f'migrate: done in {time.perf_counter() - t1:.1f}s')
 
     t2 = time.perf_counter()
-    if demo_seed_blocked():
-        _log('seed: skipped (imported from Postgres — no demo catalog)')
-        return
-    if _catalog_ready():
-        _log(f'seed: skipped (catalog exists) in {time.perf_counter() - t2:.1f}s')
-        return
+    if not _permission_groups_ready():
+        call_command('setup_permission_groups', verbosity=0)
+        _log(f'permission groups: created in {time.perf_counter() - t2:.1f}s')
+    else:
+        _log(f'permission groups: already present in {time.perf_counter() - t2:.1f}s')
 
-    _log('seed: empty catalog — seeding demo data…')
-    call_command('seed_demo_data', verbosity=0)
-    _log(f'seed: done in {time.perf_counter() - t2:.1f}s')
+    _log(f'migrate: finished in {time.perf_counter() - started:.1f}s')
+    if os.name == 'nt' and _is_packaged():
+        try:
+            input('تمام شد. Enter بزنید تا پنجره بسته شود… ')
+        except EOFError:
+            pass
+    return 0
 
 
 def _run_cli(argv: list[str]) -> int | None:
     """Handle sidecar CLI. Return exit code, or None to start the API server."""
+    stem = _exe_stem()
+    cmd = argv[0].lstrip('-').replace('_', '-') if argv else ''
+
+    if stem in ('kiosk-backend-migrate', 'kiosk-backend-setup') or cmd in (
+        'migrate',
+        'setup',
+    ):
+        return _run_migrate_cli()
+
     if not argv:
         return None
 
-    cmd = argv[0].lstrip('-').replace('_', '-')
     if cmd in ('help', 'h'):
-        print('kiosk-backend.exe')
+        print('kiosk-backend.exe                  # fast API (no migrate/seed)')
+        print('kiosk-backend-migrate.exe          # apply migrations (manual)')
+        print('kiosk-backend.exe migrate')
         print('kiosk-backend.exe import-json <fixture.json> [kiosk.db]')
         print('kiosk-backend.exe bale_poll')
-        print('kiosk-backend.exe pos_worker')
         return 0
     if cmd in ('bale-poll', 'balepoll'):
         return _run_bale_poll_cli()
-    if cmd in ('pos-worker', 'posworker'):
-        return _run_pos_worker_cli()
     if cmd not in ('import-json', 'importjson'):
         return None
     if len(argv) < 2:
@@ -199,36 +186,6 @@ def _run_bale_poll_cli() -> int:
     return 0
 
 
-def _run_pos_worker_cli() -> int:
-    """
-    Isolated POS DLL process — pythonnet / timeout crashes stay here.
-    API talks to this over http://127.0.0.1:18766
-    """
-    if os.name == 'nt':
-        try:
-            import ctypes
-
-            ctypes.windll.kernel32.SetConsoleTitleW('kiosk-pos-worker')
-        except Exception:
-            pass
-
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
-    os.environ['SEED_DEMO_DATA'] = '0'
-    # Worker loads the DLL; API must not also load it.
-    os.environ['POS_WORKER_ENABLED'] = '0'
-    _bootstrap_django()
-
-    from django.conf import settings as dj_settings
-
-    from apps.payment.gateway.pos_dll.worker_server import serve_forever
-
-    host = getattr(dj_settings, 'POS_WORKER_HOST', '127.0.0.1')
-    port = int(getattr(dj_settings, 'POS_WORKER_PORT', 18766) or 18766)
-    _log(f'pos_worker: starting on {host}:{port}')
-    serve_forever(host=host, port=port)
-    return 0
-
-
 def main() -> None:
     started = time.perf_counter()
     _configure_stdio_utf8()
@@ -249,8 +206,7 @@ def main() -> None:
     from apps.core.desktop_paths import get_data_dir
 
     _log(f'data dir: {get_data_dir()}')
-
-    _run_bootstrap_commands()
+    _log('startup: fast path (migrate/seed skipped — use kiosk-backend-migrate.exe)')
 
     host = os.environ.get('KIOSK_API_HOST', '0.0.0.0')
     port = int(os.environ.get('KIOSK_API_PORT', '18765'))
@@ -265,21 +221,18 @@ def main() -> None:
     if not _is_packaged():
         print(f'Kiosk backend (Django) http://{host}:{port}/', flush=True)
 
-    # POS DLL lives in kiosk-backend.exe pos_worker — do not load it here.
-    from django.conf import settings as dj_settings
-
-    if getattr(dj_settings, 'POS_WORKER_ENABLED', False):
+    # Load POS DLL in this process (same as before isolation) so the first
+    # order is a direct send_transaction, not an HTTP hop to another EXE.
+    if os.name == 'nt':
         try:
-            from apps.payment.gateway.pos_dll import worker_client
+            from apps.payment.gateway.pos_dll.warmup import start_async as start_pos_warmup
 
-            if worker_client.ensure_running(wait_s=5):
-                _log('pos worker: already up')
-            else:
-                _log('pos worker: not up yet (VBS should start it; API can spawn later)')
+            start_pos_warmup()
+            _log('pos warmup started (background, in-process DLL)')
         except Exception as exc:  # noqa: BLE001
-            _log(f'pos worker probe failed: {exc}')
+            _log(f'pos warmup start failed: {exc}')
 
-    # Bale: kiosk-backend.exe bale_poll | POS: kiosk-backend.exe pos_worker
+    # Bale stays a separate OS process: kiosk-backend.exe bale_poll
     serve(application, host=host, port=port, threads=6, channel_timeout=180)
 
 

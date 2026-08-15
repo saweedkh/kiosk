@@ -13,6 +13,7 @@ import { PaymentModal } from "@/components/customer/PaymentModal";
 import { KioskAttractScreen } from "@/components/customer/KioskAttractScreen";
 import { productsApi } from "@/lib/api/products";
 import { ordersApi } from "@/lib/api/orders";
+import { paymentApi } from "@/lib/api/payment";
 import {
   settingsApi,
   resolveCopyright,
@@ -60,8 +61,10 @@ import {
 
 /** Return to attract screen after this much idle time on the menu */
 const KIOSK_IDLE_MS = 90_000;
-/** Must stay above backend POS DLL timeout (desktop default 120s). */
-const PAYMENT_DEVICE_IDLE_MS = 130_000;
+/** Must stay above backend POS DLL timeout (desktop default 60s). */
+const PAYMENT_DEVICE_IDLE_MS = 70_000;
+/** Watch cancelled/timed-out orders in case POS later returns success. */
+const LATE_POS_WATCH_MS = 90_000;
 /** Menu refreshes on mount; catalog_revision still invalidates after admin edits. */
 const MENU_STALE_MS = 15_000;
 const MENU_GC_MS = 24 * 60 * 60 * 1000;
@@ -94,6 +97,8 @@ export default function CustomerPage() {
   const paymentWaitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const paymentAbortRef = useRef<AbortController | null>(null);
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lateWatchRef = useRef<NodeJS.Timeout | null>(null);
+  const lateSettledRef = useRef(false);
   const lastCatalogRevisionRef = useRef<number | null>(null);
   const landingThemeRef = useRef("cinema");
   const productsScrollRef = useDragScroll<HTMLElement>("y");
@@ -186,6 +191,9 @@ export default function CustomerPage() {
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
       }
+      if (lateWatchRef.current) {
+        clearInterval(lateWatchRef.current);
+      }
       paymentAbortRef.current?.abort();
     };
   }, []);
@@ -205,9 +213,72 @@ export default function CustomerPage() {
     }
   };
 
+  const abortPosWait = () => {
+    void paymentApi.abortPos();
+  };
+
   const abortPaymentRequest = () => {
     paymentAbortRef.current?.abort();
     paymentAbortRef.current = null;
+    abortPosWait();
+  };
+
+  const stopLatePosWatch = () => {
+    if (lateWatchRef.current) {
+      clearInterval(lateWatchRef.current);
+      lateWatchRef.current = null;
+    }
+  };
+
+  const applyLatePosPaid = (order: {
+    id: number;
+    order_number?: string;
+  }) => {
+    if (lateSettledRef.current) return;
+    lateSettledRef.current = true;
+    stopLatePosWatch();
+    abortPosWait();
+    setCurrentOrder({
+      id: order.id,
+      orderNumber: order.order_number || `#${order.id}`,
+    });
+    updatePaymentFailureKind(null);
+    setPaymentStatus("success");
+    setIsPaymentModalOpen(true);
+    clearCart();
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+  };
+
+  const startLatePosWatch = (orderId: number) => {
+    if (!orderId || lateSettledRef.current) return;
+    stopLatePosWatch();
+    const startedAt = Date.now();
+    const tick = async () => {
+      if (lateSettledRef.current) {
+        stopLatePosWatch();
+        return;
+      }
+      if (Date.now() - startedAt > LATE_POS_WATCH_MS) {
+        stopLatePosWatch();
+        return;
+      }
+      try {
+        const data = await ordersApi.getOrderPaymentStatus(orderId);
+        const paid =
+          data.result?.payment_status === "paid" ||
+          data.result?.status === "paid";
+        if (paid && data.result) {
+          applyLatePosPaid(data.result);
+        }
+      } catch {
+        // Keep watching — backend may still be recording the late POS success.
+      }
+    };
+    lateWatchRef.current = setInterval(() => {
+      void tick();
+    }, 2500);
+    void tick();
   };
 
   const finishPaymentFlow = (kind: PaymentFailureKind | null) => {
@@ -220,6 +291,7 @@ export default function CustomerPage() {
 
   /** Full session reset → attract (clears cart). Use after success or idle. */
   const goToAttract = () => {
+    stopLatePosWatch();
     clearPaymentTimers();
     if (idleTimeoutRef.current) {
       clearTimeout(idleTimeoutRef.current);
@@ -254,8 +326,7 @@ export default function CustomerPage() {
     });
   };
 
-  // Auto-close payment modal: success / cancel / timeout → attract;
-  // insufficient funds / wrong PIN → keep cart
+  // Auto-close payment modal: success → attract; soft failures (incl. timeout) → keep cart
   useEffect(() => {
     if (
       (paymentStatus === "success" ||
@@ -309,7 +380,7 @@ export default function CustomerPage() {
     }
 
     paymentWaitTimeoutRef.current = setTimeout(() => {
-      abortPaymentRequest();
+      abortPosWait();
       updatePaymentFailureKind("timeout");
       setPaymentStatus("failed");
       paymentWaitTimeoutRef.current = null;
@@ -776,6 +847,9 @@ export default function CustomerPage() {
     },
     onSuccess: (response) => {
       paymentAbortRef.current = null;
+      if (lateSettledRef.current) {
+        return;
+      }
       // پاک کردن timeout قبلی اگر وجود داشته باشد
       if (paymentModalTimeoutRef.current) {
         clearTimeout(paymentModalTimeoutRef.current);
@@ -797,6 +871,8 @@ export default function CustomerPage() {
           order.payment_status === "success" ||
           order.status === "paid"
         ) {
+          lateSettledRef.current = true;
+          stopLatePosWatch();
           setPaymentStatus("success");
           clearCart();
           
@@ -812,15 +888,18 @@ export default function CustomerPage() {
         ) {
           updatePaymentFailureKind("cancelled");
           setPaymentStatus("cancelled");
+          startLatePosWatch(order.id);
         } else if (order.payment_status === "failed") {
-          updatePaymentFailureKind(
-            resolvePaymentFailureKind({
-              paymentStatus: order.payment_status,
-              order,
-              message: (order as { error_message?: string }).error_message,
-            })
-          );
+          const kind = resolvePaymentFailureKind({
+            paymentStatus: order.payment_status,
+            order,
+            message: (order as { error_message?: string }).error_message,
+          });
+          updatePaymentFailureKind(kind);
           setPaymentStatus("failed");
+          if (kind === "timeout" || kind === "cancelled") {
+            startLatePosWatch(order.id);
+          }
         } else {
           // اگر وضعیت مشخص نبود، همچنان در حالت waiting بمانیم
           // این باعث می‌شود که مودال باز بماند و منتظر نتیجه بماند
@@ -839,6 +918,9 @@ export default function CustomerPage() {
     onError: (error: any) => {
       paymentAbortRef.current = null;
       console.error("Error creating order:", error);
+      if (lateSettledRef.current) {
+        return;
+      }
 
       const isUserAbort =
         error.code === "ERR_CANCELED" ||
@@ -873,6 +955,9 @@ export default function CustomerPage() {
           id: payload.order.id,
           orderNumber: payload.order.order_number || `#${payload.order.id}`,
         });
+        if (failureKind === "cancelled" || failureKind === "timeout") {
+          startLatePosWatch(payload.order.id);
+        }
       }
 
       if (error.response?.status === 402) {
@@ -884,6 +969,9 @@ export default function CustomerPage() {
         console.warn("Request timeout - payment may still be processing");
         updatePaymentFailureKind("timeout");
         setPaymentStatus("failed");
+        if (payload.order?.id) {
+          startLatePosWatch(payload.order.id);
+        }
         return;
       }
 
@@ -896,6 +984,13 @@ export default function CustomerPage() {
       return;
     }
     if (!selectedFulfillment) {
+      return;
+    }
+
+    if (lateWatchRef.current) {
+      updatePaymentFailureKind("busy");
+      setPaymentStatus("failed");
+      setIsPaymentModalOpen(true);
       return;
     }
     
@@ -911,6 +1006,7 @@ export default function CustomerPage() {
     }
     
     // Reset state
+    lateSettledRef.current = false;
     setPaymentStatus("waiting");
     updatePaymentFailureKind(null);
     setCurrentOrder(null);
@@ -927,7 +1023,7 @@ export default function CustomerPage() {
 
   const handlePaymentCancel = () => {
     if (createOrderMutation.isPending || paymentStatus === "waiting") {
-      abortPaymentRequest();
+      abortPosWait();
       clearPaymentTimers();
       updatePaymentFailureKind("cancelled");
       setPaymentStatus("cancelled");

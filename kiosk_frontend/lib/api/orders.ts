@@ -32,6 +32,25 @@ export const ordersApi = {
     return response.data
   },
 
+  getOrderPaymentStatus: async (
+    orderId: number
+  ): Promise<ApiResponse<{
+    id: number
+    order_number: string
+    payment_status: string
+    status: string
+  }>> => {
+    const response = await apiClient.get<
+      ApiResponse<{
+        id: number
+        order_number: string
+        payment_status: string
+        status: string
+      }>
+    >(`/kiosk/orders/orders/${orderId}/status/`, { timeout: 4000 })
+    return response.data
+  },
+
   getAdminOrder: async (orderId: number): Promise<ApiResponse<Order>> => {
     const response = await apiClient.get<ApiResponse<Order>>(
       `/kiosk/admin/orders/${orderId}/`

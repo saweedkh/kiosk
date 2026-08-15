@@ -7,6 +7,7 @@ import { writeCachedSettings } from '@/lib/kiosk-persist'
 import { publishSettingsToCustomer } from '@/lib/publish-settings'
 import { withMediaCacheBust } from '@/lib/media-url'
 import { adminApi } from '@/lib/api/admin'
+import { dashboardApi } from '@/lib/api/dashboard'
 import { Button } from '@/components/shared/Button'
 import { Input } from '@/components/shared/Input'
 import { Switch } from '@/components/shared/Switch'
@@ -537,6 +538,11 @@ export function SettingsManager() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [justSaved, setJustSaved] = useState(false)
   const [tab, setTab] = useState<SettingsTab>('brand')
+  const [posTest, setPosTest] = useState<{
+    ok: boolean
+    busy?: boolean
+    message: string
+  } | null>(null)
   const queryClient = useQueryClient()
   const dirtyRef = useRef(false)
   const justSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -635,6 +641,56 @@ export function SettingsManager() {
         general: [
           translateError(error) || 'خطا در ریست شماره فیش. لطفا دوباره تلاش کنید.',
         ],
+      })
+    },
+  })
+
+  const posTestMutation = useMutation({
+    mutationFn: () =>
+      dashboardApi.testPosConnection({
+        pos_ip: settings.pos_ip,
+        pos_port: settings.pos_port,
+      }),
+    onSuccess: (result) => {
+      const timedOut = Boolean(result.timed_out)
+      const busy = Boolean(result.busy) && !timedOut
+      setPosTest({
+        ok: Boolean(result.ok ?? result.success) && !busy && !timedOut,
+        busy,
+        message:
+          result.message ||
+          (timedOut
+            ? 'تست اتصال زمان‌بر شد'
+            : result.ok
+              ? 'اتصال برقرار شد'
+              : 'اتصال برقرار نشد'),
+      })
+    },
+    onError: (error: any) => {
+      setPosTest({
+        ok: false,
+        message:
+          translateError(error) || 'خطا در بررسی اتصال کارتخوان. لطفا دوباره تلاش کنید.',
+      })
+    },
+  })
+
+  const posResetMutation = useMutation({
+    mutationFn: () => dashboardApi.resetPosConnection(),
+    onSuccess: (result) => {
+      const timedOut = Boolean(result.timed_out)
+      const busy = Boolean(result.busy) && !timedOut
+      setPosTest({
+        ok: Boolean(result.ok ?? result.success) && !busy && !timedOut,
+        busy,
+        message: result.message || 'اتصال DLL بازنشانی شد',
+      })
+    },
+    onError: (error: any) => {
+      setPosTest({
+        ok: false,
+        message:
+          translateError(error) || 'خطا در بازنشانی اتصال کارتخوان. لطفا دوباره تلاش کنید.',
       })
     },
   })
@@ -2223,7 +2279,33 @@ export function SettingsManager() {
                   description={
                     posMockMode
                       ? 'در حالت آزمایشی استفاده نمی‌شود؛ برای بازگشت به پرداخت واقعی ذخیره کنید.'
-                      : 'ارسال مبلغ به کارتخوان (DLL روی ویندوز یا TCP روی سرور).'
+                      : 'بررسی اتصال DLL را تست می‌کند. اگر کارتخوان گیر کرد، بازنشانی اتصال را بزنید؛ نیازی به ری‌استارت بک‌اند نیست.'
+                  }
+                  action={
+                    posMockMode ? null : (
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          isLoading={posTestMutation.isPending}
+                          disabled={posResetMutation.isPending}
+                          onClick={() => posTestMutation.mutate()}
+                        >
+                          بررسی اتصال
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          isLoading={posResetMutation.isPending}
+                          disabled={posTestMutation.isPending}
+                          onClick={() => posResetMutation.mutate()}
+                        >
+                          بازنشانی اتصال
+                        </Button>
+                      </div>
+                    )
                   }
                 />
                 <div
@@ -2237,7 +2319,10 @@ export function SettingsManager() {
                     dir="ltr"
                     disabled={posMockMode}
                     value={settings.pos_ip || ''}
-                    onChange={(e) => handleChange('pos_ip', e.target.value)}
+                    onChange={(e) => {
+                      setPosTest(null)
+                      handleChange('pos_ip', e.target.value)
+                    }}
                     error={apiErrors.pos_ip?.[0]}
                     placeholder="192.168.1.102"
                   />
@@ -2253,13 +2338,28 @@ export function SettingsManager() {
                         ? ''
                         : String(settings.pos_port)
                     }
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setPosTest(null)
                       handleChange('pos_port', Number(e.target.value) || 1362)
-                    }
+                    }}
                     error={apiErrors.pos_port?.[0]}
                     placeholder="1362"
                   />
                 </div>
+                {posTest ? (
+                  <p
+                    className={cn(
+                      'rounded-xl border px-3 py-2 text-sm font-medium',
+                      posTest.busy
+                        ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/25 dark:text-amber-200'
+                        : posTest.ok
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/25 dark:text-emerald-200'
+                          : 'border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-900/25 dark:text-red-200'
+                    )}
+                  >
+                    {posTest.message}
+                  </p>
+                ) : null}
               </AdminSurface>
 
               <AdminSurface className="space-y-5">

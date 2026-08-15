@@ -281,24 +281,35 @@ class OrderService:
             
             transaction_id = PaymentService.generate_transaction_id()
             payment_success = OrderService._determine_payment_success(gateway_response)
-            
-            # Update order with payment/transaction information
-            order.transaction_id = transaction_id
-            order.gateway_name = gateway.__class__.__name__
-            order.gateway_request_data = {'amount': total_amount, 'order_details': order_details}
-            order.gateway_response_data = gateway_response
-            order.order_details = order_details
-            
+            gateway_name = gateway.__class__.__name__
+            gateway_request_data = {'amount': total_amount, 'order_details': order_details}
+
             if payment_success:
+                order.transaction_id = transaction_id
+                order.gateway_name = gateway_name
+                order.gateway_request_data = gateway_request_data
+                order.gateway_response_data = gateway_response
+                order.order_details = order_details
                 OrderService._handle_successful_payment(order, order_number, total_amount, transaction_id)
             else:
                 error_message = gateway_response.get('response_message', 'Payment failed')
                 gateway_status = gateway_response.get('status', '')
-                if gateway_status == 'cancelled':
-                    order.payment_status = 'cancelled'
-                    order.status = 'cancelled'
-                    order.error_message = error_message
-                    order.save()
+                unpaid_status = 'cancelled' if gateway_status == 'cancelled' else 'failed'
+                saved = OrderService._persist_unpaid_payment_outcome(
+                    order,
+                    payment_status=unpaid_status,
+                    status='cancelled',
+                    error_message=error_message,
+                    transaction_id=transaction_id,
+                    gateway_name=gateway_name,
+                    gateway_request_data=gateway_request_data,
+                    gateway_response_data=gateway_response,
+                    order_details=order_details,
+                )
+                if not saved:
+                    # Late POS 00 already marked this order paid — do not raise.
+                    return
+                if unpaid_status == 'cancelled':
                     LogService.log_warning(
                         'payment',
                         'payment_cancelled_by_user',
@@ -310,10 +321,6 @@ class OrderService:
                             'response_code': gateway_response.get('response_code'),
                             'message': error_message,
                         }
-                    )
-                else:
-                    OrderService._mark_order_as_failed(
-                        order, order_number, total_amount, transaction_id, error_message
                     )
                 raise GatewayException(
                     f'Payment failed: {error_message}',
@@ -336,6 +343,8 @@ class OrderService:
                 }
             )
             OrderService._mark_order_as_failed(order, order_number, total_amount, None, f'Network error: {str(e)}')
+            if order.payment_status == 'paid':
+                return
             raise GatewayException(
                 f'Failed to process payment: Network error - {str(e)}',
                 order=order,
@@ -354,6 +363,8 @@ class OrderService:
                 }
             )
             OrderService._mark_order_as_failed(order, order_number, total_amount, None, str(e))
+            if order.payment_status == 'paid':
+                return
             raise GatewayException(
                 f'Failed to process payment: {str(e)}',
                 order=order,
@@ -373,6 +384,60 @@ class OrderService:
         payment_success = gateway_response.get('success', False)
         gateway_status = gateway_response.get('status', '')
         return payment_success or gateway_status == 'success'
+
+    @staticmethod
+    def _persist_unpaid_payment_outcome(
+        order: Order,
+        *,
+        payment_status: str,
+        status: str,
+        error_message: str,
+        transaction_id: Optional[str] = None,
+        gateway_name: Optional[str] = None,
+        gateway_request_data: Optional[Dict] = None,
+        gateway_response_data: Optional[Dict] = None,
+        order_details: Optional[Dict] = None,
+    ) -> bool:
+        """
+        Save cancel/fail only if a late POS success has not already marked paid.
+
+        Uses a single UPDATE … WHERE payment_status != 'paid' so SQLite cannot
+        overwrite a concurrent paid write. Returns False when the order is paid.
+        """
+        updates: Dict[str, Any] = {
+            'payment_status': payment_status,
+            'status': status,
+            'error_message': error_message,
+        }
+        if transaction_id:
+            updates['transaction_id'] = transaction_id
+        if gateway_name:
+            updates['gateway_name'] = gateway_name
+        if gateway_request_data is not None:
+            updates['gateway_request_data'] = gateway_request_data
+        if gateway_response_data is not None:
+            updates['gateway_response_data'] = gateway_response_data
+        if order_details is not None:
+            updates['order_details'] = order_details
+
+        updated = (
+            Order.objects.filter(pk=order.pk)
+            .exclude(payment_status='paid')
+            .update(**updates)
+        )
+        order.refresh_from_db()
+        if updated:
+            return True
+        LogService.log_info(
+            'payment',
+            'skip_unpaid_outcome_already_paid',
+            details={
+                'order_id': order.id,
+                'attempted_status': payment_status,
+                'payment_status': order.payment_status,
+            },
+        )
+        return False
     
     @staticmethod
     def _mark_order_as_cancelled(order: Order, order_number: str, total_amount: int, error_message: str) -> None:
@@ -385,11 +450,14 @@ class OrderService:
             total_amount: Total order amount
             error_message: Error message
         """
-        order.payment_status = 'pending'
-        order.status = 'cancelled'
-        order.error_message = error_message
-        order.save()
-        
+        if not OrderService._persist_unpaid_payment_outcome(
+            order,
+            payment_status='pending',
+            status='cancelled',
+            error_message=error_message,
+        ):
+            return
+
         LogService.log_warning(
             'payment',
             'gateway_not_active',
@@ -415,11 +483,15 @@ class OrderService:
             transaction_id: Transaction ID (if available)
             error_message: Error message
         """
-        order.payment_status = 'failed'
-        order.status = 'cancelled'
-        order.error_message = error_message
-        order.save()
-        
+        if not OrderService._persist_unpaid_payment_outcome(
+            order,
+            payment_status='failed',
+            status='cancelled',
+            error_message=error_message,
+            transaction_id=transaction_id,
+        ):
+            return
+
         LogService.log_error(
             'payment',
             'payment_failed',

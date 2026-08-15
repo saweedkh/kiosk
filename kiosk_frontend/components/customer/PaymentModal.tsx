@@ -129,7 +129,8 @@ export function PaymentModal({
               </div>
             ),
             title: 'کارتخوان مشغول است',
-            message: 'سبد خرید شما حفظ شده — لطفاً مجدداً تلاش کنید.',
+            message:
+              'اگر مبلغ هنوز روی کارتخوان است، روی خود دستگاه «لغو» را بزنید. سبد خرید حفظ شده — بعد دوباره پرداخت کنید.',
             gradient: 'from-amber-500 to-amber-600',
             bgGradient: 'from-amber-50 to-amber-50 dark:from-amber-900/20 dark:to-amber-900/10',
           }

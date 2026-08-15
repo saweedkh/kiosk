@@ -987,13 +987,9 @@ export default function CustomerPage() {
       return;
     }
 
-    if (lateWatchRef.current) {
-      updatePaymentFailureKind("busy");
-      setPaymentStatus("failed");
-      setIsPaymentModalOpen(true);
-      return;
-    }
-    
+    // Late POS watch stays in the background. If the device already cancelled,
+    // the backend lock is free and pay proceeds. If the amount is still on the
+    // reader, pay() returns busy (93) and the cart is kept. 
     // پاک کردن timeout قبلی اگر وجود داشته باشد
     if (paymentModalTimeoutRef.current) {
       clearTimeout(paymentModalTimeoutRef.current);

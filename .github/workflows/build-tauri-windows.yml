@@ -164,6 +164,9 @@ jobs:
           if (Test-Path "scripts/windows/start-kiosk.vbs") {
             Copy-Item "scripts/windows/start-kiosk.vbs" "release/"
           }
+          if (Test-Path "scripts/windows/start-bale.vbs") {
+            Copy-Item "scripts/windows/start-bale.vbs" "release/"
+          }
 
           @(
             "Kiosk Windows build (fast onedir backend)",
@@ -178,6 +181,8 @@ jobs:
             "8. Processes (VBS):",
             "   - kiosk-backend.exe           → API + POS DLL :18765 (fast)",
             "   - kiosk-backend.exe bale_poll → Bale bot (separate process)",
+            "   - start-bale.vbs              → start Bale only (if polling is stale)",
+            "   - kiosk-start.log             → next to kiosk.exe, shows what VBS launched",
             "   - kiosk-backend-migrate.exe   → migrate + permission groups (manual)",
             "",
             "Required:",

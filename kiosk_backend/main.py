@@ -23,16 +23,21 @@ import time
 
 def _configure_stdio_utf8() -> None:
     """Windows console defaults to cp1252; Persian log lines crash colorama/Django."""
-    if os.name == 'nt':
-        try:
-            import ctypes
-
-            # Helps Task Manager / hide scripts identify this job.
-            ctypes.windll.kernel32.SetConsoleTitleW('kiosk-backend')
-        except Exception:
-            pass
     if os.name != 'nt':
         return
+    # Windowed PyInstaller exe: stdout/stderr are None — print() would kill bale_poll.
+    for name in ('stdout', 'stderr'):
+        if getattr(sys, name, None) is None:
+            try:
+                setattr(sys, name, open(os.devnull, 'w', encoding='utf-8', errors='replace'))
+            except Exception:
+                pass
+    try:
+        import ctypes
+
+        ctypes.windll.kernel32.SetConsoleTitleW('kiosk-backend')
+    except Exception:
+        pass
     for name in ('stdout', 'stderr'):
         stream = getattr(sys, name, None)
         if stream is None:
@@ -49,7 +54,23 @@ def _is_packaged() -> bool:
 
 def _log(msg: str) -> None:
     """Always emit startup timings (Tauri captures stderr into django.log)."""
-    print(f'[kiosk-backend] {msg}', flush=True)
+    line = f'[kiosk-backend] {msg}'
+    try:
+        print(line, flush=True)
+    except Exception:
+        pass
+
+
+def _bale_file_log(msg: str) -> None:
+    try:
+        from apps.core.desktop_paths import get_data_dir
+
+        path = get_data_dir() / 'bale_poll.log'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'a', encoding='utf-8') as fh:
+            fh.write(time.strftime('%Y-%m-%d %H:%M:%S') + ' ' + msg + '\n')
+    except Exception:
+        pass
 
 
 def _bootstrap_django() -> None:
@@ -161,6 +182,7 @@ def _run_cli(argv: list[str]) -> int | None:
 
 def _run_bale_poll_cli() -> int:
     """Separate OS process for Bale long-poll — crash-isolated from Waitress."""
+    _bale_file_log('bale_poll process starting')
     if os.name == 'nt':
         try:
             import ctypes
@@ -172,17 +194,28 @@ def _run_bale_poll_cli() -> int:
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.desktop')
     # Poller must not migrate/seed — API process owns bootstrap.
     os.environ['SEED_DEMO_DATA'] = '0'
-    _bootstrap_django()
+    try:
+        _bootstrap_django()
+    except Exception as exc:  # noqa: BLE001
+        _bale_file_log(f'django.setup failed: {exc}')
+        raise
 
     from django.conf import settings as dj_settings
     from django.core.management import call_command
 
     if not getattr(dj_settings, 'BALE_BOT_ENABLED', True):
         _log('bale_poll: BALE_BOT_ENABLED=False — exit')
+        _bale_file_log('exit: BALE_BOT_ENABLED=False')
         return 0
 
     _log('bale_poll: starting separate worker process')
-    call_command('bale_poll')
+    _bale_file_log('calling bale_poll command')
+    try:
+        call_command('bale_poll')
+        _bale_file_log('bale_poll command returned')
+    except Exception as exc:  # noqa: BLE001
+        _bale_file_log(f'bale_poll crashed: {exc}')
+        raise
     return 0
 
 

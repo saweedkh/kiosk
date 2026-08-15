@@ -3,14 +3,14 @@
 ' Prefers onedir folder (fast). Falls back to a single .exe beside kiosk.exe.
 ' Starts API, waits a few seconds, then kiosk.exe.
 ' If a previous backend is still running, kill it first so the port is free.
-' Bale is scheduled in a separate hidden wscript so this script can exit.
+' Bale starts ~60s later via cmd (not a sleeping wscript — those get killed).
+' Watch progress: kiosk-start.log next to this script.
 
 Option Explicit
-Dim sh, fso, dir, backend, kiosk, f, bootFile, bootId, myId
+Dim sh, fso, dir, backend, kiosk, f
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 dir = fso.GetParentFolderName(WScript.ScriptFullName)
-bootFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\kiosk-desktop-boot.id"
 
 backend = ""
 For Each f In Array( _
@@ -26,60 +26,40 @@ Next
 
 kiosk = dir & "\kiosk.exe"
 
-' Delayed bale: this copy only sleeps then starts the bot, then exits.
-If WScript.Arguments.Count > 0 Then
-  If LCase(WScript.Arguments(0)) = "/bale" Then
-    myId = ""
-    If WScript.Arguments.Count > 1 Then myId = WScript.Arguments(1)
-    WScript.Sleep 60000
-    If myId <> "" And ReadBootId() = myId And backend <> "" Then
-      sh.Run """" & backend & """ bale_poll", 0, False
-    End If
-    WScript.Quit 0
-  End If
-End If
+LogLine "===== start-kiosk-startup.vbs ====="
+LogLine "dir=" & dir
+LogLine "backend=" & backend
+LogLine "kiosk=" & kiosk
 
 If backend = "" Or Not fso.FileExists(kiosk) Then
+  LogLine "ERROR: kiosk.exe / kiosk-backend not found"
   MsgBox "kiosk.exe / kiosk-backend not found next to this script:" & vbCrLf & dir, 16, "Kiosk"
   WScript.Quit 1
 End If
 
 ' Does not touch kiosk-backend-migrate.exe
 sh.Run "cmd /c taskkill /F /IM kiosk-backend.exe >nul 2>&1", 0, True
+LogLine "taskkill kiosk-backend.exe done"
 WScript.Sleep 800
 
-bootId = NewBootId()
-WriteBootId bootId
-
-' 0 = hidden
 sh.Run """" & backend & """", 0, False
+LogLine "started API"
 WScript.Sleep 4000
 sh.Run """" & kiosk & """", 1, False
-sh.Run "wscript.exe """ & WScript.ScriptFullName & """ /bale " & bootId, 0, False
+LogLine "started kiosk.exe"
 
-Function NewBootId()
-  Randomize
-  NewBootId = CStr(Int(Timer * 1000)) & "-" & CStr(Int(Rnd * 100000))
-End Function
+Dim cmd
+cmd = "cmd /c ping 127.0.0.1 -n 61 >nul & start """" /B """ & backend & """ bale_poll"
+LogLine "scheduling bale_poll in ~60s"
+sh.Run cmd, 0, False
+LogLine "launcher finished"
 
-Sub WriteBootId(id)
-  Dim ts
-  Set ts = fso.CreateTextFile(bootFile, True)
-  ts.Write id
+Sub LogLine(msg)
+  Dim ts, p
+  On Error Resume Next
+  p = dir & "\kiosk-start.log"
+  Set ts = fso.OpenTextFile(p, 8, True)
+  ts.WriteLine Now & "  " & msg
   ts.Close
+  On Error GoTo 0
 End Sub
-
-Function ReadBootId()
-  Dim ts
-  If Not fso.FileExists(bootFile) Then
-    ReadBootId = ""
-    Exit Function
-  End If
-  Set ts = fso.OpenTextFile(bootFile, 1)
-  If ts.AtEndOfStream Then
-    ReadBootId = ""
-  Else
-    ReadBootId = Trim(ts.ReadAll)
-  End If
-  ts.Close
-End Function

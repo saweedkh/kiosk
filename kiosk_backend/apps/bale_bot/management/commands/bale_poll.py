@@ -75,6 +75,19 @@ class Command(BaseCommand):
                 'Another bale_poll is already running — exiting.'
             ))
             logger.info('bale_poll exiting: single-instance lock held')
+            try:
+                from apps.core.desktop_paths import get_data_dir
+                import time as _time
+
+                p = get_data_dir() / 'bale_poll.log'
+                p.parent.mkdir(parents=True, exist_ok=True)
+                with open(p, 'a', encoding='utf-8') as fh:
+                    fh.write(
+                        _time.strftime('%Y-%m-%d %H:%M:%S')
+                        + ' exit: another bale_poll already holds the lock\n'
+                    )
+            except Exception:
+                pass
             return
 
         # Master kill-switch from .env / compose — do not poll at all.

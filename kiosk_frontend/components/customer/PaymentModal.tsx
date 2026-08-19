@@ -17,6 +17,8 @@ interface PaymentModalProps {
   isLoading?: boolean
   status?: 'waiting' | 'success' | 'failed' | 'cancelled'
   failureKind?: PaymentFailureKind | null
+  /** When false (default), hide cancel during POS wait. */
+  showCancelButton?: boolean
 }
 
 export function PaymentModal({
@@ -28,6 +30,7 @@ export function PaymentModal({
   isLoading = false,
   status = 'waiting',
   failureKind = null,
+  showCancelButton = false,
 }: PaymentModalProps) {
   const keepCart = failureKind ? shouldKeepCartOnPaymentFailure(failureKind) : false
 
@@ -320,9 +323,11 @@ export function PaymentModal({
                           ? 'در حال اتصال به کارتخوان...'
                           : 'منتظر پرداخت از طریق کارتخوان...'}
                       </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        اگر لغو کردید و مبلغ روی کارتخوان ماند، روی دستگاه هم لغو بزنید
-                      </p>
+                      {showCancelButton ? (
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          اگر لغو کردید و مبلغ روی کارتخوان ماند، روی دستگاه هم لغو بزنید
+                        </p>
+                      ) : null}
                     </div>
                   )}
 
@@ -343,7 +348,7 @@ export function PaymentModal({
                   )}
 
                   <div className="space-y-3">
-                    {status === 'waiting' ? (
+                    {status === 'waiting' && showCancelButton ? (
                       <Button
                         variant="outline"
                         size="lg"
@@ -352,7 +357,7 @@ export function PaymentModal({
                       >
                         لغو پرداخت
                       </Button>
-                    ) : status === 'failed' || status === 'cancelled' ? (
+                    ) : status === 'waiting' ? null : status === 'failed' || status === 'cancelled' ? (
                       <Button
                         variant="primary"
                         size="lg"

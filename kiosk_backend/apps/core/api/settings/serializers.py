@@ -91,6 +91,9 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
             'mock_payment_success_rate',
             'pos_ip',
             'pos_port',
+            'kiosk_payment_cancel_enabled',
+            'business_day_start_hour',
+            'business_day_start_minute',
             'printer_enabled',
             'printer_ip',
             'printer_port',
@@ -148,6 +151,18 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
         if rate < 0 or rate > 100:
             raise serializers.ValidationError('نرخ موفقیت باید بین ۰ تا ۱۰۰ باشد.')
         return rate
+
+    def validate_business_day_start_hour(self, value):
+        hour = int(value)
+        if hour < 0 or hour > 23:
+            raise serializers.ValidationError('ساعت شروع روز کاری باید بین ۰ تا ۲۳ باشد.')
+        return hour
+
+    def validate_business_day_start_minute(self, value):
+        minute = int(value)
+        if minute < 0 or minute > 59:
+            raise serializers.ValidationError('دقیقه شروع روز کاری باید بین ۰ تا ۵۹ باشد.')
+        return minute
 
     def validate_service_title_dine_in(self, value):
         return (value or '').strip()
@@ -226,6 +241,7 @@ class SiteSettingsPublicSerializer(serializers.ModelSerializer):
             'takeaway_enabled',
             'cart_layout',
             'catalog_revision',
+            'kiosk_payment_cancel_enabled',
         ]
 
     def get_logo_url(self, obj):

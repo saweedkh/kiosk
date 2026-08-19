@@ -3,17 +3,44 @@ from rest_framework.response import Response
 from apps.admin_panel.api.reports.reports_serializers import (
     DateRangeSerializer,
     DailyReportSerializer,
+    HourlyReportSerializer,
+    ExceptionReportSerializer,
     SalesReportResponseSerializer,
     ProductReportResponseSerializer,
     StockReportResponseSerializer,
-    DailyReportResponseSerializer
+    DailyReportResponseSerializer,
+    HourlyReportResponseSerializer,
 )
+from apps.admin_panel.utils.report_constants import get_business_day_start
 from apps.admin_panel.api.reports.reports_pagination import ReportPagination
 from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission
 from apps.admin_panel.services.report_service import ReportService
 from apps.admin_panel.utils.excel_export import ExcelExporter
 from apps.core.api.schema import custom_extend_schema
 from apps.core.api.schema import ResponseStatusCodes
+
+
+def _resolve_business_start(params: dict) -> tuple[int, int]:
+    hour = params.get('business_day_start_hour')
+    minute = params.get('business_day_start_minute')
+    if hour is None and minute is None:
+        return get_business_day_start()
+    default_hour, default_minute = get_business_day_start()
+    resolved_hour = default_hour if hour is None else max(0, min(23, int(hour)))
+    resolved_minute = default_minute if minute is None else max(0, min(59, int(minute)))
+    return resolved_hour, resolved_minute
+
+
+def _business_start_kwargs(params: dict) -> dict:
+    hour, minute = _resolve_business_start(params)
+    return {
+        'business_day_start_hour': hour,
+        'business_day_start_minute': minute,
+    }
+
+
+def _list_summary(report: dict, *, exclude: set[str]) -> dict:
+    return {key: value for key, value in report.items() if key not in exclude}
 
 
 class SalesReportAPIView(generics.GenericAPIView):
@@ -64,21 +91,12 @@ class SalesReportAPIView(generics.GenericAPIView):
         report = ReportService.get_sales_report(
             start_date=params.get('start_date'),
             end_date=params.get('end_date'),
-            user=request.user
+            preset=params.get('preset'),
+            **_business_start_kwargs(params),
+            user=request.user,
         )
-        
-        # Extract summary data (includes both sales and transaction stats)
-        summary_data = {
-            'total_sales': report.get('total_sales', 0),
-            'total_orders': report.get('total_orders', 0),
-            'average_order_value': report.get('average_order_value', 0),
-            'total_transactions': report.get('total_transactions', 0),
-            'successful_transactions': report.get('successful_transactions', 0),
-            'failed_transactions': report.get('failed_transactions', 0),
-            'successful_amount': report.get('successful_amount', 0),
-            'start_date': report.get('start_date'),
-            'end_date': report.get('end_date')
-        }
+
+        summary_data = _list_summary(report, exclude={'orders'})
         
         # Get orders list for pagination
         orders = report.get('orders', [])
@@ -134,16 +152,9 @@ class ProductReportAPIView(generics.GenericAPIView):
         """
         report = ReportService.get_product_report(user=request.user)
         
-        # Extract summary data
-        summary_data = {
-            'total_products': report.get('total_products', 0),
-            'active_products': report.get('active_products', 0)
-        }
-        
-        # Get products list for pagination
+        summary_data = _list_summary(report, exclude={'products'})
         products = report.get('products', [])
         
-        # Paginate products
         paginator = self.pagination_class()
         paginated_products = paginator.paginate_queryset(products, request)
         
@@ -193,17 +204,9 @@ class StockReportAPIView(generics.GenericAPIView):
             Response: Stock report data with paginated stock details list
         """
         report = ReportService.get_stock_report(user=request.user)
-        
-        # Extract summary data
-        summary_data = {
-            'total_stock_value': report.get('total_stock_value', 0),
-            'total_items': report.get('total_items', 0)
-        }
-        
-        # Get stock details list for pagination
+        summary_data = _list_summary(report, exclude={'stock_details'})
         stock_details = report.get('stock_details', [])
         
-        # Paginate stock details
         paginator = self.pagination_class()
         paginated_stock = paginator.paginate_queryset(stock_details, request)
         
@@ -260,16 +263,11 @@ class DailyReportAPIView(generics.GenericAPIView):
         
         report = ReportService.get_daily_report(
             date=params.get('date'),
-            user=request.user
+            **_business_start_kwargs(params),
+            user=request.user,
         )
-        
-        # Extract summary data
-        summary_data = {
-            'date': report.get('date'),
-            'total_sales': report.get('total_sales', 0),
-            'total_orders': report.get('total_orders', 0),
-            'total_transactions': report.get('total_transactions', 0)
-        }
+
+        summary_data = _list_summary(report, exclude={'orders'})
         
         # Get orders list for pagination
         orders = report.get('orders', [])
@@ -281,6 +279,61 @@ class DailyReportAPIView(generics.GenericAPIView):
         # Return paginated response with summary
         return paginator.get_paginated_response(
             paginated_orders,
+            summary_data=summary_data
+        )
+
+
+class HourlyReportAPIView(generics.GenericAPIView):
+    """
+    API endpoint for generating hourly report (Admin only).
+
+    Query Parameters:
+        date: Date for report (optional, defaults to today)
+        business_day_start_hour: Business day start hour in 24h format
+        page: Page number (optional, default: 1)
+        page_size: Items per page (optional, default: 50, max: 500)
+
+    Returns hourly statistics for a configurable 24-hour business-day window.
+    Hour rows are paginated.
+    """
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
+    serializer_class = HourlyReportSerializer
+    pagination_class = ReportPagination
+
+    @custom_extend_schema(
+        resource_name="HourlyReport",
+        response_serializer=HourlyReportResponseSerializer,
+        status_codes=[
+            ResponseStatusCodes.OK_PAGINATED,
+            ResponseStatusCodes.UNAUTHORIZED,
+            ResponseStatusCodes.FORBIDDEN,
+        ],
+        summary="Hourly Report",
+        description="Generate hourly report with configurable business-day start hour. Sales totals include only successful transactions.",
+        tags=["Admin - Reports"],
+        operation_id="admin_reports_hourly",
+    )
+    def get(self, request):
+        params_serializer = HourlyReportSerializer(data=request.query_params)
+        params_serializer.is_valid(raise_exception=True)
+        params = params_serializer.validated_data
+
+        report = ReportService.get_hourly_report(
+            date=params.get('date'),
+            **_business_start_kwargs(params),
+            user=request.user,
+        )
+
+        summary_data = _list_summary(report, exclude={'hours'})
+
+        hours = report.get('hours', [])
+
+        paginator = self.pagination_class()
+        paginated_hours = paginator.paginate_queryset(hours, request)
+
+        return paginator.get_paginated_response(
+            paginated_hours,
             summary_data=summary_data
         )
 
@@ -321,7 +374,9 @@ class SalesReportExportAPIView(generics.GenericAPIView):
         report = ReportService.get_sales_report(
             start_date=params.get('start_date'),
             end_date=params.get('end_date'),
-            user=request.user
+            preset=params.get('preset'),
+            **_business_start_kwargs(params),
+            user=request.user,
         )
         
         file_url = ExcelExporter.export_sales_report(report, request=request)
@@ -431,7 +486,8 @@ class DailyReportExportAPIView(generics.GenericAPIView):
         
         report = ReportService.get_daily_report(
             date=params.get('date'),
-            user=request.user
+            **_business_start_kwargs(params),
+            user=request.user,
         )
         
         file_url = ExcelExporter.export_daily_report(report, request=request)
@@ -440,4 +496,74 @@ class DailyReportExportAPIView(generics.GenericAPIView):
             'message': 'گزارش با موفقیت ایجاد شد',
             'file_url': file_url
         }, status=status.HTTP_200_OK)
+
+
+class HourlyReportExportAPIView(generics.GenericAPIView):
+    """Export hourly report to Excel."""
+
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
+    serializer_class = HourlyReportSerializer
+
+    @custom_extend_schema(
+        resource_name="HourlyReportExport",
+        status_codes=[
+            ResponseStatusCodes.OK,
+            ResponseStatusCodes.UNAUTHORIZED,
+            ResponseStatusCodes.FORBIDDEN,
+        ],
+        summary="Export Hourly Report to Excel",
+        description="Export hourly report to Excel format.",
+        tags=["Admin - Reports"],
+        operation_id="admin_reports_hourly_export",
+    )
+    def get(self, request):
+        params_serializer = HourlyReportSerializer(data=request.query_params)
+        params_serializer.is_valid(raise_exception=True)
+        params = params_serializer.validated_data
+
+        report = ReportService.get_hourly_report(
+            date=params.get('date'),
+            **_business_start_kwargs(params),
+            user=request.user,
+        )
+
+        file_url = ExcelExporter.export_hourly_report(report, request=request)
+
+        return Response({
+            'message': 'گزارش با موفقیت ایجاد شد',
+            'file_url': file_url,
+        }, status=status.HTTP_200_OK)
+
+
+class ExceptionReportAPIView(generics.GenericAPIView):
+    """Exception / alert report for current business day."""
+
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'view_reports'
+    serializer_class = ExceptionReportSerializer
+
+    @custom_extend_schema(
+        resource_name="ExceptionReport",
+        status_codes=[
+            ResponseStatusCodes.OK,
+            ResponseStatusCodes.UNAUTHORIZED,
+            ResponseStatusCodes.FORBIDDEN,
+        ],
+        summary="Exception Report",
+        description="Failed payments, stuck orders, and low stock for the current business day.",
+        tags=["Admin - Reports"],
+        operation_id="admin_reports_exceptions",
+    )
+    def get(self, request):
+        params_serializer = ExceptionReportSerializer(data=request.query_params)
+        params_serializer.is_valid(raise_exception=True)
+        params = params_serializer.validated_data
+
+        report = ReportService.get_exception_report(
+            **_business_start_kwargs(params),
+            user=request.user,
+        )
+
+        return Response(report, status=status.HTTP_200_OK)
 

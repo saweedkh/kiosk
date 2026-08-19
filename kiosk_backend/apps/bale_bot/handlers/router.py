@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import date, timedelta
 from typing import Any, Dict, Optional
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.services.permission_service import PermissionService
@@ -19,8 +21,10 @@ from apps.bale_bot.menus import (
     build_cancel_keyboard,
     build_category_keyboard,
     build_delete_confirm_keyboard,
+    build_full_menu,
     build_main_menu,
     build_order_detail_keyboard,
+    build_order_status_entry_keyboard,
     build_order_list_keyboard,
     build_order_status_keyboard,
     build_orders_menu,
@@ -28,6 +32,8 @@ from apps.bale_bot.menus import (
     build_product_edit_fields_keyboard,
     build_product_list_keyboard,
     build_products_menu,
+    build_quick_settings_menu,
+    build_report_ranges_menu,
     build_report_result_keyboard,
     build_reports_menu,
     build_skip_image_keyboard,
@@ -39,6 +45,7 @@ from apps.bale_bot.menus import (
     fmt_num,
     fulfillment_label,
     help_text,
+    inline_keyboard,
     order_status_label,
     progress_bar,
     section_title,
@@ -46,12 +53,22 @@ from apps.bale_bot.menus import (
 )
 from apps.bale_bot.models import BotConversation
 from apps.bale_bot.reports import (
+    build_custom_range_report_text,
+    build_exception_report_text,
     build_daily_report_text,
+    build_home_dashboard_text,
+    build_hourly_report_text,
     build_low_stock_report_header,
     build_products_report_text,
+    build_range_report_text,
     build_sales7_report_text,
     build_stock_report_text,
+    date_input_hint,
+    get_business_day_bounds,
     get_low_stock_products,
+    hourly_report_total_pages,
+    parse_date_input,
+    split_report_text,
 )
 from apps.orders.models import Order
 from apps.products.models import Category, Product
@@ -202,7 +219,90 @@ class UpdateHandler:
             f'پرداخت: {PAYMENT_STATUS_LABELS.get(order.payment_status, order.payment_status or "—")}',
             f'نوع: {fulfillment_label(getattr(order, "fulfillment_type", "") or "dine_in")}',
         ])
+        if getattr(order, 'error_message', ''):
+            lines.append(f'خطا: {str(order.error_message)[:120]}')
         return '\n'.join(lines)
+
+    def _dashboard_text(self, user: User) -> str:
+        return f'{welcome_text(user)}\n\n{build_home_dashboard_text(user=user)}'
+
+    def _order_scope_queryset(self, scope: str):
+        _, start, end = get_business_day_bounds()
+        qs = Order.objects.filter(created_at__gte=start, created_at__lt=end).order_by('-id')
+        if scope == 'failed':
+            return qs.filter(payment_status='failed')
+        if scope == 'action':
+            return qs.filter(
+                Q(payment_status='failed') | ~Q(status__in=['completed', 'cancelled'])
+            ).distinct()
+        return qs
+
+    def _deliver_report(
+        self,
+        chat_id,
+        text: str,
+        keyboard,
+        ctx: dict,
+        *,
+        prefer_edit: bool = True,
+    ) -> None:
+        chunks = split_report_text(text)
+        if len(chunks) == 1:
+            self._reply(
+                chat_id,
+                chunks[0],
+                keyboard,
+                message_id=ctx.get('message_id'),
+                prefer_edit=prefer_edit,
+            )
+            return
+
+        total = len(chunks)
+        first = f'{chunks[0]}\n\n📄 بخش ۱ از {total}'
+        self._reply(
+            chat_id,
+            first,
+            None,
+            message_id=ctx.get('message_id'),
+            prefer_edit=prefer_edit,
+        )
+        for index, chunk in enumerate(chunks[1:], start=2):
+            suffix = f'📄 بخش {index} از {total}'
+            is_last = index == total
+            self._send(chat_id, f'{suffix}\n\n{chunk}', keyboard if is_last else None)
+
+    def _parse_report_callback(self, data: str):
+        parts = data.split(':')
+        kind = parts[1] if len(parts) > 1 else ''
+        anchor: Optional[date] = None
+        page = 0
+        range_start: Optional[date] = None
+        range_end: Optional[date] = None
+
+        if kind == 'daily' and len(parts) > 2:
+            anchor = date.fromisoformat(parts[2])
+        elif kind == 'hourly' and len(parts) > 2:
+            if '-' in parts[2]:
+                anchor = date.fromisoformat(parts[2])
+                page = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else 0
+            elif parts[2].isdigit():
+                page = int(parts[2])
+        elif kind == 'range' and len(parts) >= 4:
+            range_start = date.fromisoformat(parts[2])
+            range_end = date.fromisoformat(parts[3])
+            kind = 'range_custom'
+
+        return kind, anchor, page, range_start, range_end
+
+    def _start_report_date_prompt(self, user, chat_id, conv, state: str, title: str):
+        if not self._require(user, chat_id, 'view_reports'):
+            return
+        conv.set_state(state)
+        self._send(
+            chat_id,
+            f'{date_input_hint(title)}\n{cancel_hint()}',
+            build_cancel_keyboard('menu:reports'),
+        )
 
     # ── messages ─────────────────────────────────────────────────────────
 
@@ -220,7 +320,7 @@ class UpdateHandler:
         conv = self._conversation(chat_id)
         if text in ('/start', 'شروع', 'منو', '🏠'):
             conv.clear()
-            self._send(chat_id, welcome_text(user), build_main_menu(user))
+            self._send(chat_id, self._dashboard_text(user), build_main_menu(user))
             return
 
         if text in ('/help', 'راهنما'):
@@ -293,7 +393,34 @@ class UpdateHandler:
 
         if data == 'menu:main':
             conv.clear()
-            self._reply(chat_id, welcome_text(user), build_main_menu(user), message_id=message_id, prefer_edit=True)
+            self._reply(chat_id, self._dashboard_text(user), build_main_menu(user), message_id=message_id, prefer_edit=True)
+            return
+        if data == 'menu:full':
+            self._reply(
+                chat_id,
+                section_title('📚', 'منوی کامل', 'بخش عملیاتی موردنظر را انتخاب کنید:'),
+                build_full_menu(user),
+                message_id=message_id,
+                prefer_edit=True,
+            )
+            return
+        if data == 'menu:quick':
+            self._reply(
+                chat_id,
+                section_title('⚙️', 'تنظیمات سریع', 'میانبرهای کوتاه برای عملیات پرتکرار'),
+                build_quick_settings_menu(user),
+                message_id=message_id,
+                prefer_edit=True,
+            )
+            return
+        if data == 'menu:report_ranges':
+            self._reply(
+                chat_id,
+                section_title('🗓', 'بازه‌های آماده', 'بازه موردنظر را انتخاب کنید:'),
+                build_report_ranges_menu(),
+                message_id=message_id,
+                prefer_edit=True,
+            )
             return
         if data == 'menu:reports':
             if self._require(user, chat_id, 'view_reports'):
@@ -329,7 +456,7 @@ class UpdateHandler:
             if self._require(user, chat_id, 'view_orders'):
                 self._reply(
                     chat_id,
-                    section_title('🧾', 'سفارش‌ها', 'سفارش‌های امروز را ببینید یا وضعیت را عوض کنید.'),
+                    section_title('🧾', 'سفارش‌ها', 'اول موارد نیازمند اقدام را ببینید، بعد سراغ جستجو یا لیست روز بروید.'),
                     build_orders_menu(user),
                     message_id=message_id,
                     prefer_edit=True,
@@ -339,8 +466,28 @@ class UpdateHandler:
             self._reply(chat_id, help_text(user), build_main_menu(user), message_id=message_id, prefer_edit=True)
             return
 
+        if data == 'report:pick_daily':
+            self._start_report_date_prompt(user, chat_id, conv, 'report_daily_date', 'تاریخ گزارش روزانه')
+            return
+        if data == 'report:pick_hourly':
+            self._start_report_date_prompt(user, chat_id, conv, 'report_hourly_date', 'تاریخ گزارش ساعتی')
+            return
+        if data == 'report:pick_range':
+            self._start_report_date_prompt(user, chat_id, conv, 'report_range_start', 'تاریخ شروع بازه')
+            return
+
         if data.startswith('report:'):
-            self._handle_report(user, chat_id, data.split(':', 1)[1], ctx)
+            kind, anchor, page, range_start, range_end = self._parse_report_callback(data)
+            self._handle_report(
+                user,
+                chat_id,
+                kind,
+                ctx,
+                page=page,
+                anchor=anchor,
+                range_start=range_start,
+                range_end=range_end,
+            )
             return
 
         # Products
@@ -409,17 +556,31 @@ class UpdateHandler:
             return
 
         # Orders
-        if data.startswith('o:today:'):
-            self._show_orders_today(user, chat_id, int(data.split(':')[2]), ctx)
+        if data.startswith('o:queue:'):
+            parts = data.split(':')
+            scope = parts[2] if len(parts) > 2 else 'today'
+            page = int(parts[3]) if len(parts) > 3 else 0
+            self._show_orders_queue(user, chat_id, scope, page, ctx)
+            return
+        if data == 'o:search':
+            if not self._require(user, chat_id, 'view_orders'):
+                return
+            conv.set_state('order_search')
+            self._send(
+                chat_id,
+                f'شماره سفارش یا بخشی از آن را بنویسید:\n{cancel_hint()}',
+                build_cancel_keyboard('menu:orders'),
+            )
             return
         if data == 'o:status':
             if not self._require(user, chat_id, 'change_orders'):
                 return
-            conv.set_state('order_status_number')
-            self._send(
+            self._reply(
                 chat_id,
-                f'شماره سفارش را بنویسید:\n{cancel_hint()}',
-                build_cancel_keyboard('menu:orders'),
+                section_title('🔄', 'تغییر وضعیت سفارش', 'از یکی از لیست‌های زیر سفارش را انتخاب کنید:'),
+                build_order_status_entry_keyboard(),
+                message_id=message_id,
+                prefer_edit=True,
             )
             return
         if data.startswith('o:v:'):
@@ -442,7 +603,10 @@ class UpdateHandler:
             parts = data.split(':')
             self._set_order_status(user, chat_id, int(parts[2]), parts[3], ctx)
             return
-
+        if data.startswith('o:cf:'):
+            parts = data.split(':')
+            self._confirm_order_status(user, chat_id, int(parts[2]), parts[3], ctx)
+            return
         self._reply(chat_id, 'گزینه نامعتبر است.', build_main_menu(user), message_id=message_id, prefer_edit=True)
 
     # ── product flows ────────────────────────────────────────────────────
@@ -712,29 +876,41 @@ class UpdateHandler:
 
     # ── orders ───────────────────────────────────────────────────────────
 
-    def _show_orders_today(self, user, chat_id, page: int, ctx: dict):
+    def _show_orders_queue(self, user, chat_id, scope: str, page: int, ctx: dict):
         if not self._require(user, chat_id, 'view_orders'):
             return
         page = max(0, page)
-        start_date = timezone.localdate()
-        qs = Order.objects.filter(created_at__date=start_date).order_by('-id')
+        scope = scope if scope in {'today', 'failed', 'action'} else 'today'
+        qs = self._order_scope_queryset(scope)
         start = page * PAGE_SIZE
         chunk = list(qs[start : start + PAGE_SIZE + 1])
         has_next = len(chunk) > PAGE_SIZE
         orders = chunk[:PAGE_SIZE]
         if not orders and page == 0:
+            empty_text = {
+                'today': 'امروز هنوز سفارشی ثبت نشده.',
+                'failed': 'امروز پرداخت ناموفقی دیده نشد.',
+                'action': 'فعلاً مورد نیازمند اقدامی دیده نمی‌شود.',
+            }[scope]
             self._reply(
                 chat_id,
-                'امروز هنوز سفارشی ثبت نشده.',
+                empty_text,
                 build_orders_menu(user),
                 message_id=ctx.get('message_id'),
                 prefer_edit=True,
             )
             return
+        if not orders:
+            return self._show_orders_queue(user, chat_id, scope, max(0, page - 1), ctx)
+        titles = {
+            'today': 'سفارش‌های امروز',
+            'failed': 'پرداخت‌های ناموفق امروز',
+            'action': 'سفارش‌های نیازمند اقدام',
+        }
         self._reply(
             chat_id,
-            section_title('🧾', f'سفارش‌های امروز (صفحه {page + 1})', 'برای جزئیات روی سفارش بزنید:'),
-            build_order_list_keyboard(orders, page, has_next, user),
+            section_title('🧾', f'{titles[scope]} (صفحه {page + 1})', 'برای جزئیات روی سفارش بزنید:'),
+            build_order_list_keyboard(orders, page, has_next, user, scope=scope),
             message_id=ctx.get('message_id'),
             prefer_edit=True,
         )
@@ -750,7 +926,7 @@ class UpdateHandler:
         self._reply(
             chat_id,
             self._order_card(order),
-            build_order_detail_keyboard(order.id, user),
+            build_order_detail_keyboard(order, user),
             message_id=ctx.get('message_id'),
             prefer_edit=True,
         )
@@ -767,6 +943,33 @@ class UpdateHandler:
         except Order.DoesNotExist:
             self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
             return
+        if status_value in {'completed', 'cancelled'}:
+            self._reply(
+                chat_id,
+                f'برای تغییر وضعیت سفارش {order.order_number} به «{order_status_label(status_value)}» تایید می‌کنید؟',
+                inline_keyboard([
+                    [
+                        {'text': '✅ تایید', 'callback_data': f'o:cf:{order.id}:{status_value}'[:64]},
+                        {'text': '⬅️ بازگشت', 'callback_data': f'o:v:{order.id}'[:64]},
+                    ]
+                ]),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+            return
+        self._apply_order_status(user, chat_id, order, status_value, ctx)
+
+    def _confirm_order_status(self, user, chat_id, order_id: int, status_value: str, ctx: dict):
+        if not self._require(user, chat_id, 'change_orders'):
+            return
+        try:
+            order = Order.objects.get(pk=order_id)
+        except Order.DoesNotExist:
+            self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
+            return
+        self._apply_order_status(user, chat_id, order, status_value, ctx)
+
+    def _apply_order_status(self, user, chat_id, order: Order, status_value: str, ctx: dict):
         order.status = status_value
         update_fields = ['status']
         if hasattr(order, 'updated_at'):
@@ -775,22 +978,63 @@ class UpdateHandler:
         self._reply(
             chat_id,
             f'✅ وضعیت به «{order_status_label(status_value)}» تغییر کرد.\n\n{self._order_card(order)}',
-            build_order_detail_keyboard(order.id, user),
+            build_order_detail_keyboard(order, user),
             message_id=ctx.get('message_id'),
             prefer_edit=True,
         )
 
     # ── reports / commands ───────────────────────────────────────────────
 
-    def _handle_report(self, user, chat_id, kind: str, ctx: Optional[dict] = None):
+    def _handle_report(
+        self,
+        user,
+        chat_id,
+        kind: str,
+        ctx: Optional[dict] = None,
+        page: int = 0,
+        anchor: Optional[date] = None,
+        range_start: Optional[date] = None,
+        range_end: Optional[date] = None,
+    ):
         ctx = ctx or {}
         if not self._require(user, chat_id, 'view_reports'):
             return
         try:
+            anchor_iso = anchor.isoformat() if anchor else None
+            keyboard_page = page
             if kind == 'daily':
-                text = build_daily_report_text(user=user)
+                text = build_daily_report_text(user=user, anchor=anchor)
+            elif kind == 'hourly':
+                text = build_hourly_report_text(user=user, page=page, anchor=anchor)
+                keyboard_page = page
+            elif kind == 'range_custom':
+                if not range_start or not range_end:
+                    self._send(chat_id, 'بازه تاریخ نامعتبر است.', build_reports_menu())
+                    return
+                text = build_custom_range_report_text(range_start, range_end, user=user)
             elif kind == 'sales7':
                 text = build_sales7_report_text(user=user)
+            elif kind == 'range_today':
+                _, start, end = get_business_day_bounds()
+                text = build_range_report_text(
+                    start, end, 'امروز (روز کاری)', user=user, end_inclusive=False
+                )
+            elif kind == 'range_yesterday':
+                yesterday = timezone.localdate() - timedelta(days=1)
+                _, start, end = get_business_day_bounds(yesterday)
+                text = build_range_report_text(
+                    start, end, 'دیروز (روز کاری)', user=user, end_inclusive=False
+                )
+            elif kind == 'range7':
+                end = timezone.now()
+                start = end - timedelta(days=7)
+                text = build_range_report_text(start, end, '۷ روز اخیر', user=user)
+            elif kind == 'range30':
+                end = timezone.now()
+                start = end - timedelta(days=30)
+                text = build_range_report_text(start, end, '۳۰ روز اخیر', user=user)
+            elif kind == 'exceptions':
+                text = build_exception_report_text(user=user)
             elif kind == 'stock':
                 text = build_stock_report_text(user=user)
             elif kind == 'products':
@@ -829,17 +1073,16 @@ class UpdateHandler:
                 )
                 return
 
-            # Bale/Telegram hard limit ~4096 chars
-            if len(text) > 3900:
-                text = text[:3890] + '\n…'
-
-            self._reply(
-                chat_id,
-                text,
-                build_report_result_keyboard(kind),
-                message_id=ctx.get('message_id'),
-                prefer_edit=True,
+            total_pages = hourly_report_total_pages(anchor) if kind == 'hourly' else 1
+            keyboard = build_report_result_keyboard(
+                kind,
+                page=keyboard_page,
+                total_pages=total_pages,
+                anchor_iso=anchor_iso,
+                range_start_iso=range_start.isoformat() if range_start else None,
+                range_end_iso=range_end.isoformat() if range_end else None,
             )
+            self._deliver_report(chat_id, text, keyboard, ctx)
         except Exception as exc:
             logger.exception('report failed')
             self._send(chat_id, f'خطا در تهیه گزارش: {exc}', build_reports_menu())
@@ -1030,6 +1273,77 @@ class UpdateHandler:
                 )
             except Exception as exc:
                 self._send(chat_id, f'خطا: {exc}\nعدد معتبر بفرستید یا انصراف.')
+            return
+
+        if state == 'report_daily_date':
+            try:
+                anchor = parse_date_input(text)
+            except ValueError as exc:
+                self._send(chat_id, f'{exc}\nدوباره بنویسید یا انصراف بزنید.')
+                return
+            conv.clear()
+            self._handle_report(user, chat_id, 'daily', {}, anchor=anchor)
+            return
+
+        if state == 'report_hourly_date':
+            try:
+                anchor = parse_date_input(text)
+            except ValueError as exc:
+                self._send(chat_id, f'{exc}\nدوباره بنویسید یا انصراف بزنید.')
+                return
+            conv.clear()
+            self._handle_report(user, chat_id, 'hourly', {}, page=0, anchor=anchor)
+            return
+
+        if state == 'report_range_start':
+            try:
+                start = parse_date_input(text)
+            except ValueError as exc:
+                self._send(chat_id, f'{exc}\nدوباره بنویسید یا انصراف بزنید.')
+                return
+            conv.set_state('report_range_end', range_start=start.isoformat())
+            self._send(
+                chat_id,
+                f'{date_input_hint("تاریخ پایان بازه")}\n{cancel_hint()}',
+                build_cancel_keyboard('menu:reports'),
+            )
+            return
+
+        if state == 'report_range_end':
+            try:
+                end = parse_date_input(text)
+                start = date.fromisoformat(data.get('range_start', ''))
+            except (ValueError, TypeError) as exc:
+                self._send(chat_id, f'تاریخ نامعتبر است: {exc}\nدوباره بنویسید.')
+                return
+            if end < start:
+                self._send(chat_id, 'تاریخ پایان باید بعد از تاریخ شروع باشد. دوباره بنویسید:')
+                return
+            conv.clear()
+            self._handle_report(
+                user,
+                chat_id,
+                'range_custom',
+                {},
+                range_start=start,
+                range_end=end,
+            )
+            return
+
+        if state == 'order_search':
+            orders = list(
+                Order.objects.filter(order_number__icontains=text.strip())
+                .order_by('-created_at')[:PAGE_SIZE]
+            )
+            conv.clear()
+            if not orders:
+                self._send(chat_id, f'سفارشی برای «{text}» پیدا نشد.', build_orders_menu(user))
+                return
+            self._send(
+                chat_id,
+                section_title('🔍', f'نتایج سفارش «{text}»', 'روی سفارش بزنید:'),
+                build_order_list_keyboard(orders, 0, False, user, scope='today'),
+            )
             return
 
         if state == 'order_status_number':

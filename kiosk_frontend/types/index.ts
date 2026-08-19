@@ -327,6 +327,9 @@ export interface Settings {
   fulfillment_choice_enabled?: boolean
   dine_in_enabled?: boolean
   takeaway_enabled?: boolean
+  kiosk_payment_cancel_enabled?: boolean
+  business_day_start_hour?: number
+  business_day_start_minute?: number
   cart_layout?: 'side' | 'bottom' | string
   catalog_revision?: number
   receipt_number_mode?: 'manual' | 'automatic' | string

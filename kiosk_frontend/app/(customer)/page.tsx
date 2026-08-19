@@ -25,6 +25,7 @@ import {
   resolvePackagingTitle,
   mergeSettings,
   isCouponsEnabled,
+  isKioskPaymentCancelEnabled,
   type Settings,
 } from "@/lib/api/settings";
 import { useCartStore } from "@/lib/store/cart-store";
@@ -1261,6 +1262,7 @@ export default function CustomerPage() {
         isLoading={createOrderMutation.isPending}
         status={paymentStatus}
         failureKind={paymentFailureKind}
+        showCancelButton={isKioskPaymentCancelEnabled(settings)}
       />
     </div>
   );

@@ -1,7 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ordersApi } from '@/lib/api/orders'
 import { Button } from '@/components/shared/Button'
 import {
@@ -12,9 +14,9 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { DragScrollArea } from '@/components/shared/DragScrollArea'
-import { formatCurrency, formatNumber, cn } from '@/lib/utils'
+import { formatCurrency, formatNumber, cn, translateError } from '@/lib/utils'
 import { formatJalaliDateTime } from '@/lib/utils/date'
-import type { Order } from '@/types'
+import type { Order, OrderStatus } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'در انتظار',
@@ -61,6 +63,7 @@ interface OrderDetailsDialogProps {
   onOpenChange: (open: boolean) => void
   onReprint?: (orderNumber: string) => void
   canReprint?: boolean
+  canEditStatus?: boolean
 }
 
 export function OrderDetailsDialog({
@@ -70,7 +73,9 @@ export function OrderDetailsDialog({
   onOpenChange,
   onReprint,
   canReprint = false,
+  canEditStatus = false,
 }: OrderDetailsDialogProps) {
+  const queryClient = useQueryClient()
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin-order', orderId],
     queryFn: async () => {
@@ -83,6 +88,7 @@ export function OrderDetailsDialog({
   })
 
   const order = data
+  const [nextStatus, setNextStatus] = useState<OrderStatus>('pending')
   const items = order?.items || []
   const itemsSubtotal = items.reduce(
     (sum, item) => sum + Number(item.subtotal ?? item.quantity * item.unit_price),
@@ -97,6 +103,25 @@ export function OrderDetailsDialog({
     (order.status === 'paid' ||
       order.payment_status === 'paid' ||
       order.payment_status === 'success')
+
+  useEffect(() => {
+    if (order?.status) {
+      setNextStatus(order.status)
+    }
+  }, [order?.status])
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: OrderStatus) => {
+      if (!orderId) throw new Error('order id missing')
+      return ordersApi.updateAdminOrderStatus(orderId, status)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['admin-order', orderId] })
+      await queryClient.invalidateQueries({ queryKey: ['sales-report'] })
+      await queryClient.invalidateQueries({ queryKey: ['daily-report'] })
+      await queryClient.invalidateQueries({ queryKey: ['hourly-report'] })
+    },
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -264,6 +289,48 @@ export function OrderDetailsDialog({
                 </div>
               </div>
             </div>
+
+            {canEditStatus ? (
+              <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
+                <p className="text-sm font-bold text-foreground">تغییر وضعیت سفارش</p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <select
+                    value={nextStatus}
+                    onChange={(e) => setNextStatus(e.target.value as OrderStatus)}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary sm:max-w-xs"
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    <option value="pending">در انتظار</option>
+                    <option value="processing">در حال پردازش</option>
+                    <option value="paid">پرداخت شده</option>
+                    <option value="completed">تکمیل شده</option>
+                    <option value="cancelled">لغو شده</option>
+                  </select>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={
+                      updateStatusMutation.isPending ||
+                      !order ||
+                      nextStatus === order.status
+                    }
+                    onClick={() => updateStatusMutation.mutate(nextStatus)}
+                  >
+                    {updateStatusMutation.isPending ? 'در حال ذخیره...' : 'ذخیره وضعیت'}
+                  </Button>
+                </div>
+                {updateStatusMutation.isError ? (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    {translateError(updateStatusMutation.error) || 'به‌روزرسانی وضعیت ناموفق بود'}
+                  </p>
+                ) : null}
+                {updateStatusMutation.isSuccess ? (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                    وضعیت سفارش با موفقیت به‌روزرسانی شد.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {canShowReprint && onReprint ? (
               <Button

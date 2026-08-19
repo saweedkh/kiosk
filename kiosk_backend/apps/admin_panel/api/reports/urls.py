@@ -4,10 +4,13 @@ from apps.admin_panel.api.reports.reports_apis import (
     ProductReportAPIView,
     StockReportAPIView,
     DailyReportAPIView,
+    HourlyReportAPIView,
+    ExceptionReportAPIView,
     SalesReportExportAPIView,
     ProductReportExportAPIView,
     StockReportExportAPIView,
-    DailyReportExportAPIView
+    DailyReportExportAPIView,
+    HourlyReportExportAPIView,
 )
 
 urlpatterns = [
@@ -19,5 +22,7 @@ urlpatterns = [
     path('stock/export/', StockReportExportAPIView.as_view(), name='report-stock-export'),
     path('daily/', DailyReportAPIView.as_view(), name='report-daily'),
     path('daily/export/', DailyReportExportAPIView.as_view(), name='report-daily-export'),
+    path('hourly/', HourlyReportAPIView.as_view(), name='report-hourly'),
+    path('hourly/export/', HourlyReportExportAPIView.as_view(), name='report-hourly-export'),
+    path('exceptions/', ExceptionReportAPIView.as_view(), name='report-exceptions'),
 ]
-

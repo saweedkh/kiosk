@@ -50,7 +50,7 @@ import {
   type LandingThemeId,
 } from '@/components/customer/landing/types'
 
-type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt' | 'hardware'
+type SettingsTab = 'brand' | 'landing' | 'cart' | 'service' | 'receipt' | 'reports' | 'hardware'
 
 /** Fields that require an explicit save (theme / copy-mode patch instantly). */
 const DIRTY_FIELDS = [
@@ -90,6 +90,9 @@ const DIRTY_FIELDS = [
   'mock_payment_success_rate',
   'pos_ip',
   'pos_port',
+  'kiosk_payment_cancel_enabled',
+  'business_day_start_hour',
+  'business_day_start_minute',
   'printer_enabled',
   'printer_ip',
   'printer_port',
@@ -132,6 +135,9 @@ const DIRTY_FIELD_LABELS: Record<(typeof DIRTY_FIELDS)[number] | 'logo' | 'landi
   mock_payment_success_rate: 'نرخ موفقیت Mock',
   pos_ip: 'آی‌پی کارتخوان',
   pos_port: 'پورت کارتخوان',
+  kiosk_payment_cancel_enabled: 'لغو پرداخت در کیوسک',
+  business_day_start_hour: 'شروع روز کاری (ساعت)',
+  business_day_start_minute: 'شروع روز کاری (دقیقه)',
   printer_enabled: 'چاپگر',
   printer_ip: 'آی‌پی چاپگر',
   printer_port: 'پورت چاپگر',
@@ -203,6 +209,18 @@ function getDirtyLabels(current: Settings, baseline: Settings | null): string[] 
       a = a !== false
       b = b !== false
     }
+    if (key === 'kiosk_payment_cancel_enabled') {
+      a = a === true
+      b = b === true
+    }
+    if (key === 'business_day_start_hour') {
+      a = Number(a ?? 7)
+      b = Number(b ?? 7)
+    }
+    if (key === 'business_day_start_minute') {
+      a = Number(a ?? 0)
+      b = Number(b ?? 0)
+    }
     if (key === 'pos_port' || key === 'printer_port') {
       a = Number(a || 0)
       b = Number(b || 0)
@@ -239,6 +257,7 @@ const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'cart', label: 'سبد', hint: 'چیدمان و نوع سفارش' },
   { id: 'service', label: 'سرویس', hint: 'سرویس و بسته‌بندی' },
   { id: 'receipt', label: 'فیش', hint: 'چاپ و شمارنده' },
+  { id: 'reports', label: 'گزارشات', hint: 'روز کاری و گزارش' },
   { id: 'hardware', label: 'سخت‌افزار', hint: 'POS و پرینتر' },
 ]
 
@@ -848,6 +867,9 @@ export function SettingsManager() {
       mock_payment_success_rate: Number(settings.mock_payment_success_rate ?? 100),
       pos_ip: settings.pos_ip || '192.168.1.102',
       pos_port: Number(settings.pos_port || 1362),
+      kiosk_payment_cancel_enabled: settings.kiosk_payment_cancel_enabled === true,
+      business_day_start_hour: Number(settings.business_day_start_hour ?? 7),
+      business_day_start_minute: Number(settings.business_day_start_minute ?? 0),
       printer_enabled: settings.printer_enabled !== false,
       printer_ip: settings.printer_ip || '192.168.1.100',
       printer_port: Number(settings.printer_port || 9100),
@@ -911,6 +933,7 @@ export function SettingsManager() {
   const packagingTakeawayApplies = packagingTakeawayOn && packagingTakeawayAmount > 0
   const packagingAppliesNowhere = packagingOn && !packagingDineApplies && !packagingTakeawayApplies
   const printerOn = settings.printer_enabled !== false
+  const paymentCancelOn = settings.kiosk_payment_cancel_enabled === true
   const posMockMode = settings.pos_payment_mode === 'mock'
 
   const applyPalette = (palette: LandingPalette) => {
@@ -2191,6 +2214,70 @@ export function SettingsManager() {
             </div>
           )}
 
+          {tab === 'reports' && (
+            <div className="space-y-8">
+              <SectionHeader
+                title="گزارشات"
+                description="تنظیمات سراسری گزارش پنل ادمین و ربات بله. پس از ذخیره، همه گزارش‌های روزانه/ساعتی از این ساعت و دقیقه استفاده می‌کنند."
+              />
+
+              <AdminSurface className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-foreground">
+                      شروع روز کاری (ساعت)
+                    </label>
+                    <select
+                      value={String(settings.business_day_start_hour ?? 7)}
+                      onChange={(e) =>
+                        handleChange('business_day_start_hour', Number(e.target.value))
+                      }
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
+                    >
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <option key={hour} value={hour}>
+                          {String(hour).padStart(2, '0')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-foreground">
+                      شروع روز کاری (دقیقه)
+                    </label>
+                    <select
+                      value={String(settings.business_day_start_minute ?? 0)}
+                      onChange={(e) =>
+                        handleChange('business_day_start_minute', Number(e.target.value))
+                      }
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
+                    >
+                      {Array.from({ length: 60 }, (_, minute) => (
+                        <option key={minute} value={minute}>
+                          {String(minute).padStart(2, '0')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  مثلاً ۰۷:۳۰ یعنی هر «روز» از ۰۷:۳۰ تا ۰۷:۳۰ روز بعد (Asia/Tehran). گزارش فروش با
+                  preset هم همین مرز را می‌گیرد.
+                </p>
+                {apiErrors.business_day_start_hour?.[0] ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.business_day_start_hour[0]}
+                  </p>
+                ) : null}
+                {apiErrors.business_day_start_minute?.[0] ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.business_day_start_minute[0]}
+                  </p>
+                ) : null}
+              </AdminSurface>
+            </div>
+          )}
+
           {tab === 'hardware' && (
             <div className="space-y-8">
               <SectionHeader
@@ -2271,6 +2358,28 @@ export function SettingsManager() {
                     placeholder="100"
                   />
                 </div>
+              </AdminSurface>
+
+              <AdminSurface className="space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-base font-black text-foreground">لغو پرداخت در کیوسک</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      نمایش دکمه «لغو پرداخت» در مودال انتظار کارتخوان. پیش‌فرض خاموش است؛
+                      مبلغ روی دستگاه با لغو کیوسک پاک نمی‌شود.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={paymentCancelOn}
+                    onChange={(v) => handleChange('kiosk_payment_cancel_enabled', v)}
+                    label={paymentCancelOn ? 'فعال' : 'غیرفعال'}
+                  />
+                </div>
+                {apiErrors.kiosk_payment_cancel_enabled?.[0] ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {apiErrors.kiosk_payment_cancel_enabled[0]}
+                  </p>
+                ) : null}
               </AdminSurface>
 
               <AdminSurface className="space-y-5">

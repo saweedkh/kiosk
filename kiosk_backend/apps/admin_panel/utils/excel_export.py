@@ -12,6 +12,9 @@ from django.conf import settings
 from django.utils import timezone
 from urllib.parse import quote
 
+from apps.admin_panel.utils.report_datetime import format_jalali_datetime, format_jalali_date
+from apps.admin_panel.utils.report_constants import LOW_STOCK_THRESHOLD
+
 
 class ExcelExporter:
     """Utility class for exporting data to Excel format."""
@@ -189,13 +192,15 @@ class ExcelExporter:
         success_rate = (successful / total_transactions * 100) if total_transactions > 0 else 0
         
         stats = [
-            ("تاریخ شروع:", report_data.get('start_date', 'همه تاریخ‌ها')),
-            ("تاریخ پایان:", report_data.get('end_date', 'همه تاریخ‌ها')),
+            ("تاریخ شروع:", report_data.get('start_date_jalali') or report_data.get('start_date', 'همه تاریخ‌ها')),
+            ("تاریخ پایان:", report_data.get('end_date_jalali') or report_data.get('end_date', 'همه تاریخ‌ها')),
+            ("بازه (جلالی):", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
             ("", ""),
-            ("=== آمار فروش ===", ""),
+            ("=== آمار فروش (پرداخت‌شده) ===", ""),
             ("مجموع فروش (ریال):", f"{report_data.get('total_sales', 0):,}"),
+            ("سفارش پرداخت‌شده:", report_data.get('paid_orders', report_data.get('successful_transactions', 0))),
             ("تعداد کل سفارشات:", report_data.get('total_orders', 0)),
-            ("میانگین ارزش هر سفارش (ریال):", f"{report_data.get('average_order_value', 0):,.2f}"),
+            ("میانگین سبد پرداخت‌شده (ریال):", f"{report_data.get('average_order_value', 0):,.2f}"),
             ("", ""),
             ("=== آمار تراکنش‌ها ===", ""),
             ("تعداد کل تراکنش‌ها:", total_transactions),
@@ -232,13 +237,15 @@ class ExcelExporter:
                 order.get('id', ''),
                 order.get('order_number', ''),
                 order.get('total_amount', 0),
-                order.get('status', ''),
-                order.get('payment_status', ''),
+                ExcelExporter.translate_status(order.get('status', '')),
+                ExcelExporter.translate_payment_status(order.get('payment_status', '')),
                 order.get('transaction_id', ''),
                 order.get('gateway_name', ''),
-                order.get('payment_method', ''),
-                str(order.get('created_at', ''))[:19] if order.get('created_at') else '',
-                str(order.get('updated_at', ''))[:19] if order.get('updated_at') else ''
+                ExcelExporter.translate_payment_method(order.get('payment_method', '')),
+                order.get('created_at_jalali') or format_jalali_datetime(order.get('created_at')),
+                order.get('updated_at_jalali') or (
+                    format_jalali_datetime(order.get('updated_at')) if order.get('updated_at') else ''
+                ),
             ]
             for col_idx, value in enumerate(row, start=1):
                 cell = ws.cell(row=row_num, column=col_idx, value=value)
@@ -279,9 +286,12 @@ class ExcelExporter:
         
         # آمار کلی
         stats = [
+            ("تاریخ گزارش:", report_data.get('generated_at_jalali') or format_jalali_datetime(timezone.now())),
             ("تعداد کل محصولات:", total_products),
             ("محصولات فعال:", active_products),
             ("محصولات غیرفعال:", total_products - active_products),
+            (f"موجودی کم (≤{LOW_STOCK_THRESHOLD}):", report_data.get('low_stock_count', 0)),
+            ("ناموجود:", report_data.get('out_of_stock_count', 0)),
             ("", ""),
             ("مجموع فروخته شده:", total_sold),
             ("مجموع درآمد (ریال):", f"{total_revenue:,}"),
@@ -430,15 +440,21 @@ class ExcelExporter:
         total_orders = report_data.get('total_orders', 0)
         total_sales = report_data.get('total_sales', 0)
         total_transactions = report_data.get('total_transactions', 0)
-        average_order = (total_sales / total_orders) if total_orders > 0 else 0
+        paid_orders = report_data.get('paid_orders', 0)
+        average_order = (total_sales / paid_orders) if paid_orders > 0 else 0
         
-        # آمار کلی
         stats = [
-            ("تاریخ گزارش:", report_data.get('date', '')),
+            ("تاریخ گزارش (جلالی):", report_data.get('date_jalali') or report_data.get('date', '')),
+            ("شروع روز کاری:", report_data.get('business_day_start_time') or (
+                f"{int(report_data.get('business_day_start_hour', 7)):02d}:"
+                f"{int(report_data.get('business_day_start_minute', 0)):02d}"
+            )),
+            ("بازه گزارش:", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
             ("", ""),
-            ("مجموع فروش (ریال):", f"{total_sales:,}"),
+            ("مجموع فروش پرداخت‌شده (ریال):", f"{total_sales:,}"),
+            ("سفارش پرداخت‌شده:", paid_orders),
             ("تعداد کل سفارشات:", total_orders),
-            ("میانگین ارزش هر سفارش (ریال):", f"{average_order:,.2f}"),
+            ("میانگین سبد پرداخت‌شده (ریال):", f"{average_order:,.2f}"),
             ("تعداد تراکنش‌ها:", total_transactions),
         ]
         
@@ -467,7 +483,7 @@ class ExcelExporter:
                 order.get('order_number', ''),
                 order.get('total_amount', 0),
                 ExcelExporter.translate_payment_status(order.get('payment_status', '')),
-                str(order.get('created_at', ''))[:19] if order.get('created_at') else ''
+                order.get('created_at_jalali') or str(order.get('created_at', ''))[:19],
             ]
             for col_idx, value in enumerate(row, start=1):
                 cell = ws.cell(row=row_num, column=col_idx, value=value)
@@ -477,10 +493,70 @@ class ExcelExporter:
         
         ExcelExporter.auto_adjust_column_width(ws)
         
-        # ذخیره فایل در media و برگرداندن لینک
         if not filename:
-            filename = f"daily_report_{report_data.get('date', timezone.now().strftime('%Y%m%d'))}.xlsx"
+            date_part = (report_data.get('date_jalali') or report_data.get('date') or timezone.now().strftime('%Y%m%d')).replace('/', '')
+            filename = f"daily_report_{date_part}.xlsx"
         
         file_url = ExcelExporter.save_excel_to_media(wb, filename, request)
         return file_url
+
+    @staticmethod
+    def export_hourly_report(report_data: Dict[str, Any], filename: str = None, request=None) -> str:
+        """Export hourly report to Excel."""
+        wb = ExcelExporter.create_workbook()
+        ws = wb.active
+        ws.title = "گزارش ساعتی"
+
+        row_num = 1
+        ws.merge_cells(f'A{row_num}:B{row_num}')
+        summary_cell = ws.cell(row=row_num, column=1, value="خلاصه گزارش ساعتی")
+        summary_cell.fill = ExcelExporter.SUMMARY_FILL
+        summary_cell.font = ExcelExporter.SUMMARY_FONT
+        summary_cell.alignment = Alignment(horizontal="center", vertical="center")
+        row_num += 1
+
+        stats = [
+            ("تاریخ (جلالی):", report_data.get('date_jalali') or report_data.get('date', '')),
+            ("بازه:", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
+            ("فروش پرداخت‌شده:", f"{report_data.get('total_sales', 0):,}"),
+            ("کل سفارشات:", report_data.get('total_orders', 0)),
+            ("پرداخت موفق:", report_data.get('paid_orders', report_data.get('successful_orders', 0))),
+            ("پرداخت ناموفق:", report_data.get('failed_orders', 0)),
+        ]
+        for label, value in stats:
+            ws.cell(row=row_num, column=1, value=label).font = ExcelExporter.SUMMARY_LABEL_FONT
+            ws.cell(row=row_num, column=2, value=value).font = ExcelExporter.NORMAL_FONT
+            row_num += 1
+
+        row_num += 1
+        headers = [
+            "ساعت", "کل سفارشات", "موفق", "ناموفق", "تراکنش", "فروش (ریال)",
+        ]
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(row=row_num, column=col_idx, value=header)
+            cell.fill = ExcelExporter.HEADER_FILL
+            cell.font = ExcelExporter.HEADER_FONT
+            cell.alignment = ExcelExporter.HEADER_ALIGNMENT
+        row_num += 1
+
+        for hour in report_data.get('hours', []):
+            row = [
+                hour.get('hour_label', ''),
+                hour.get('total_orders', 0),
+                hour.get('successful_orders', 0),
+                hour.get('failed_orders', 0),
+                hour.get('total_transactions', 0),
+                hour.get('total_sales', 0),
+            ]
+            for col_idx, value in enumerate(row, start=1):
+                cell = ws.cell(row=row_num, column=col_idx, value=value)
+                cell.font = ExcelExporter.NORMAL_FONT
+                cell.alignment = ExcelExporter.NORMAL_ALIGNMENT
+            row_num += 1
+
+        ExcelExporter.auto_adjust_column_width(ws)
+        if not filename:
+            date_part = (report_data.get('date_jalali') or 'hourly').replace('/', '')
+            filename = f"hourly_report_{date_part}.xlsx"
+        return ExcelExporter.save_excel_to_media(wb, filename, request)
 

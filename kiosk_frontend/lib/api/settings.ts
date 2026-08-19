@@ -37,6 +37,8 @@ export interface Settings {
   fulfillment_choice_enabled?: boolean
   dine_in_enabled?: boolean
   takeaway_enabled?: boolean
+  /** Show "لغو پرداخت" on kiosk payment modal (default off). */
+  kiosk_payment_cancel_enabled?: boolean
   cart_layout?: 'side' | 'bottom' | string
   /** Bumps when products/categories change — kiosk refreshes menu cache. */
   catalog_revision?: number
@@ -72,6 +74,7 @@ const BOOLEAN_SETTING_KEYS = [
   'fulfillment_choice_enabled',
   'dine_in_enabled',
   'takeaway_enabled',
+  'kiosk_payment_cancel_enabled',
 ] as const
 
 export function coerceSettingsBooleans(settings: Settings): Settings {
@@ -114,6 +117,11 @@ export function isPackagingFeesEnabled(settings?: Settings | null): boolean {
 /** Coupons default ON in DB; hide only when explicitly false. */
 export function isCouponsEnabled(settings?: Settings | null): boolean {
   return coerceBool(settings?.coupons_enabled) !== false
+}
+
+/** Payment cancel button on kiosk — off unless explicitly enabled. */
+export function isKioskPaymentCancelEnabled(settings?: Settings | null): boolean {
+  return coerceBool(settings?.kiosk_payment_cancel_enabled) === true
 }
 
 export const settingsApi = {

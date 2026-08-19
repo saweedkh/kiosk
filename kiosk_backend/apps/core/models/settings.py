@@ -372,6 +372,21 @@ class SiteSettings(models.Model):
         verbose_name='پورت کارتخوان',
         help_text='پورت TCP دستگاه POS (معمولاً 1362)',
     )
+    kiosk_payment_cancel_enabled = models.BooleanField(
+        default=False,
+        verbose_name='دکمه لغو پرداخت در کیوسک',
+        help_text='اگر فعال باشد، در مودال پرداخت کیوسک دکمه «لغو پرداخت» نمایش داده می‌شود',
+    )
+    business_day_start_hour = models.PositiveSmallIntegerField(
+        default=7,
+        verbose_name='شروع روز کاری (ساعت)',
+        help_text='ساعت شروع «روز کاری» برای گزارشات',
+    )
+    business_day_start_minute = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name='شروع روز کاری (دقیقه)',
+        help_text='دقیقه شروع «روز کاری» برای گزارشات (۰–۵۹)',
+    )
     printer_enabled = models.BooleanField(
         default=True,
         verbose_name='فعال‌سازی چاپگر',
@@ -486,6 +501,9 @@ class SiteSettings(models.Model):
                 'fulfillment_choice_enabled': True,
                 'pos_ip': '192.168.1.102',
                 'pos_port': 1362,
+                'kiosk_payment_cancel_enabled': False,
+                'business_day_start_hour': 7,
+                'business_day_start_minute': 0,
                 'pos_payment_mode': cls.POS_PAYMENT_MODE_REAL,
                 'mock_payment_delay': 3,
                 'mock_payment_success_rate': 100,

@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { ApiResponse, Order, OrderCreateRequest } from '@/types'
+import type { ApiResponse, Order, OrderCreateRequest, OrderStatus } from '@/types'
 
 export const ordersApi = {
   createOrder: async (
@@ -54,6 +54,17 @@ export const ordersApi = {
   getAdminOrder: async (orderId: number): Promise<ApiResponse<Order>> => {
     const response = await apiClient.get<ApiResponse<Order>>(
       `/kiosk/admin/orders/${orderId}/`
+    )
+    return response.data
+  },
+
+  updateAdminOrderStatus: async (
+    orderId: number,
+    status: OrderStatus
+  ): Promise<ApiResponse<Order>> => {
+    const response = await apiClient.put<ApiResponse<Order>>(
+      `/kiosk/admin/orders/${orderId}/update-status/`,
+      { status }
     )
     return response.data
   },

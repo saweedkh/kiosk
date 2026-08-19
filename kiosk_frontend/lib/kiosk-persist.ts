@@ -42,6 +42,7 @@ export type KioskSettingsSnapshot = Pick<
   | 'fulfillment_choice_enabled'
   | 'dine_in_enabled'
   | 'takeaway_enabled'
+  | 'kiosk_payment_cancel_enabled'
   | 'cart_layout'
   | 'catalog_revision'
   | 'landing_theme'
@@ -133,6 +134,7 @@ export function writeCachedSettings(
     fulfillment_choice_enabled: settings.fulfillment_choice_enabled,
     dine_in_enabled: settings.dine_in_enabled,
     takeaway_enabled: settings.takeaway_enabled,
+    kiosk_payment_cancel_enabled: settings.kiosk_payment_cancel_enabled,
     cart_layout: settings.cart_layout === 'bottom' ? 'bottom' : 'side',
     catalog_revision: Number(settings.catalog_revision) || 0,
     landing_theme: settings.landing_theme || 'cinema',

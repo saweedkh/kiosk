@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth-store'
 import { hasPermission } from '@/lib/auth/permissions'
+import { authApi } from '@/lib/api/auth'
 import { ReportsManager } from '@/components/admin/ReportsManager'
 import { CategoriesManager } from '@/components/admin/CategoriesManager'
 import { ProductsManager } from '@/components/admin/ProductsManager'
@@ -19,11 +20,45 @@ import {
 import { AdminSurface } from '@/components/admin/ui/primitives'
 
 export default function AdminPage() {
-  const { logout, user, hasHydrated } = useAuthStore()
+  const { logout, user, accessToken, updateUser, hasHydrated } = useAuthStore()
   const [activeTab, setActiveTab] = useState<AdminNavId>('dashboard')
+  const [userSynced, setUserSynced] = useState(false)
+
+  useEffect(() => {
+    if (!hasHydrated) return
+
+    const token = accessToken || useAuthStore.getState().accessToken
+    if (!token) {
+      setUserSynced(true)
+      return
+    }
+
+    let cancelled = false
+    authApi
+      .getUserInfo()
+      .then((response) => {
+        if (cancelled) return
+        if (response.success && response.result?.user) {
+          updateUser(response.result.user)
+        }
+      })
+      .catch(() => {
+        /* keep cached user; gate below avoids false "no access" flash */
+      })
+      .finally(() => {
+        if (!cancelled) setUserSynced(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [hasHydrated, accessToken, updateUser])
+
+  const permissionsKnown =
+    !!user && (user.is_superuser === true || Array.isArray(user.permissions))
 
   const tabs = useMemo(() => {
-    if (!hasHydrated || !user) return []
+    if (!user || !permissionsKnown) return []
     const items: { id: AdminNavId; label: string; visible: boolean }[] = [
       { id: 'dashboard', label: 'داشبورد', visible: hasPermission(user, 'view_reports') },
       { id: 'categories', label: 'دسته‌بندی', visible: hasPermission(user, 'view_categories') },
@@ -40,7 +75,7 @@ export default function AdminPage() {
       { id: 'users', label: 'کاربران', visible: hasPermission(user, 'manage_users') },
     ]
     return items.filter((t) => t.visible)
-  }, [user, hasHydrated])
+  }, [user, permissionsKnown])
 
   useEffect(() => {
     if (tabs.length && !tabs.some((t) => t.id === activeTab)) {
@@ -79,13 +114,7 @@ export default function AdminPage() {
         isSuperuser={!!user?.is_superuser}
         onLogout={handleLogout}
       >
-        {!hasHydrated ? (
-          <AdminSurface className="py-16 text-center text-muted-foreground">
-            در حال بارگذاری دسترسی‌ها...
-          </AdminSurface>
-        ) : null}
-
-        {hasHydrated && user && tabs.length === 0 ? (
+        {userSynced && permissionsKnown && user && tabs.length === 0 ? (
           <AdminSurface className="py-16 text-center">
             <p className="font-bold text-foreground">دسترسی‌ای برای نمایش منو ندارید</p>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -94,31 +123,31 @@ export default function AdminPage() {
           </AdminSurface>
         ) : null}
 
-        {hasHydrated && user && activeTab === 'dashboard' && hasPermission(user, 'view_reports') && (
+        {permissionsKnown && user && activeTab === 'dashboard' && hasPermission(user, 'view_reports') && (
           <DashboardManager />
         )}
-        {hasHydrated && user && activeTab === 'categories' && hasPermission(user, 'view_categories') && (
+        {permissionsKnown && user && activeTab === 'categories' && hasPermission(user, 'view_categories') && (
           <CategoriesManager />
         )}
-        {hasHydrated && user && activeTab === 'products' && hasPermission(user, 'view_products') && (
+        {permissionsKnown && user && activeTab === 'products' && hasPermission(user, 'view_products') && (
           <ProductsManager />
         )}
-        {hasHydrated &&
+        {permissionsKnown &&
           user &&
           activeTab === 'coupons' &&
           (hasPermission(user, 'manage_coupons') || hasPermission(user, 'view_reports')) && (
             <CouponsManager />
           )}
-        {hasHydrated && user && activeTab === 'reports' && hasPermission(user, 'view_reports') && (
+        {permissionsKnown && user && activeTab === 'reports' && hasPermission(user, 'view_reports') && (
           <ReportsManager />
         )}
-        {hasHydrated && user && activeTab === 'settings' && hasPermission(user, 'change_settings') && (
+        {permissionsKnown && user && activeTab === 'settings' && hasPermission(user, 'change_settings') && (
           <SettingsManager />
         )}
-        {hasHydrated && user && activeTab === 'bale' && hasPermission(user, 'manage_bale') && (
+        {permissionsKnown && user && activeTab === 'bale' && hasPermission(user, 'manage_bale') && (
           <BaleBotManager />
         )}
-        {hasHydrated && user && activeTab === 'users' && hasPermission(user, 'manage_users') && (
+        {permissionsKnown && user && activeTab === 'users' && hasPermission(user, 'manage_users') && (
           <UsersManager />
         )}
       </AdminShell>

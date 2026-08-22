@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/auth-store'
 
 interface ProtectedRouteProps {
@@ -31,11 +32,12 @@ export function ProtectedRoute({
   children,
   redirectTo = '/admin/login',
 }: ProtectedRouteProps) {
+  const router = useRouter()
   const { accessToken, user, hasHydrated } = useAuthStore()
-  const [isMounted, setIsMounted] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setIsMounted(true)
+    setMounted(true)
 
     const finish = () => {
       if (!useAuthStore.getState().hasHydrated) {
@@ -48,7 +50,6 @@ export function ProtectedRoute({
     }
 
     const unsub = useAuthStore.persist.onFinishHydration(finish)
-    // Fallback if persist stalls (blocked storage / failed rehydrate)
     const timeout = window.setTimeout(finish, 300)
 
     return () => {
@@ -58,42 +59,26 @@ export function ProtectedRoute({
   }, [])
 
   useEffect(() => {
-    if (!isMounted || !hasHydrated) return
+    if (!mounted) return
+    if (!hasHydrated && hasStaffAccess()) return
+    if (!hasHydrated) return
 
-    const timer = window.setTimeout(() => {
-      if (!hasStaffAccess()) {
-        window.location.replace(redirectTo)
-      }
-    }, 100)
+    if (!hasStaffAccess()) {
+      router.replace(redirectTo)
+    }
+  }, [mounted, hasHydrated, accessToken, user, redirectTo, router])
 
-    return () => window.clearTimeout(timer)
-  }, [isMounted, hasHydrated, accessToken, user, redirectTo])
-
-  if (!isMounted || !hasHydrated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-text-secondary dark:text-gray-400">
-            در حال بررسی دسترسی...
-          </p>
-        </div>
-      </div>
-    )
+  if (!mounted) {
+    return null
   }
 
-  if (!hasStaffAccess()) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-text-secondary dark:text-gray-400">
-            در حال هدایت به صفحه ورود...
-          </p>
-        </div>
-      </div>
-    )
+  if (hasStaffAccess()) {
+    return <>{children}</>
   }
 
-  return <>{children}</>
+  if (!hasHydrated) {
+    return null
+  }
+
+  return null
 }

@@ -1,46 +1,43 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import moment from 'moment-jalaali'
-import { CalendarClock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarClock } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/shared/Button'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PickerFieldTrigger } from '@/components/admin/PickerFieldTrigger'
 import {
+  formatJalaliDate,
   formatTime,
-  HOUR_OPTIONS,
+  JalaliCalendar,
+  parseJalaliDate,
   parseTime,
+  PersianTimeText,
   snapMinute,
-  TouchWheel,
-  useMinuteOptions,
+  TimeSelector,
 } from '@/components/admin/picker-shared'
-import { cn, toEnglishDigits, toPersianDigits } from '@/lib/utils'
-
-const WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
+import { toPersianDigits, toEnglishDigits } from '@/lib/utils'
 
 type JMoment = any
 
-function parseJalaliDate(value?: string): JMoment {
-  const raw = toEnglishDigits(value || '').trim()
-  const m = moment(raw, 'jYYYY/jMM/jDD') as JMoment
-  return m?.isValid?.() ? m : moment()
-}
-
-function formatJalaliDate(m: JMoment) {
-  return m.format('jYYYY/jMM/jDD')
-}
-
 function formatDisplay(date: string, time: string) {
-  if (!date) return ''
+  if (!date) return null
+  const parsed = parseTime(time || '00:00')
   const d = toPersianDigits(toEnglishDigits(date))
-  const t = toPersianDigits(time || '00:00')
-  return `${d}  ·  ${t}`
+  return (
+    <>
+      {d}
+      {' · '}
+      <PersianTimeText hour={parsed.hour} minute={parsed.minute} />
+    </>
+  )
 }
 
 interface DateTimePickerProps {
@@ -65,6 +62,8 @@ export function DateTimePicker({
   placeholder = 'تاریخ و ساعت را انتخاب کنید',
 }: DateTimePickerProps) {
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState<'date' | 'time'>('date')
+
   const initial = parseJalaliDate(date)
   const initialTime = parseTime(time || '00:00')
 
@@ -75,24 +74,6 @@ export function DateTimePicker({
     snapMinute(initialTime.minute, minuteStep)
   )
 
-  const minutes = useMinuteOptions(minuteStep, draftMinute)
-
-  const cells = useMemo(() => {
-    const start = viewMonth.clone().startOf('jMonth')
-    // jDaysInMonth is static: moment.jDaysInMonth(jYear, jMonth) — not an instance method
-    const daysInMonth = start.clone().endOf('jMonth').jDate()
-    const offset = (start.day() + 1) % 7
-    const items: Array<{ key: string; day: number | null; moment?: JMoment }> = []
-    for (let i = 0; i < offset; i++) {
-      items.push({ key: `e-${i}`, day: null })
-    }
-    for (let d = 1; d <= daysInMonth; d++) {
-      const m = start.clone().jDate(d)
-      items.push({ key: m.format('jYYYY/jMM/jDD'), day: d, moment: m })
-    }
-    return items
-  }, [viewMonth])
-
   const openPicker = () => {
     const base = parseJalaliDate(date)
     const t = parseTime(time || '00:00')
@@ -100,7 +81,16 @@ export function DateTimePicker({
     setDraftDay(base.clone())
     setDraftHour(t.hour)
     setDraftMinute(snapMinute(t.minute, minuteStep))
+    setTab('date')
     setOpen(true)
+  }
+
+  const confirm = () => {
+    onChange({
+      date: formatJalaliDate(draftDay),
+      time: formatTime(draftHour, draftMinute),
+    })
+    setOpen(false)
   }
 
   const empty = !date
@@ -120,122 +110,54 @@ export function DateTimePicker({
       />
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto border-border/80 p-0 sm:max-w-lg">
-          <div className="border-b border-border/70 bg-gradient-to-l from-primary/[0.08] via-card to-card px-5 py-4">
-            <DialogHeader className="space-y-1">
-              <DialogTitle className="text-right text-lg">{label}</DialogTitle>
-              <DialogDescription className="text-right text-sm">
-                تاریخ و ساعت را با لمس انتخاب کنید.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mt-3 rounded-2xl bg-background/80 px-4 py-3 text-center ring-1 ring-border/60">
-              <p className="text-xs text-muted-foreground">انتخاب فعلی</p>
-              <p className="mt-1 text-2xl font-black tracking-wide text-primary">
-                {toPersianDigits(formatJalaliDate(draftDay))} ·{' '}
-                {toPersianDigits(formatTime(draftHour, draftMinute))}
-              </p>
-            </div>
-          </div>
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="space-y-1 border-b px-5 py-4 text-right">
+            <DialogTitle>{label}</DialogTitle>
+            <DialogDescription className="flex flex-wrap items-center justify-end gap-1">
+              <span>{toPersianDigits(formatJalaliDate(draftDay))}</span>
+              <span>·</span>
+              <PersianTimeText hour={draftHour} minute={draftMinute} />
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="space-y-5 px-5 py-5">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted/60 active:bg-muted"
-                  onClick={() => setViewMonth((m: JMoment) => m.clone().subtract(1, 'jMonth'))}
-                  aria-label="ماه قبل"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-                <p className="text-base font-black text-foreground">
-                  {toPersianDigits(viewMonth.format('jMMMM jYYYY'))}
-                </p>
-                <button
-                  type="button"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl bg-muted/60 active:bg-muted"
-                  onClick={() => setViewMonth((m: JMoment) => m.clone().add(1, 'jMonth'))}
-                  aria-label="ماه بعد"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-              </div>
+          <Tabs
+            value={tab}
+            onValueChange={(value: string) => setTab(value as 'date' | 'time')}
+            className="px-5 py-4"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="date">تاریخ</TabsTrigger>
+              <TabsTrigger value="time">ساعت</TabsTrigger>
+            </TabsList>
 
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground">
-                {WEEKDAYS.map((d) => (
-                  <div key={d} className="py-1">
-                    {d}
-                  </div>
-                ))}
-              </div>
+            <TabsContent value="date" className="mt-4">
+              <JalaliCalendar
+                viewMonth={viewMonth}
+                selectedDay={draftDay}
+                onViewMonthChange={setViewMonth}
+                onSelectDay={setDraftDay}
+              />
+            </TabsContent>
 
-              <div className="grid grid-cols-7 gap-1">
-                {cells.map((cell) => {
-                  if (cell.day == null || !cell.moment) {
-                    return <div key={cell.key} className="h-11" />
-                  }
-                  const selected = cell.moment.isSame(draftDay, 'day')
-                  const isToday = cell.moment.isSame(moment(), 'day')
-                  return (
-                    <button
-                      key={cell.key}
-                      type="button"
-                      onClick={() => setDraftDay(cell.moment!.clone())}
-                      className={cn(
-                        'flex h-11 items-center justify-center rounded-xl text-sm font-bold transition active:scale-95',
-                        selected
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : isToday
-                            ? 'bg-primary/10 text-primary'
-                            : 'bg-muted/40 text-foreground active:bg-muted'
-                      )}
-                    >
-                      {toPersianDigits(String(cell.day))}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            <TabsContent value="time" className="mt-4">
+              <TimeSelector
+                hour={draftHour}
+                minute={draftMinute}
+                minuteStep={minuteStep}
+                onHourChange={setDraftHour}
+                onMinuteChange={setDraftMinute}
+              />
+            </TabsContent>
+          </Tabs>
 
-            <div className="rounded-2xl bg-muted/20 p-3">
-              <p className="mb-3 text-center text-xs font-medium text-muted-foreground">ساعت</p>
-              <div className="flex gap-2">
-                <TouchWheel
-                  compact
-                  label="ساعت"
-                  values={HOUR_OPTIONS}
-                  selected={draftHour}
-                  onSelect={setDraftHour}
-                />
-                <TouchWheel
-                  compact
-                  label="دقیقه"
-                  values={minutes}
-                  selected={draftMinute}
-                  onSelect={setDraftMinute}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button variant="outline" className="h-12 flex-1" onClick={() => setOpen(false)}>
-                انصراف
-              </Button>
-              <Button
-                variant="primary"
-                className="h-12 flex-1"
-                onClick={() => {
-                  onChange({
-                    date: formatJalaliDate(draftDay),
-                    time: formatTime(draftHour, draftMinute),
-                  })
-                  setOpen(false)
-                }}
-              >
-                تایید
-              </Button>
-            </div>
-          </div>
+          <DialogFooter className="gap-2 border-t px-5 py-4 sm:justify-stretch">
+            <Button type="button" variant="outline" className="flex-1" onClick={() => setOpen(false)}>
+              انصراف
+            </Button>
+            <Button type="button" className="flex-1" onClick={confirm}>
+              تایید
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

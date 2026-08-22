@@ -1,12 +1,13 @@
 'use client'
 
 import type { ReactNode, Ref } from 'react'
+import { ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PickerFieldTriggerProps {
   label: string
   icon: ReactNode
-  display: string
+  display: ReactNode
   empty?: boolean
   placeholder?: string
   onClick?: () => void
@@ -31,39 +32,39 @@ export function PickerFieldTrigger({
   triggerRef,
 }: PickerFieldTriggerProps) {
   return (
-    <div className={cn('w-full space-y-2', className)}>
+    <div className={cn('w-full space-y-1.5', className)}>
       <label className="block text-sm font-medium text-foreground">{label}</label>
       <div ref={triggerRef} className="relative">
         <button
           type="button"
           onClick={onClick}
           className={cn(
-            'flex w-full items-center justify-between gap-3 rounded-2xl border bg-background px-4 py-3.5 text-right shadow-sm shadow-black/[0.02] outline-none transition',
-            'hover:border-primary/40 focus:border-primary active:scale-[0.99]',
-            error ? 'border-red-500' : 'border-border'
+            'flex w-full items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2.5 text-right shadow-sm outline-none transition-colors',
+            'hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            error ? 'border-destructive' : 'border-input'
           )}
         >
           <span className="flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               {icon}
             </span>
             <span
               className={cn(
-                'truncate text-base font-black tracking-wide',
-                empty ? 'font-medium text-muted-foreground' : 'text-foreground'
+                'truncate text-sm',
+                empty ? 'text-muted-foreground' : 'font-medium text-foreground'
               )}
             >
               {empty ? placeholder : display}
             </span>
           </span>
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">انتخاب</span>
+          <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         </button>
         {overlay ? (
-          <div className="absolute inset-0 z-10 overflow-hidden rounded-2xl">{overlay}</div>
+          <div className="absolute inset-0 z-10 overflow-hidden rounded-lg">{overlay}</div>
         ) : null}
       </div>
       {error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       ) : null}
     </div>
   )

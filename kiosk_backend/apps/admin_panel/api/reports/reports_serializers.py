@@ -5,9 +5,21 @@ from apps.admin_panel.utils.report_constants import SALES_PRESET_CHOICES
 
 
 class DateRangeSerializer(serializers.Serializer):
-    """Serializer for date range query parameters."""
+    """Serializer for date/time range query parameters."""
     start_date = serializers.DateField(required=False, label=_('تاریخ شروع'))
     end_date = serializers.DateField(required=False, label=_('تاریخ پایان'))
+    start_time = serializers.TimeField(
+        required=False,
+        allow_null=True,
+        input_formats=['%H:%M', '%H:%M:%S'],
+        label=_('ساعت شروع'),
+    )
+    end_time = serializers.TimeField(
+        required=False,
+        allow_null=True,
+        input_formats=['%H:%M', '%H:%M:%S'],
+        label=_('ساعت پایان'),
+    )
     preset = serializers.ChoiceField(
         required=False,
         choices=[c[0] for c in SALES_PRESET_CHOICES],
@@ -27,6 +39,15 @@ class DateRangeSerializer(serializers.Serializer):
         max_value=59,
         label=_('دقیقه شروع روز کاری'),
     )
+
+    def validate(self, attrs):
+        start_time = attrs.get('start_time')
+        end_time = attrs.get('end_time')
+        if start_time is not None and not attrs.get('start_date'):
+            raise serializers.ValidationError({'start_date': _('برای ساعت شروع، تاریخ شروع لازم است.')})
+        if end_time is not None and not attrs.get('end_date'):
+            raise serializers.ValidationError({'end_date': _('برای ساعت پایان، تاریخ پایان لازم است.')})
+        return attrs
 
 
 class DailyReportSerializer(serializers.Serializer):

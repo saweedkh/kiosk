@@ -68,5 +68,16 @@ export const ordersApi = {
     )
     return response.data
   },
+
+  updateAdminOrderPaymentStatus: async (
+    orderId: number,
+    paymentStatus: string
+  ): Promise<ApiResponse<Order>> => {
+    const response = await apiClient.put<ApiResponse<Order>>(
+      `/kiosk/admin/orders/${orderId}/update-payment-status/`,
+      { payment_status: paymentStatus }
+    )
+    return response.data
+  },
 }
 

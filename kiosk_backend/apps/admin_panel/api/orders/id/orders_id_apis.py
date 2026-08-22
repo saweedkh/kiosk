@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from apps.orders.models import Order
 from apps.admin_panel.api.orders.orders_serializers import (
     AdminOrderSerializer,
-    UpdateOrderStatusSerializer
+    UpdateOrderStatusSerializer,
+    UpdatePaymentStatusSerializer,
 )
 from apps.admin_panel.api.permissions import IsAdminUser, HasAppPermission, HasAnyAppPermission
 from apps.orders.services.order_service import OrderService
@@ -89,6 +90,45 @@ class AdminOrderUpdateStatusAPIView(generics.GenericAPIView):
         
         OrderService.update_order_status(order.id, serializer.validated_data['status'])
         
+        order.refresh_from_db()
+        return Response(AdminOrderSerializer(order).data)
+
+
+class AdminOrderUpdatePaymentStatusAPIView(generics.GenericAPIView):
+    """Update order payment status (Admin only)."""
+
+    queryset = Order.objects.all()
+    serializer_class = UpdatePaymentStatusSerializer
+    permission_classes = [IsAdminUser, HasAppPermission]
+    required_permission = 'change_orders'
+
+    @custom_extend_schema(
+        resource_name="AdminOrderUpdatePaymentStatus",
+        parameters=[UpdatePaymentStatusSerializer],
+        response_serializer=AdminOrderSerializer,
+        status_codes=[
+            ResponseStatusCodes.OK,
+            ResponseStatusCodes.BAD_REQUEST,
+            ResponseStatusCodes.NOT_FOUND,
+            ResponseStatusCodes.UNAUTHORIZED,
+            ResponseStatusCodes.FORBIDDEN,
+        ],
+        summary="Update Order Payment Status (Admin)",
+        description="Update the payment status of an order. Admin only.",
+        tags=["Admin - Orders"],
+        operation_id="admin_orders_update_payment_status",
+    )
+    def put(self, request, pk):
+        order = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        OrderService.update_payment_status(
+            order.id,
+            serializer.validated_data['payment_status'],
+            print_receipt=True,
+        )
+
         order.refresh_from_db()
         return Response(AdminOrderSerializer(order).data)
 

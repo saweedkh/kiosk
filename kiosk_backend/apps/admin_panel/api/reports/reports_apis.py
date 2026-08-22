@@ -91,6 +91,8 @@ class SalesReportAPIView(generics.GenericAPIView):
         report = ReportService.get_sales_report(
             start_date=params.get('start_date'),
             end_date=params.get('end_date'),
+            start_time=params.get('start_time'),
+            end_time=params.get('end_time'),
             preset=params.get('preset'),
             **_business_start_kwargs(params),
             user=request.user,
@@ -114,17 +116,12 @@ class SalesReportAPIView(generics.GenericAPIView):
 
 class ProductReportAPIView(generics.GenericAPIView):
     """
-    API endpoint for generating product report (Admin only).
-    
-    Query Parameters:
-        page: Page number (optional, default: 1)
-        page_size: Items per page (optional, default: 50, max: 500)
-        
-    Returns product statistics including total products, active products, and low stock products.
-    Products list is paginated.
+    Product report with optional sales date range (same presets as sales).
+    Sold/revenue counts orders with status paid|completed only.
     """
     permission_classes = [IsAdminUser, HasAppPermission]
     required_permission = 'view_reports'
+    serializer_class = DateRangeSerializer
     pagination_class = ReportPagination
     
     @custom_extend_schema(
@@ -136,21 +133,24 @@ class ProductReportAPIView(generics.GenericAPIView):
             ResponseStatusCodes.FORBIDDEN,
         ],
         summary="Product Report",
-        description="Generate product report with statistics including total products, active products, and low stock products. Products list is paginated.",
+        description="Generate product report with sold/revenue in a date range. Products list is paginated.",
         tags=["Admin - Reports"],
         operation_id="admin_reports_product",
     )
     def get(self, request):
-        """
-        Generate product report with pagination.
-        
-        Args:
-            request: HTTP request object with optional pagination params
-            
-        Returns:
-            Response: Product report data with paginated products list
-        """
-        report = ReportService.get_product_report(user=request.user)
+        params_serializer = DateRangeSerializer(data=request.query_params)
+        params_serializer.is_valid(raise_exception=True)
+        params = params_serializer.validated_data
+
+        report = ReportService.get_product_report(
+            start_date=params.get('start_date'),
+            end_date=params.get('end_date'),
+            start_time=params.get('start_time'),
+            end_time=params.get('end_time'),
+            preset=params.get('preset'),
+            **_business_start_kwargs(params),
+            user=request.user,
+        )
         
         summary_data = _list_summary(report, exclude={'products'})
         products = report.get('products', [])
@@ -158,7 +158,6 @@ class ProductReportAPIView(generics.GenericAPIView):
         paginator = self.pagination_class()
         paginated_products = paginator.paginate_queryset(products, request)
         
-        # Return paginated response with summary
         return paginator.get_paginated_response(
             paginated_products,
             summary_data=summary_data
@@ -374,6 +373,8 @@ class SalesReportExportAPIView(generics.GenericAPIView):
         report = ReportService.get_sales_report(
             start_date=params.get('start_date'),
             end_date=params.get('end_date'),
+            start_time=params.get('start_time'),
+            end_time=params.get('end_time'),
             preset=params.get('preset'),
             **_business_start_kwargs(params),
             user=request.user,
@@ -388,13 +389,10 @@ class SalesReportExportAPIView(generics.GenericAPIView):
 
 
 class ProductReportExportAPIView(generics.GenericAPIView):
-    """
-    API endpoint for exporting product report to Excel (Admin only).
-    
-    Returns Excel file with product report data.
-    """
+    """Export product report to Excel (Admin only)."""
     permission_classes = [IsAdminUser, HasAppPermission]
     required_permission = 'view_reports'
+    serializer_class = DateRangeSerializer
     
     @custom_extend_schema(
         resource_name="ProductReportExport",
@@ -409,8 +407,19 @@ class ProductReportExportAPIView(generics.GenericAPIView):
         operation_id="admin_reports_product_export",
     )
     def get(self, request):
-        """Export product report to Excel and return file URL."""
-        report = ReportService.get_product_report(user=request.user)
+        params_serializer = DateRangeSerializer(data=request.query_params)
+        params_serializer.is_valid(raise_exception=True)
+        params = params_serializer.validated_data
+
+        report = ReportService.get_product_report(
+            start_date=params.get('start_date'),
+            end_date=params.get('end_date'),
+            start_time=params.get('start_time'),
+            end_time=params.get('end_time'),
+            preset=params.get('preset'),
+            **_business_start_kwargs(params),
+            user=request.user,
+        )
         
         file_url = ExcelExporter.export_product_report(report, request=request)
         

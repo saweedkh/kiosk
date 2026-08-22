@@ -21,9 +21,12 @@ interface AuthStore {
   refreshToken: string | null
   user: User | null
   isAuthenticated: boolean
+  hasHydrated: boolean
   setAuth: (accessToken: string, refreshToken: string, user: User) => void
+  setTokens: (accessToken: string, refreshToken?: string | null) => void
   logout: () => void
   updateUser: (user: User) => void
+  setHasHydrated: (value: boolean) => void
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -33,6 +36,7 @@ export const useAuthStore = create<AuthStore>()(
       refreshToken: null,
       user: null,
       isAuthenticated: false,
+      hasHydrated: false,
       setAuth: (accessToken, refreshToken, user) =>
         set({
           accessToken,
@@ -40,6 +44,13 @@ export const useAuthStore = create<AuthStore>()(
           user,
           isAuthenticated: true,
         }),
+      setTokens: (accessToken, refreshToken) =>
+        set((state) => ({
+          accessToken,
+          refreshToken:
+            refreshToken === undefined ? state.refreshToken : refreshToken,
+          isAuthenticated: Boolean(accessToken && state.user),
+        })),
       logout: () =>
         set({
           accessToken: null,
@@ -48,10 +59,22 @@ export const useAuthStore = create<AuthStore>()(
           isAuthenticated: false,
         }),
       updateUser: (user) => set({ user }),
+      setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+      }),
+      onRehydrateStorage: () => (state) => {
+        // Use the rehydrated state action only — never touch `useAuthStore`
+        // here. Sync rehydrate runs during `create()`, so referencing the
+        // const causes a TDZ throw; zustand then never marks hydration done.
+        state?.setHasHydrated(true)
+      },
     }
   )
 )
-

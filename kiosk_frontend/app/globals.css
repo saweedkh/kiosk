@@ -271,16 +271,17 @@
   background: transparent;
 }
 
-/* Jalali DatePicker */
+/* Jalali DatePicker — keep under field, never drift to the side */
 .jdp-container {
   font-family: var(--font-vazir) !important;
   direction: rtl !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.18) !important;
   border: 1px solid #e5e7eb !important;
   background: white !important;
   padding: 1rem !important;
   z-index: 9999 !important;
+  max-width: min(320px, calc(100vw - 16px)) !important;
 }
 
 .dark .jdp-container {

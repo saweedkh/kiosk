@@ -31,6 +31,8 @@ class ReportService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         *,
+        start_time=None,
+        end_time=None,
         start_dt: Optional[datetime] = None,
         end_dt: Optional[datetime] = None,
         preset: Optional[str] = None,
@@ -45,10 +47,14 @@ class ReportService:
                 business_day_start_hour=hour,
                 business_day_start_minute=minute,
             )
+            start_time = None
+            end_time = None
 
         report = ReportSelector.get_sales_report(
             start_date=start_date,
             end_date=end_date,
+            start_time=start_time,
+            end_time=end_time,
             start_dt=start_dt,
             end_dt=end_dt,
         )
@@ -62,15 +68,58 @@ class ReportService:
             details={
                 'start_date': str(start_date) if start_date else None,
                 'end_date': str(end_date) if end_date else None,
+                'start_time': str(start_time) if start_time else None,
+                'end_time': str(end_time) if end_time else None,
                 'preset': preset,
             },
         )
         return report
 
     @staticmethod
-    def get_product_report(user: Optional[User] = None) -> Dict[str, Any]:
-        report = ReportSelector.get_product_report()
-        LogService.log_info('admin', 'product_report_generated', user=user)
+    def get_product_report(
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        *,
+        start_time=None,
+        end_time=None,
+        start_dt: Optional[datetime] = None,
+        end_dt: Optional[datetime] = None,
+        preset: Optional[str] = None,
+        business_day_start_hour: int | None = None,
+        business_day_start_minute: int | None = None,
+        user: Optional[User] = None,
+    ) -> Dict[str, Any]:
+        if preset:
+            hour, minute = _resolve_start(business_day_start_hour, business_day_start_minute)
+            start_dt, end_dt, start_date, end_date = resolve_sales_preset_range(
+                preset,
+                business_day_start_hour=hour,
+                business_day_start_minute=minute,
+            )
+            start_time = None
+            end_time = None
+
+        report = ReportSelector.get_product_report(
+            start_date=start_date,
+            end_date=end_date,
+            start_time=start_time,
+            end_time=end_time,
+            start_dt=start_dt,
+            end_dt=end_dt,
+        )
+        if preset:
+            report['preset'] = preset
+
+        LogService.log_info(
+            'admin',
+            'product_report_generated',
+            user=user,
+            details={
+                'start_date': str(start_date) if start_date else None,
+                'end_date': str(end_date) if end_date else None,
+                'preset': preset,
+            },
+        )
         return report
 
     @staticmethod

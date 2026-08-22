@@ -56,7 +56,13 @@ export interface ProductReportSummary {
   active_products: number
   low_stock_count?: number
   out_of_stock_count?: number
+  total_revenue?: number
+  total_sold_units?: number
+  low_stock_threshold?: number
   generated_at_jalali?: string
+  range_start_jalali?: string
+  range_end_jalali?: string
+  preset?: SalesPreset | string
 }
 
 export interface ProductReport extends PaginatedResponse<ProductReportRow> {
@@ -75,6 +81,7 @@ export interface ProductReportRow {
   total_revenue: number
   is_low_stock?: boolean
   is_out_of_stock?: boolean
+  stock_status?: 'ok' | 'low_stock' | 'out_of_stock' | string
 }
 
 export interface StockReportSummary {
@@ -82,6 +89,7 @@ export interface StockReportSummary {
   total_items: number
   low_stock_count?: number
   out_of_stock_count?: number
+  low_stock_threshold?: number
   generated_at_jalali?: string
 }
 
@@ -223,9 +231,9 @@ export const reportsApi = {
   getSalesReport: async (params?: {
     start_date?: string
     end_date?: string
+    start_time?: string
+    end_time?: string
     preset?: SalesPreset
-    business_day_start_hour?: number
-    business_day_start_minute?: number
     page?: number
     page_size?: number
   }): Promise<ApiResponse<SalesReport>> => {
@@ -234,6 +242,11 @@ export const reportsApi = {
   },
 
   getProductReport: async (params?: {
+    start_date?: string
+    end_date?: string
+    start_time?: string
+    end_time?: string
+    preset?: SalesPreset
     page?: number
     page_size?: number
   }): Promise<ApiResponse<ProductReport>> => {
@@ -249,72 +262,30 @@ export const reportsApi = {
     return response.data
   },
 
-  getDailyReport: async (params?: {
-    date?: string
-    business_day_start_hour?: number
-    business_day_start_minute?: number
-    page?: number
-    page_size?: number
-  }): Promise<ApiResponse<DailyReport>> => {
-    const response = await apiClient.get('/kiosk/admin/reports/daily/', { params })
-    return response.data
-  },
-
-  getHourlyReport: async (params?: {
-    date?: string
-    business_day_start_hour?: number
-    business_day_start_minute?: number
-    page?: number
-    page_size?: number
-  }): Promise<ApiResponse<HourlyReport>> => {
-    const response = await apiClient.get('/kiosk/admin/reports/hourly/', { params })
-    return response.data
-  },
-
-  getExceptionReport: async (params?: {
-    business_day_start_hour?: number
-    business_day_start_minute?: number
-  }): Promise<ApiResponse<ExceptionReport>> => {
-    const response = await apiClient.get('/kiosk/admin/reports/exceptions/', { params })
-    return response.data
-  },
-
   exportSalesReport: async (params?: {
     start_date?: string
     end_date?: string
+    start_time?: string
+    end_time?: string
     preset?: SalesPreset
-    business_day_start_hour?: number
-    business_day_start_minute?: number
   }): Promise<string> => {
     const response = await apiClient.get('/kiosk/admin/reports/sales/export/', { params })
     return unwrapExportUrl(response.data)
   },
 
-  exportProductReport: async (): Promise<string> => {
-    const response = await apiClient.get('/kiosk/admin/reports/products/export/')
+  exportProductReport: async (params?: {
+    start_date?: string
+    end_date?: string
+    start_time?: string
+    end_time?: string
+    preset?: SalesPreset
+  }): Promise<string> => {
+    const response = await apiClient.get('/kiosk/admin/reports/products/export/', { params })
     return unwrapExportUrl(response.data)
   },
 
   exportStockReport: async (): Promise<string> => {
     const response = await apiClient.get('/kiosk/admin/reports/stock/export/')
-    return unwrapExportUrl(response.data)
-  },
-
-  exportDailyReport: async (params?: {
-    date?: string
-    business_day_start_hour?: number
-    business_day_start_minute?: number
-  }): Promise<string> => {
-    const response = await apiClient.get('/kiosk/admin/reports/daily/export/', { params })
-    return unwrapExportUrl(response.data)
-  },
-
-  exportHourlyReport: async (params?: {
-    date?: string
-    business_day_start_hour?: number
-    business_day_start_minute?: number
-  }): Promise<string> => {
-    const response = await apiClient.get('/kiosk/admin/reports/hourly/export/', { params })
     return unwrapExportUrl(response.data)
   },
 }

@@ -31,28 +31,45 @@ export function ProtectedRoute({
   children,
   redirectTo = '/admin/login',
 }: ProtectedRouteProps) {
-  const { accessToken, user } = useAuthStore()
+  const { accessToken, user, hasHydrated } = useAuthStore()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
+
+    const finish = () => {
+      if (!useAuthStore.getState().hasHydrated) {
+        useAuthStore.setState({ hasHydrated: true })
+      }
+    }
+
+    if (useAuthStore.persist.hasHydrated()) {
+      finish()
+    }
+
+    const unsub = useAuthStore.persist.onFinishHydration(finish)
+    // Fallback if persist stalls (blocked storage / failed rehydrate)
+    const timeout = window.setTimeout(finish, 300)
+
+    return () => {
+      unsub()
+      window.clearTimeout(timeout)
+    }
   }, [])
 
   useEffect(() => {
-    if (!isMounted) return
+    if (!isMounted || !hasHydrated) return
 
-    const checkAndRedirect = () => {
-      if (hasStaffAccess()) {
-        return
+    const timer = window.setTimeout(() => {
+      if (!hasStaffAccess()) {
+        window.location.replace(redirectTo)
       }
-      window.location.replace(redirectTo)
-    }
+    }, 100)
 
-    const timer = setTimeout(checkAndRedirect, 100)
-    return () => clearTimeout(timer)
-  }, [isMounted, accessToken, user, redirectTo])
+    return () => window.clearTimeout(timer)
+  }, [isMounted, hasHydrated, accessToken, user, redirectTo])
 
-  if (!isMounted) {
+  if (!isMounted || !hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background dark:bg-background-dark">
         <div className="text-center">

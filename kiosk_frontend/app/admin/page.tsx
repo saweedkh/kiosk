@@ -19,10 +19,11 @@ import {
 import { AdminSurface } from '@/components/admin/ui/primitives'
 
 export default function AdminPage() {
-  const { logout, user } = useAuthStore()
+  const { logout, user, hasHydrated } = useAuthStore()
   const [activeTab, setActiveTab] = useState<AdminNavId>('dashboard')
 
   const tabs = useMemo(() => {
+    if (!hasHydrated || !user) return []
     const items: { id: AdminNavId; label: string; visible: boolean }[] = [
       { id: 'dashboard', label: 'داشبورد', visible: hasPermission(user, 'view_reports') },
       { id: 'categories', label: 'دسته‌بندی', visible: hasPermission(user, 'view_categories') },
@@ -39,7 +40,7 @@ export default function AdminPage() {
       { id: 'users', label: 'کاربران', visible: hasPermission(user, 'manage_users') },
     ]
     return items.filter((t) => t.visible)
-  }, [user])
+  }, [user, hasHydrated])
 
   useEffect(() => {
     if (tabs.length && !tabs.some((t) => t.id === activeTab)) {
@@ -78,33 +79,48 @@ export default function AdminPage() {
         isSuperuser={!!user?.is_superuser}
         onLogout={handleLogout}
       >
-        {tabs.length === 0 && (
+        {!hasHydrated ? (
+          <AdminSurface className="py-16 text-center text-muted-foreground">
+            در حال بارگذاری دسترسی‌ها...
+          </AdminSurface>
+        ) : null}
+
+        {hasHydrated && user && tabs.length === 0 ? (
           <AdminSurface className="py-16 text-center">
             <p className="font-bold text-foreground">دسترسی‌ای برای نمایش منو ندارید</p>
             <p className="mt-2 text-sm text-muted-foreground">
               از سوپریوزر بخواهید گروه مناسب را به حساب شما اختصاص دهد.
             </p>
           </AdminSurface>
-        )}
-        {activeTab === 'dashboard' && hasPermission(user, 'view_reports') && (
+        ) : null}
+
+        {hasHydrated && user && activeTab === 'dashboard' && hasPermission(user, 'view_reports') && (
           <DashboardManager />
         )}
-        {activeTab === 'categories' && hasPermission(user, 'view_categories') && (
+        {hasHydrated && user && activeTab === 'categories' && hasPermission(user, 'view_categories') && (
           <CategoriesManager />
         )}
-        {activeTab === 'products' && hasPermission(user, 'view_products') && (
+        {hasHydrated && user && activeTab === 'products' && hasPermission(user, 'view_products') && (
           <ProductsManager />
         )}
-        {activeTab === 'coupons' &&
+        {hasHydrated &&
+          user &&
+          activeTab === 'coupons' &&
           (hasPermission(user, 'manage_coupons') || hasPermission(user, 'view_reports')) && (
             <CouponsManager />
           )}
-        {activeTab === 'reports' && hasPermission(user, 'view_reports') && <ReportsManager />}
-        {activeTab === 'settings' && hasPermission(user, 'change_settings') && (
+        {hasHydrated && user && activeTab === 'reports' && hasPermission(user, 'view_reports') && (
+          <ReportsManager />
+        )}
+        {hasHydrated && user && activeTab === 'settings' && hasPermission(user, 'change_settings') && (
           <SettingsManager />
         )}
-        {activeTab === 'bale' && hasPermission(user, 'manage_bale') && <BaleBotManager />}
-        {activeTab === 'users' && hasPermission(user, 'manage_users') && <UsersManager />}
+        {hasHydrated && user && activeTab === 'bale' && hasPermission(user, 'manage_bale') && (
+          <BaleBotManager />
+        )}
+        {hasHydrated && user && activeTab === 'users' && hasPermission(user, 'manage_users') && (
+          <UsersManager />
+        )}
       </AdminShell>
     </ProtectedRoute>
   )

@@ -48,21 +48,31 @@ class AuthService:
     def refresh_access_token(refresh_token: str) -> Dict[str, str]:
         """
         Generate a new access token using a refresh token.
-        
-        Args:
-            refresh_token: Refresh token string
-            
-        Returns:
-            Dictionary containing new 'access_token'
-            
-        Raises:
-            TokenError: If refresh token is invalid or expired
+
+        With ROTATE_REFRESH_TOKENS, also returns a new refresh_token.
         """
+        from rest_framework_simplejwt.settings import api_settings
+
         try:
             refresh = RefreshToken(refresh_token)
-            return {
+            data = {
                 'access_token': str(refresh.access_token),
+                'refresh_token': str(refresh),
             }
+
+            if api_settings.ROTATE_REFRESH_TOKENS:
+                if api_settings.BLACKLIST_AFTER_ROTATION:
+                    try:
+                        refresh.blacklist()
+                    except AttributeError:
+                        pass
+                refresh.set_jti()
+                refresh.set_exp()
+                if hasattr(refresh, 'set_iat'):
+                    refresh.set_iat()
+                data['refresh_token'] = str(refresh)
+
+            return data
         except TokenError as e:
             raise ValueError(f'Invalid or expired refresh token: {str(e)}')
     

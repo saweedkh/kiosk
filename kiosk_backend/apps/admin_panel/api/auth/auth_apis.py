@@ -8,7 +8,9 @@ from apps.admin_panel.api.auth.auth_serializers import (
     UserSerializer,
     LoginResponseSerializer,
     LogoutResponseSerializer,
-    UserInfoResponseSerializer
+    UserInfoResponseSerializer,
+    RefreshTokenSerializer,
+    RefreshTokenResponseSerializer,
 )
 from apps.admin_panel.api.permissions import IsAdminUser
 from apps.logs.services.log_service import LogService
@@ -172,6 +174,45 @@ class UserInfoAPIView(generics.GenericAPIView):
         
         return Response(
             data=UserInfoResponseSerializer(response_data).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class RefreshTokenAPIView(generics.GenericAPIView):
+    """Exchange a refresh token for a new access (and rotated refresh) token."""
+    authentication_classes = []
+    permission_classes = []
+    serializer_class = RefreshTokenSerializer
+
+    @custom_extend_schema(
+        resource_name="AdminTokenRefresh",
+        parameters=[RefreshTokenSerializer],
+        response_serializer=RefreshTokenResponseSerializer,
+        status_codes=[
+            ResponseStatusCodes.OK,
+            ResponseStatusCodes.BAD_REQUEST,
+            ResponseStatusCodes.UNAUTHORIZED,
+        ],
+        summary="Refresh Admin Access Token",
+        description="Get a new access token using a valid refresh token.",
+        tags=["Admin - Auth"],
+        operation_id="admin_token_refresh",
+    )
+    def post(self, request):
+        serializer = RefreshTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        refresh_token = serializer.validated_data['refresh']
+
+        try:
+            tokens = AuthService.refresh_access_token(refresh_token)
+        except ValueError as exc:
+            return Response(
+                {'detail': str(exc)},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        return Response(
+            data=RefreshTokenResponseSerializer(tokens).data,
             status=status.HTTP_200_OK,
         )
 

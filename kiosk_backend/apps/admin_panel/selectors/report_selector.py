@@ -10,6 +10,8 @@ from apps.admin_panel.utils.report_constants import (
     format_business_day_start,
     LOW_STOCK_THRESHOLD,
     STUCK_ORDER_MINUTES,
+    SALES_COUNTED_ORDER_STATUSES,
+    SALES_FAILED_ORDER_STATUSES,
 )
 from apps.admin_panel.utils.report_datetime import (
     enrich_order_row,
@@ -68,6 +70,8 @@ class ReportSelector:
         start_date=None,
         end_date=None,
         *,
+        start_time=None,
+        end_time=None,
         start_dt: datetime | None = None,
         end_dt: datetime | None = None,
     ):
@@ -76,13 +80,19 @@ class ReportSelector:
                 start_dt = start_date if timezone.is_aware(start_date) else timezone.make_aware(start_date)
                 start_date = None
             else:
-                start_dt, _ = resolve_sales_datetime_range(start_date=start_date)
+                start_dt, _ = resolve_sales_datetime_range(
+                    start_date=start_date,
+                    start_time=start_time,
+                )
         if end_dt is None and end_date is not None:
             if isinstance(end_date, datetime):
                 end_dt = end_date if timezone.is_aware(end_date) else timezone.make_aware(end_date)
                 end_date = None
             else:
-                _, end_dt = resolve_sales_datetime_range(end_date=end_date)
+                _, end_dt = resolve_sales_datetime_range(
+                    end_date=end_date,
+                    end_time=end_time,
+                )
 
         queryset = Order.objects.all()
         if start_dt:
@@ -90,7 +100,8 @@ class ReportSelector:
         if end_dt:
             queryset = queryset.filter(created_at__lt=end_dt)
 
-        successful_orders = queryset.filter(payment_status='paid')
+        # Sales KPIs follow order.status only (not payment_status).
+        successful_orders = queryset.filter(status__in=SALES_COUNTED_ORDER_STATUSES)
 
         order_totals = queryset.aggregate(total_orders=Count('id'))
         sales_totals = successful_orders.aggregate(total_amount=Sum('total_amount'))
@@ -105,8 +116,12 @@ class ReportSelector:
         transactions_queryset = queryset.exclude(
             Q(transaction_id__isnull=True) | Q(transaction_id='')
         )
-        successful_transactions = transactions_queryset.filter(payment_status='paid')
-        failed_transactions = transactions_queryset.filter(payment_status='failed')
+        successful_transactions = transactions_queryset.filter(
+            status__in=SALES_COUNTED_ORDER_STATUSES
+        )
+        failed_transactions = transactions_queryset.filter(
+            status__in=SALES_FAILED_ORDER_STATUSES
+        )
 
         total_transactions = transactions_queryset.count()
         successful_count = successful_transactions.count()
@@ -124,7 +139,7 @@ class ReportSelector:
 
         range_meta = enrich_range_meta(
             start_dt,
-            end_dt,
+            (end_dt - timedelta(minutes=1)) if (end_dt and end_time is not None) else end_dt,
             start_date=start_date if isinstance(start_date, date) else None,
             end_date=end_date if isinstance(end_date, date) else None,
         )
@@ -146,16 +161,47 @@ class ReportSelector:
         }
 
     @staticmethod
-    def get_product_report():
+    def get_product_report(
+        start_date=None,
+        end_date=None,
+        *,
+        start_time=None,
+        end_time=None,
+        start_dt: datetime | None = None,
+        end_dt: datetime | None = None,
+    ):
+        if start_dt is None and start_date is not None:
+            if isinstance(start_date, datetime):
+                start_dt = start_date if timezone.is_aware(start_date) else timezone.make_aware(start_date)
+                start_date = None
+            else:
+                start_dt, _ = resolve_sales_datetime_range(
+                    start_date=start_date,
+                    start_time=start_time,
+                )
+        if end_dt is None and end_date is not None:
+            if isinstance(end_date, datetime):
+                end_dt = end_date if timezone.is_aware(end_date) else timezone.make_aware(end_date)
+                end_date = None
+            else:
+                _, end_dt = resolve_sales_datetime_range(
+                    end_date=end_date,
+                    end_time=end_time,
+                )
+
+        # Revenue / sold qty: order.status paid|completed only (not payment_status).
+        sold_filter = Q(orderitem__order__status__in=SALES_COUNTED_ORDER_STATUSES)
+        if start_dt:
+            sold_filter &= Q(orderitem__order__created_at__gte=start_dt)
+        if end_dt:
+            sold_filter &= Q(orderitem__order__created_at__lt=end_dt)
+
         products = Product.objects.annotate(
-            total_sold=Sum(
-                'orderitem__quantity',
-                filter=Q(orderitem__order__payment_status='paid'),
-            ),
+            total_sold=Sum('orderitem__quantity', filter=sold_filter),
         ).annotate(
             total_revenue=Sum(
                 F('orderitem__quantity') * F('orderitem__unit_price'),
-                filter=Q(orderitem__order__payment_status='paid'),
+                filter=sold_filter,
             ),
         )
 
@@ -166,22 +212,44 @@ class ReportSelector:
 
         for product in products_list:
             product['category_name'] = product.pop('category__name', '')
+            product['total_sold'] = int(product.get('total_sold') or 0)
+            product['total_revenue'] = int(product.get('total_revenue') or 0)
             qty = product.get('stock_quantity') or 0
             product['is_low_stock'] = 0 < qty <= LOW_STOCK_THRESHOLD
             product['is_out_of_stock'] = qty <= 0
+            product['stock_status'] = (
+                'out_of_stock' if product['is_out_of_stock']
+                else 'low_stock' if product['is_low_stock']
+                else 'ok'
+            )
 
         total_products = Product.objects.count()
         active_products = Product.objects.filter(is_active=True).count()
         low_stock_count = sum(1 for p in products_list if p.get('is_low_stock'))
         out_of_stock_count = sum(1 for p in products_list if p.get('is_out_of_stock'))
+        total_revenue = sum(p.get('total_revenue') or 0 for p in products_list)
+        total_sold_units = sum(p.get('total_sold') or 0 for p in products_list)
+
+        range_meta = enrich_range_meta(
+            start_dt,
+            (end_dt - timedelta(minutes=1)) if (end_dt and end_time is not None) else end_dt,
+            start_date=start_date if isinstance(start_date, date) else None,
+            end_date=end_date if isinstance(end_date, date) else None,
+        )
 
         return {
             'total_products': total_products,
             'active_products': active_products,
             'low_stock_count': low_stock_count,
             'out_of_stock_count': out_of_stock_count,
+            'total_revenue': total_revenue,
+            'total_sold_units': total_sold_units,
             'products': products_list,
+            'start_date': start_dt.isoformat() if start_dt else None,
+            'end_date': end_dt.isoformat() if end_dt else None,
+            'low_stock_threshold': LOW_STOCK_THRESHOLD,
             'generated_at_jalali': format_jalali_datetime(timezone.now()),
+            **range_meta,
         }
 
     @staticmethod
@@ -218,6 +286,9 @@ class ReportSelector:
                 'is_active': product.is_active,
                 'is_low_stock': is_low,
                 'is_out_of_stock': is_out,
+                'stock_status': (
+                    'out_of_stock' if is_out else 'low_stock' if is_low else 'ok'
+                ),
             })
 
         return {
@@ -225,6 +296,7 @@ class ReportSelector:
             'total_items': total_items,
             'low_stock_count': low_stock_count,
             'out_of_stock_count': out_of_stock_count,
+            'low_stock_threshold': LOW_STOCK_THRESHOLD,
             'stock_details': stock_details,
             'generated_at_jalali': format_jalali_datetime(timezone.now()),
         }
@@ -242,7 +314,7 @@ class ReportSelector:
         )
 
         orders = ReportSelector._orders_in_range(start, end)
-        successful_orders = orders.filter(payment_status='paid')
+        successful_orders = orders.filter(status__in=SALES_COUNTED_ORDER_STATUSES)
         transactions = orders.exclude(Q(transaction_id__isnull=True) | Q(transaction_id=''))
 
         paid_count = successful_orders.count()
@@ -293,7 +365,7 @@ class ReportSelector:
         )
 
         orders = ReportSelector._orders_in_range(start, end)
-        successful_orders = orders.filter(payment_status='paid')
+        successful_orders = orders.filter(status__in=SALES_COUNTED_ORDER_STATUSES)
         failed_orders = orders.filter(payment_status='failed')
         transactions = orders.exclude(Q(transaction_id__isnull=True) | Q(transaction_id=''))
 
@@ -428,7 +500,7 @@ def _top_products(start, end, limit: int = 8) -> List[Dict[str, Any]]:
         OrderItem.objects.filter(
             order__created_at__gte=start,
             order__created_at__lt=end,
-            order__payment_status='paid',
+            order__status__in=SALES_COUNTED_ORDER_STATUSES,
         )
         .values('product_id', 'product_name')
         .annotate(
@@ -460,7 +532,7 @@ def _breakdowns(queryset) -> Dict[str, Any]:
             for row in queryset.values('fulfillment_type').annotate(c=Count('id'))
         }
 
-    paid_qs = queryset.filter(payment_status='paid')
+    paid_qs = queryset.filter(status__in=SALES_COUNTED_ORDER_STATUSES)
     if hasattr(Order, 'service_fee'):
         breakdown['total_service_fee'] = int(
             paid_qs.aggregate(t=Sum('service_fee'))['t'] or 0

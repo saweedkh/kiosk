@@ -26,7 +26,8 @@ import {
   AdminSurface,
 } from '@/components/admin/ui/primitives'
 import { CartLayoutThumb } from '@/components/admin/CartLayoutThumb'
-import { translateError, cn, formatCurrency, formatNumber } from '@/lib/utils'
+import { TimePicker, timeFromParts, partsFromTime } from '@/components/admin/TimePicker'
+import { translateError, cn, formatCurrency, formatNumber, toPersianDigits } from '@/lib/utils'
 import type { Settings } from '@/types'
 import type { CartLayout } from '@/components/customer/CartView'
 import { useThemeStore } from '@/lib/store/theme-store'
@@ -2218,62 +2219,69 @@ export function SettingsManager() {
             <div className="space-y-8">
               <SectionHeader
                 title="گزارشات"
-                description="تنظیمات سراسری گزارش پنل ادمین و ربات بله. پس از ذخیره، همه گزارش‌های روزانه/ساعتی از این ساعت و دقیقه استفاده می‌کنند."
+                description="مرز روز کاری برای گزارش فروش (presetها) و ربات بله. بعد از ذخیره برای همه گزارش‌ها اعمال می‌شود."
               />
 
-              <AdminSurface className="space-y-5">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-foreground">
-                      شروع روز کاری (ساعت)
-                    </label>
-                    <select
-                      value={String(settings.business_day_start_hour ?? 7)}
-                      onChange={(e) =>
-                        handleChange('business_day_start_hour', Number(e.target.value))
-                      }
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
-                    >
-                      {Array.from({ length: 24 }, (_, hour) => (
-                        <option key={hour} value={hour}>
-                          {String(hour).padStart(2, '0')}
-                        </option>
-                      ))}
-                    </select>
+              <AdminSurface className="overflow-hidden p-0">
+                <div className="border-b border-border/70 bg-gradient-to-l from-primary/[0.08] via-card to-card px-5 py-5 sm:px-6">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">شروع روز کاری</p>
+                      <p className="mt-1 text-3xl font-black tracking-wide text-primary">
+                        {toPersianDigits(
+                          timeFromParts(
+                            settings.business_day_start_hour,
+                            settings.business_day_start_minute
+                          )
+                        )}
+                      </p>
+                    </div>
+                    <AdminStatusBadge tone="neutral">Asia/Tehran</AdminStatusBadge>
                   </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-foreground">
-                      شروع روز کاری (دقیقه)
-                    </label>
-                    <select
-                      value={String(settings.business_day_start_minute ?? 0)}
-                      onChange={(e) =>
-                        handleChange('business_day_start_minute', Number(e.target.value))
-                      }
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary"
-                    >
-                      {Array.from({ length: 60 }, (_, minute) => (
-                        <option key={minute} value={minute}>
-                          {String(minute).padStart(2, '0')}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    هر «روز» از این ساعت تا همین ساعت روز بعد حساب می‌شود.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  مثلاً ۰۷:۳۰ یعنی هر «روز» از ۰۷:۳۰ تا ۰۷:۳۰ روز بعد (Asia/Tehran). گزارش فروش با
-                  preset هم همین مرز را می‌گیرد.
-                </p>
-                {apiErrors.business_day_start_hour?.[0] ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {apiErrors.business_day_start_hour[0]}
-                  </p>
-                ) : null}
-                {apiErrors.business_day_start_minute?.[0] ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    {apiErrors.business_day_start_minute[0]}
-                  </p>
-                ) : null}
+
+                <div className="space-y-5 p-5 sm:p-6">
+                  <TimePicker
+                    label="ساعت شروع روز کاری"
+                    value={timeFromParts(
+                      settings.business_day_start_hour,
+                      settings.business_day_start_minute
+                    )}
+                    minuteStep={5}
+                    onChange={(value) => {
+                      const { hour, minute } = partsFromTime(value)
+                      handleChange('business_day_start_hour', hour)
+                      handleChange('business_day_start_minute', minute)
+                    }}
+                  />
+
+                  <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                    مثال: اگر{' '}
+                    <span className="font-bold text-foreground">
+                      {toPersianDigits(
+                        timeFromParts(
+                          settings.business_day_start_hour,
+                          settings.business_day_start_minute
+                        )
+                      )}
+                    </span>{' '}
+                    باشد، گزارش «امروز» از همین ساعت تا فردا همین ساعت است.
+                  </div>
+
+                  {apiErrors.business_day_start_hour?.[0] ? (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {apiErrors.business_day_start_hour[0]}
+                    </p>
+                  ) : null}
+                  {apiErrors.business_day_start_minute?.[0] ? (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {apiErrors.business_day_start_minute[0]}
+                    </p>
+                  ) : null}
+                </div>
               </AdminSurface>
             </div>
           )}

@@ -27,6 +27,7 @@ from apps.bale_bot.menus import (
     build_order_status_entry_keyboard,
     build_order_list_keyboard,
     build_order_status_keyboard,
+    build_payment_status_keyboard,
     build_orders_menu,
     build_product_detail_keyboard,
     build_product_edit_fields_keyboard,
@@ -47,6 +48,7 @@ from apps.bale_bot.menus import (
     help_text,
     inline_keyboard,
     order_status_label,
+    payment_status_label,
     progress_bar,
     section_title,
     welcome_text,
@@ -71,6 +73,7 @@ from apps.bale_bot.reports import (
     split_report_text,
 )
 from apps.orders.models import Order
+from apps.orders.services.order_service import OrderService
 from apps.products.models import Category, Product
 from apps.products.services.product_service import ProductService
 from apps.products.services.stock_service import StockService
@@ -81,15 +84,7 @@ logger = logging.getLogger(__name__)
 
 SKIP_IMAGE_WORDS = {'رد', 'بدون تصویر', 'بدون', 'skip', '/skip', 'نه'}
 ADD_STEPS = 5
-PAYMENT_STATUS_LABELS = {
-    'pending': 'در انتظار',
-    'processing': 'در حال پردازش',
-    'paid': 'پرداخت‌شده',
-    'completed': 'تکمیل‌شده',
-    'cancelled': 'لغو‌شده',
-    'failed': 'ناموفق',
-    'refunded': 'بازگشت‌شده',
-}
+ALLOWED_PAYMENT_STATUSES = {'pending', 'processing', 'paid', 'failed', 'cancelled'}
 
 
 class UpdateHandler:
@@ -216,7 +211,7 @@ class UpdateHandler:
             lines.append(f'{title}: {fmt_money(packaging)}')
         lines.extend([
             f'وضعیت: {order_status_label(order.status)}',
-            f'پرداخت: {PAYMENT_STATUS_LABELS.get(order.payment_status, order.payment_status or "—")}',
+            f'پرداخت: {payment_status_label(order.payment_status)}',
             f'نوع: {fulfillment_label(getattr(order, "fulfillment_type", "") or "dine_in")}',
         ])
         if getattr(order, 'error_message', ''):
@@ -592,8 +587,20 @@ class UpdateHandler:
                 return
             self._reply(
                 chat_id,
-                'وضعیت جدید را انتخاب کنید:',
+                'وضعیت سفارش را انتخاب کنید:',
                 build_order_status_keyboard(oid),
+                message_id=message_id,
+                prefer_edit=True,
+            )
+            return
+        if data.startswith('o:ep:'):
+            oid = int(data.split(':')[2])
+            if not self._require(user, chat_id, 'change_orders'):
+                return
+            self._reply(
+                chat_id,
+                'وضعیت پرداخت را انتخاب کنید:',
+                build_payment_status_keyboard(oid),
                 message_id=message_id,
                 prefer_edit=True,
             )
@@ -606,6 +613,14 @@ class UpdateHandler:
         if data.startswith('o:cf:'):
             parts = data.split(':')
             self._confirm_order_status(user, chat_id, int(parts[2]), parts[3], ctx)
+            return
+        if data.startswith('o:ps:'):
+            parts = data.split(':')
+            self._set_payment_status(user, chat_id, int(parts[2]), parts[3], ctx)
+            return
+        if data.startswith('o:pc:'):
+            parts = data.split(':')
+            self._confirm_payment_status(user, chat_id, int(parts[2]), parts[3], ctx)
             return
         self._reply(chat_id, 'گزینه نامعتبر است.', build_main_menu(user), message_id=message_id, prefer_edit=True)
 
@@ -970,14 +985,69 @@ class UpdateHandler:
         self._apply_order_status(user, chat_id, order, status_value, ctx)
 
     def _apply_order_status(self, user, chat_id, order: Order, status_value: str, ctx: dict):
-        order.status = status_value
-        update_fields = ['status']
-        if hasattr(order, 'updated_at'):
-            update_fields.append('updated_at')
-        order.save(update_fields=update_fields)
+        try:
+            order = OrderService.update_order_status(order.id, status_value)
+        except Exception as exc:
+            self._send(chat_id, f'خطا در تغییر وضعیت: {exc}', build_orders_menu(user))
+            return
         self._reply(
             chat_id,
-            f'✅ وضعیت به «{order_status_label(status_value)}» تغییر کرد.\n\n{self._order_card(order)}',
+            f'✅ وضعیت سفارش به «{order_status_label(status_value)}» تغییر کرد.\n\n{self._order_card(order)}',
+            build_order_detail_keyboard(order, user),
+            message_id=ctx.get('message_id'),
+            prefer_edit=True,
+        )
+
+    def _set_payment_status(self, user, chat_id, order_id: int, payment_value: str, ctx: dict):
+        if not self._require(user, chat_id, 'change_orders'):
+            return
+        if payment_value not in ALLOWED_PAYMENT_STATUSES:
+            self._send(chat_id, 'وضعیت پرداخت نامعتبر است.')
+            return
+        try:
+            order = Order.objects.get(pk=order_id)
+        except Order.DoesNotExist:
+            self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
+            return
+        if payment_value in {'paid', 'cancelled'}:
+            self._reply(
+                chat_id,
+                f'برای تغییر وضعیت پرداخت سفارش {order.order_number} به «{payment_status_label(payment_value)}» تایید می‌کنید؟',
+                inline_keyboard([
+                    [
+                        {'text': '✅ تایید', 'callback_data': f'o:pc:{order.id}:{payment_value}'[:64]},
+                        {'text': '⬅️ بازگشت', 'callback_data': f'o:v:{order.id}'[:64]},
+                    ]
+                ]),
+                message_id=ctx.get('message_id'),
+                prefer_edit=True,
+            )
+            return
+        self._apply_payment_status(user, chat_id, order, payment_value, ctx)
+
+    def _confirm_payment_status(self, user, chat_id, order_id: int, payment_value: str, ctx: dict):
+        if not self._require(user, chat_id, 'change_orders'):
+            return
+        try:
+            order = Order.objects.get(pk=order_id)
+        except Order.DoesNotExist:
+            self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
+            return
+        self._apply_payment_status(user, chat_id, order, payment_value, ctx)
+
+    def _apply_payment_status(self, user, chat_id, order: Order, payment_value: str, ctx: dict):
+        try:
+            order = OrderService.update_payment_status(
+                order.id,
+                payment_value,
+                print_receipt=True,
+            )
+        except Exception as exc:
+            self._send(chat_id, f'خطا در تغییر وضعیت پرداخت: {exc}', build_orders_menu(user))
+            return
+        self._reply(
+            chat_id,
+            f'✅ وضعیت پرداخت به «{payment_status_label(payment_value)}» تغییر کرد.\n\n{self._order_card(order)}',
             build_order_detail_keyboard(order, user),
             message_id=ctx.get('message_id'),
             prefer_edit=True,

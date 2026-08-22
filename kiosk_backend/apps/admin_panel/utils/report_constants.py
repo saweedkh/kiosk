@@ -12,6 +12,11 @@ SALES_PRESET_CHOICES = (
     ('30d', '۳۰ روز اخیر'),
 )
 
+# Sales totals use order.status (not payment_status).
+# completed is included because those orders were paid and then fulfilled.
+SALES_COUNTED_ORDER_STATUSES = ('paid', 'completed')
+SALES_FAILED_ORDER_STATUSES = ('cancelled',)
+
 
 def get_business_day_start() -> tuple[int, int]:
     """Read business-day start time from SiteSettings (fallback 07:00)."""

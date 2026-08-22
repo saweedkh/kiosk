@@ -194,7 +194,7 @@ class ExcelExporter:
         stats = [
             ("تاریخ شروع:", report_data.get('start_date_jalali') or report_data.get('start_date', 'همه تاریخ‌ها')),
             ("تاریخ پایان:", report_data.get('end_date_jalali') or report_data.get('end_date', 'همه تاریخ‌ها')),
-            ("بازه (جلالی):", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
+            ("بازه:", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
             ("", ""),
             ("=== آمار فروش (پرداخت‌شده) ===", ""),
             ("مجموع فروش (ریال):", f"{report_data.get('total_sales', 0):,}"),
@@ -287,14 +287,15 @@ class ExcelExporter:
         # آمار کلی
         stats = [
             ("تاریخ گزارش:", report_data.get('generated_at_jalali') or format_jalali_datetime(timezone.now())),
+            ("بازه:", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
             ("تعداد کل محصولات:", total_products),
             ("محصولات فعال:", active_products),
             ("محصولات غیرفعال:", total_products - active_products),
             (f"موجودی کم (≤{LOW_STOCK_THRESHOLD}):", report_data.get('low_stock_count', 0)),
             ("ناموجود:", report_data.get('out_of_stock_count', 0)),
             ("", ""),
-            ("مجموع فروخته شده:", total_sold),
-            ("مجموع درآمد (ریال):", f"{total_revenue:,}"),
+            ("مجموع فروخته شده (بازه):", total_sold),
+            ("مجموع درآمد بازه (ریال):", f"{total_revenue:,}"),
         ]
         
         for label, value in stats:
@@ -306,8 +307,8 @@ class ExcelExporter:
         
         # هدر جدول
         headers = [
-            "شناسه", "نام محصول", "دسته‌بندی", "قیمت (ریال)", 
-            "موجودی", "وضعیت فعال", "تعداد فروخته شده", "درآمد کل (ریال)"
+            "شناسه", "نام محصول", "دسته‌بندی", "قیمت (ریال)",
+            "موجودی", "وضعیت موجودی", "وضعیت فعال", "تعداد فروخته شده", "درآمد بازه (ریال)"
         ]
         for col_idx, header in enumerate(headers, start=1):
             cell = ws.cell(row=row_num, column=col_idx, value=header)
@@ -318,12 +319,19 @@ class ExcelExporter:
         
         # داده‌های کامل
         for product in products:
+            if product.get('is_out_of_stock'):
+                stock_label = 'ناموجود'
+            elif product.get('is_low_stock'):
+                stock_label = 'کم‌موجود'
+            else:
+                stock_label = 'عادی'
             row = [
                 product.get('id', ''),
                 product.get('name', ''),
                 product.get('category_name', ''),
                 product.get('price', 0),
                 product.get('stock_quantity', 0),
+                stock_label,
                 'بله' if product.get('is_active') else 'خیر',
                 product.get('total_sold') or 0,
                 product.get('total_revenue') or 0
@@ -444,7 +452,7 @@ class ExcelExporter:
         average_order = (total_sales / paid_orders) if paid_orders > 0 else 0
         
         stats = [
-            ("تاریخ گزارش (جلالی):", report_data.get('date_jalali') or report_data.get('date', '')),
+            ("تاریخ گزارش:", report_data.get('date_jalali') or report_data.get('date', '')),
             ("شروع روز کاری:", report_data.get('business_day_start_time') or (
                 f"{int(report_data.get('business_day_start_hour', 7)):02d}:"
                 f"{int(report_data.get('business_day_start_minute', 0)):02d}"
@@ -516,7 +524,7 @@ class ExcelExporter:
         row_num += 1
 
         stats = [
-            ("تاریخ (جلالی):", report_data.get('date_jalali') or report_data.get('date', '')),
+            ("تاریخ:", report_data.get('date_jalali') or report_data.get('date', '')),
             ("بازه:", f"{report_data.get('range_start_jalali', '—')} تا {report_data.get('range_end_jalali', '—')}"),
             ("فروش پرداخت‌شده:", f"{report_data.get('total_sales', 0):,}"),
             ("کل سفارشات:", report_data.get('total_orders', 0)),

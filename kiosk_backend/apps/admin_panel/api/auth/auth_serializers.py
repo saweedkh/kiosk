@@ -68,6 +68,15 @@ class LogoutResponseSerializer(serializers.Serializer):
     message = serializers.CharField(help_text=_('پیام خروج با موفقیت'))
 
 
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh = serializers.CharField(label=_('توکن رفرش'))
+
+
+class RefreshTokenResponseSerializer(serializers.Serializer):
+    access_token = serializers.CharField(help_text=_('توکن دسترسی جدید'))
+    refresh_token = serializers.CharField(help_text=_('توکن رفرش (در صورت چرخش)'))
+
+
 class UserInfoResponseSerializer(serializers.Serializer):
     """Serializer for user info response."""
     user = UserSerializer(help_text=_('اطلاعات کاربری'))

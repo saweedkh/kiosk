@@ -55,3 +55,19 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
 
 class UpdateOrderStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.STATUS_CHOICES, label=_('وضعیت'))
+
+
+PAYMENT_STATUS_CHOICES = [
+    ('pending', _('در انتظار')),
+    ('processing', _('در حال پردازش')),
+    ('paid', _('پرداخت شده')),
+    ('failed', _('ناموفق')),
+    ('cancelled', _('لغو شده')),
+]
+
+
+class UpdatePaymentStatusSerializer(serializers.Serializer):
+    payment_status = serializers.ChoiceField(
+        choices=PAYMENT_STATUS_CHOICES,
+        label=_('وضعیت پرداخت'),
+    )

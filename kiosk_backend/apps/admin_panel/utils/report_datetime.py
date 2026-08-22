@@ -21,13 +21,35 @@ def tehran_day_end_exclusive(value: date) -> datetime:
 def resolve_sales_datetime_range(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    start_time: Optional[time] = None,
+    end_time: Optional[time] = None,
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     """
-    Convert inclusive calendar dates to aware datetimes in local TZ.
-    Filter with created_at__gte start and created_at__lt end_exclusive.
+    Convert inclusive calendar date (+ optional time) to aware datetimes in local TZ.
+
+    - start defaults to 00:00:00 when only a date is given
+    - end without time uses exclusive next-day midnight (full end date)
+    - end with time is treated as inclusive through that minute (end + 1 minute exclusive)
     """
-    start_dt = tehran_day_start(start_date) if start_date else None
-    end_dt = tehran_day_end_exclusive(end_date) if end_date else None
+    tz = timezone.get_current_timezone()
+    start_dt = None
+    end_dt = None
+
+    if start_date:
+        start_clock = start_time or time.min
+        start_dt = timezone.make_aware(
+            datetime.combine(start_date, start_clock.replace(second=0, microsecond=0)),
+            tz,
+        )
+
+    if end_date:
+        if end_time is None:
+            end_dt = tehran_day_end_exclusive(end_date)
+        else:
+            end_clock = end_time.replace(second=0, microsecond=0)
+            inclusive_end = timezone.make_aware(datetime.combine(end_date, end_clock), tz)
+            end_dt = inclusive_end + timedelta(minutes=1)
+
     return start_dt, end_dt
 
 

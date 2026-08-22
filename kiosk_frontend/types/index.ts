@@ -244,7 +244,7 @@ export interface PaymentResponse {
   created_at: string
 }
 
-export type PaymentStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled'
+export type PaymentStatus = 'pending' | 'processing' | 'paid' | 'success' | 'failed' | 'cancelled'
 
 // Report Types
 export interface ReportFilter {

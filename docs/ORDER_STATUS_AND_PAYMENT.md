@@ -248,23 +248,23 @@ unpaid_status = 'cancelled' if gateway_status == 'cancelled' else 'failed'
 
 ### تغییر فقط `order.status`
 
-- `payment_status` **ثابت**
-- موجودی **بدون تغییر**
+- `payment_status` **ثابت** (مگر از مسیر پرداخت)
 - چاپ **نمی‌شود**
+- موجودی: **بدون تغییر** — **جز** `→ cancelled` روی سفارشی که قبلاً stock کسر شده
 
 | مثال | نتیجه |
 |------|--------|
 | `paid` → `processing` | در حال آماده‌سازی |
 | `paid` → `completed` | تحویل داده شد |
-| `paid` → `cancelled` | ⚠️ سفارش لغo ولی `payment_status` همچنان `paid` — موجودی برنمی‌گردد |
+| `paid` → `cancelled` | سفارش لغo؛ **موجودی برمی‌گردد**؛ `payment_status` اگر paid بود → **cancelled** |
 
 ### تغییر فقط `payment_status`
 
 | تغییر | `order.status` | Side effects |
 |--------|----------------|--------------|
 | → `paid` (اولین بار) | → `paid` | کسر stock، شماره فیش، **چاپ sync** |
-| `paid` → `failed` | ثابت | ⚠️ stock **برنمی‌گردد** |
-| `paid` → `cancelled` | ثابت | ⚠️ stock **برنمی‌گردد** |
+| `paid` → `failed` | ثابت | **برگشت stock** (یک‌بار) |
+| `paid` → `cancelled` | ثابت | **برگشت stock** (یک‌بار) |
 | `failed` → `paid` | → `paid` | کسر stock + چاپ |
 
 ### ربات بله
@@ -285,12 +285,12 @@ unpaid_status = 'cancelled' if gateway_status == 'cancelled' else 'failed'
 | ایجاد سفارش | فقط **validate** — رزرو/کسر نمی‌شود |
 | اولین `payment_status → paid` | **کسر** (`change_type='sale'`) |
 | پرداخت fail/cancel خودکار | **بدون تغییر** |
-| Admin: `status → cancelled` | **برنمی‌گردد** |
-| Admin: `paid → failed/cancelled` | **برنمی‌گردد** |
+| Admin: `status → cancelled` | **برمی‌گردد**؛ اگر `payment_status=paid` بود → **`cancelled` هم می‌شود** |
+| Admin: `paid → failed/cancelled/pending/...` | **برمی‌گردد** (یک‌بار، idempotent) |
 | Late POS + موجودی ناکافی | order `paid` می‌شود **بدون کسر** (warning log) |
-| `OrderService.cancel_order()` | اگر `payment_status=='paid'` → **برگشت stock** — **API عمومی ندارد** |
+| `OrderService.cancel_order()` | همان `update_order_status(cancelled)` — **برگشت stock** |
 
-**کد:** `kiosk_backend/apps/products/services/stock_service.py`
+| Admin/Bale همزمان | `select_for_update` روی سفارش + محصول؛ idempotent restore |
 
 ---
 
@@ -360,10 +360,10 @@ unpaid_status = 'cancelled' if gateway_status == 'cancelled' else 'failed'
 
 ## ۱۱. Edge cases و ناسازگاری‌ها
 
-1. **`cancel_order` بدون API** — برگشت stock فقط در این service؛ admin با `status=cancelled` stock برنمی‌گرداند.
+1. **`cancel_order` بدون API عمومی** — admin/Bale از `update_order_status` استفاده می‌کنند؛ هر دو مسیر stock را درست می‌کنند.
 2. **`processing` هرگز خودکار ست نمی‌شود** — فقط admin/Bale.
 3. **`payment_status` بدون DB constraint** — مقادیر legacy مثل `success` در UI ممکن است.
-4. **Revert دستی paid → failed** — stock برنمی‌گردد.
+4. **Revert دستی paid → failed/cancelled** — stock **برمی‌گردد** (idempotent اگر status هم cancelled شود).
 5. **Admin: status=cancelled ولی payment=paid** — در گزارش فروش ممکن است هنوز شمرده شود.
 6. **لغo کیوسک ≠ لغo POS** — abort فقط wait را قطع می‌کند.
 7. **Bridge gateway** — cancel از راه دور پشتیبانی نمی‌شود.

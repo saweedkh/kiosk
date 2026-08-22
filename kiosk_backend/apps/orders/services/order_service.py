@@ -5,7 +5,7 @@ from apps.orders.models import Order, OrderItem
 from apps.orders.selectors.order_selector import OrderSelector
 from apps.orders.services.receipt_service import ReceiptService
 from apps.orders.services.coupon_service import CouponService
-from apps.products.models import Product, ProductOption
+from apps.products.models import Product, ProductOption, StockHistory
 from apps.products.services.stock_service import StockService
 from apps.logs.services.log_service import LogService
 from apps.core.exceptions.order import OrderNotFoundException, InsufficientStockException
@@ -21,6 +21,8 @@ class OrderService:
     
     This class contains all business logic related to order processing.
     """
+
+    _STOCK_RESTORE_NOTE_PREFIX = 'stock_restore:'
     
     @staticmethod
     def generate_order_number() -> str:
@@ -641,26 +643,48 @@ class OrderService:
         return order
     
     @staticmethod
+    def _get_order_for_update(order_id: int) -> Order:
+        """Load order with row lock for status/payment/stock mutations."""
+        try:
+            return (
+                Order.objects.select_for_update()
+                .prefetch_related('items__product')
+                .get(pk=order_id)
+            )
+        except Order.DoesNotExist:
+            raise OrderNotFoundException()
+
+    @staticmethod
     @transaction.atomic
     def update_order_status(order_id: int, status: str) -> Order:
         """
         Update order status.
-        
-        Args:
-            order_id: Order ID
-            status: New status (e.g., 'pending', 'processing', 'completed', 'cancelled')
-            
-        Returns:
-            Order: Updated order instance
-            
-        Raises:
-            OrderNotFoundException: If order does not exist
+
+        When cancelling a paid order, restores stock that was deducted at payment time.
+        Uses row-level lock on the order to avoid concurrent stock races.
         """
-        order = OrderService._get_order_or_raise(order_id)
+        order = OrderService._get_order_for_update(order_id)
         old_status = order.status
+
+        # Setting status to paid must go through payment flow (stock + receipt).
+        if status == 'paid' and order.payment_status != 'paid':
+            return OrderService.update_payment_status(
+                order_id, 'paid', print_receipt=True
+            )
+
+        payment_changed = False
+        if status == 'cancelled' and old_status != 'cancelled':
+            OrderService._restore_stock_for_order(order, reason='status_cancelled')
+            if order.payment_status == 'paid':
+                order.payment_status = 'cancelled'
+                payment_changed = True
+
         order.status = status
-        order.save()
-        
+        update_fields = ['status']
+        if payment_changed:
+            update_fields.append('payment_status')
+        order.save(update_fields=update_fields)
+
         LogService.log_info(
             'order',
             'order_status_updated',
@@ -671,7 +695,7 @@ class OrderService:
                 'new_status': status
             }
         )
-        
+
         return order
     
     @staticmethod
@@ -695,26 +719,36 @@ class OrderService:
             OrderNotFoundException: If order does not exist
             InsufficientStockException: If insufficient stock when trying to complete payment
         """
-        order = OrderService._get_order_or_raise(order_id)
+        order = OrderService._get_order_for_update(order_id)
         old_payment_status = order.payment_status
         old_status = order.status
-        
+
         if payment_status == 'paid' and old_payment_status != 'paid':
             OrderService._validate_and_decrease_stock(order)
-            
+
             if order.receipt_number is None or order.receipt_number <= 0:
                 order.receipt_number = ReceiptService.allocate_receipt_number()
-            
+
             order.status = 'paid'
             order.payment_status = payment_status
-            order.save()
+            order.save(update_fields=['status', 'payment_status', 'receipt_number'])
             if print_receipt:
                 from apps.orders.services.print_service import PrintService
 
                 PrintService.print_receipt(order)
+        elif old_payment_status == 'paid' and payment_status != 'paid':
+            OrderService._restore_stock_for_order(
+                order, reason=f'payment_status_{payment_status}'
+            )
+            order.payment_status = payment_status
+            update_fields = ['payment_status']
+            if order.status == 'paid' and payment_status in ('failed', 'cancelled'):
+                order.status = 'cancelled'
+                update_fields.append('status')
+            order.save(update_fields=update_fields)
         else:
             order.payment_status = payment_status
-            order.save()
+            order.save(update_fields=['payment_status'])
         
         LogService.log_info(
             'order',
@@ -742,77 +776,106 @@ class OrderService:
         Raises:
             InsufficientStockException: If insufficient stock for any item
         """
-        # Fetch all items with products in one query to avoid N+1
+        # Fetch items with products in one query to avoid N+1
         items = list(order.items.select_related('product').all())
-        
-        # Validate stock for all items
+        product_ids = sorted(
+            {order_item.product_id for order_item in items if order_item.product_id}
+        )
+        locked_products = {
+            p.id: p
+            for p in Product.objects.select_for_update().filter(id__in=product_ids)
+        }
+
+        # Validate stock for all items (under product row locks)
         for order_item in items:
-            if not order_item.product:
-                # Product was deleted, skip stock validation
+            if not order_item.product_id:
                 continue
-            if order_item.product.stock_quantity < order_item.quantity:
+            product = locked_products.get(order_item.product_id)
+            if not product:
+                continue
+            if product.stock_quantity < order_item.quantity:
                 raise InsufficientStockException(
-                    f'Insufficient stock for product {order_item.product.name}. '
-                    f'Available: {order_item.product.stock_quantity}, Requested: {order_item.quantity}'
+                    f'Insufficient stock for product {product.name}. '
+                    f'Available: {product.stock_quantity}, Requested: {order_item.quantity}'
                 )
-        
-        # Decrease stock for all items (reuse the same list to avoid duplicate query)
+
+        # Decrease stock for all items
         for order_item in items:
-            if not order_item.product:
-                # Product was deleted, skip stock decrease
+            if not order_item.product_id:
                 continue
             StockService.decrease_stock(
                 product_id=order_item.product_id,
                 quantity=order_item.quantity,
                 related_order_id=order.id
             )
+
+    @staticmethod
+    def _order_stock_was_deducted(order_id: int) -> bool:
+        return StockHistory.objects.filter(
+            related_order_id=order_id,
+            change_type='sale',
+        ).exists()
+
+    @staticmethod
+    def _order_stock_was_restored(order_id: int) -> bool:
+        return StockHistory.objects.filter(
+            related_order_id=order_id,
+            notes__startswith=OrderService._STOCK_RESTORE_NOTE_PREFIX,
+        ).exists()
+
+    @staticmethod
+    def _restore_stock_for_order(order: Order, *, reason: str = '') -> bool:
+        """
+        Return stock for order items once, if a prior sale deduction exists.
+
+        Idempotent and race-safe when called inside update_order_status /
+        update_payment_status (order row is locked via select_for_update).
+        """
+        if OrderService._order_stock_was_restored(order.id):
+            return False
+        if not OrderService._order_stock_was_deducted(order.id):
+            return False
+
+        note = f'{OrderService._STOCK_RESTORE_NOTE_PREFIX}{order.order_number}'
+        if reason:
+            note = f'{note} ({reason})'
+
+        # Re-check under lock — another worker may have restored just before us.
+        if OrderService._order_stock_was_restored(order.id):
+            return False
+
+        items = list(order.items.all())
+        for order_item in items:
+            if not order_item.product_id:
+                continue
+            StockService.increase_stock(
+                product_id=order_item.product_id,
+                quantity=order_item.quantity,
+                notes=note,
+                related_order_id=order.id,
+            )
+
+        LogService.log_info(
+            'order',
+            'order_stock_restored',
+            details={
+                'order_id': order.id,
+                'order_number': order.order_number,
+                'reason': reason,
+            },
+        )
+        return True
     
     @staticmethod
     @transaction.atomic
     def cancel_order(order_id: int) -> Order:
         """
-        Cancel order and restore stock quantities if payment was completed.
-        
-        Args:
-            order_id: Order ID to cancel
-            
-        Returns:
-            Order: Cancelled order instance
-            
-        Raises:
-            OrderNotFoundException: If order does not exist
-            ValueError: If order status is 'completed' or 'cancelled'
+        Cancel order and restore stock if payment had deducted inventory.
         """
         order = OrderService._get_order_or_raise(order_id)
-        
+
         if order.status in ['completed', 'cancelled']:
             raise ValueError(f'Cannot cancel order with status: {order.status}')
-        
-        if order.payment_status == 'paid':
-            # Fetch items with products in one query to avoid N+1
-            items = order.items.select_related('product').all()
-            for order_item in items:
-                if not order_item.product:
-                    # Product was deleted, skip stock restoration
-                    continue
-                StockService.increase_stock(
-                    product_id=order_item.product_id,
-                    quantity=order_item.quantity,
-                    notes=f'Order {order.order_number} cancelled'
-                )
-        
-        order.status = 'cancelled'
-        order.save()
-        
-        LogService.log_info(
-            'order',
-            'order_cancelled',
-            details={
-                'order_id': order.id,
-                'order_number': order.order_number,
-                'payment_status': order.payment_status
-            }
-        )
-        
-        return order
+
+        return OrderService.update_order_status(order_id, 'cancelled')
 

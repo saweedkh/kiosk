@@ -958,7 +958,7 @@ class UpdateHandler:
         except Order.DoesNotExist:
             self._send(chat_id, 'سفارش یافت نشد.', build_orders_menu(user))
             return
-        if status_value in {'completed', 'cancelled'}:
+        if status_value in {'completed', 'cancelled', 'paid'}:
             self._reply(
                 chat_id,
                 f'برای تغییر وضعیت سفارش {order.order_number} به «{order_status_label(status_value)}» تایید می‌کنید؟',

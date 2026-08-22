@@ -87,7 +87,7 @@ class StockService:
             Product.DoesNotExist: If product does not exist
             ValueError: If insufficient stock available
         """
-        product = Product.objects.get(id=product_id)
+        product = Product.objects.select_for_update().get(id=product_id)
         new_quantity = product.stock_quantity - quantity
         
         if new_quantity < 0:
@@ -115,7 +115,8 @@ class StockService:
         product_id: int,
         quantity: int,
         admin_user: Optional[User] = None,
-        notes: str = ''
+        notes: str = '',
+        related_order_id: Optional[int] = None,
     ) -> Product:
         """
         Increase product stock quantity.
@@ -132,7 +133,7 @@ class StockService:
         Raises:
             Product.DoesNotExist: If product does not exist
         """
-        product = Product.objects.get(id=product_id)
+        product = Product.objects.select_for_update().get(id=product_id)
         new_quantity = product.stock_quantity + quantity
         
         return StockService.update_stock(
@@ -140,6 +141,7 @@ class StockService:
             new_quantity=new_quantity,
             change_type='increase',
             admin_user=admin_user,
-            notes=notes or f'Increased by {quantity}'
+            notes=notes or f'Increased by {quantity}',
+            related_order_id=related_order_id,
         )
 

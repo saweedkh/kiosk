@@ -74,6 +74,17 @@ def payment_status_label(code: str) -> str:
     return PAYMENT_STATUS_LABELS.get(code, code or '—')
 
 
+def payment_status_icon(code: str) -> str:
+    return {
+        'failed': '❌',
+        'cancelled': '🚫',
+        'paid': '✅',
+        'success': '✅',
+        'processing': '🔄',
+        'pending': '⏳',
+    }.get(code or '', '💳')
+
+
 def fulfillment_label(code: str) -> str:
     return FULFILLMENT_LABELS.get(code, code or '—')
 
@@ -434,8 +445,12 @@ def build_order_list_keyboard(
 ) -> Dict[str, Any]:
     rows: List[List[Dict[str, str]]] = []
     for o in orders:
-        payment = '❌' if getattr(o, 'payment_status', '') == 'failed' else '💳'
-        label = f'{truncate(o.order_number, 12)} · {order_status_label(o.status)} {payment}'
+        pay_icon = payment_status_icon(getattr(o, 'payment_status', ''))
+        label = (
+            f'{truncate(o.order_number, 10)} · '
+            f'{order_status_label(o.status)} · '
+            f'{pay_icon}{payment_status_label(o.payment_status)}'
+        )
         rows.append([btn(label, f'o:v:{o.id}')])
     nav: List[Dict[str, str]] = []
     if page > 0:
@@ -478,9 +493,15 @@ def build_order_detail_keyboard(
 
 def build_order_status_keyboard(order_id: int) -> Dict[str, Any]:
     rows = [
-        [btn('در انتظار', f'o:st:{order_id}:pending'), btn('پردازش', f'o:st:{order_id}:processing')],
-        [btn('پرداخت‌شده', f'o:st:{order_id}:paid'), btn('تکمیل', f'o:st:{order_id}:completed')],
-        [btn('لغو', f'o:st:{order_id}:cancelled')],
+        [
+            btn(order_status_label('pending'), f'o:st:{order_id}:pending'),
+            btn(order_status_label('processing'), f'o:st:{order_id}:processing'),
+        ],
+        [
+            btn(order_status_label('paid'), f'o:st:{order_id}:paid'),
+            btn(order_status_label('completed'), f'o:st:{order_id}:completed'),
+        ],
+        [btn(order_status_label('cancelled'), f'o:st:{order_id}:cancelled')],
         [btn('⬅️ جزئیات', f'o:v:{order_id}')],
     ]
     return inline_keyboard(rows)
@@ -488,9 +509,15 @@ def build_order_status_keyboard(order_id: int) -> Dict[str, Any]:
 
 def build_payment_status_keyboard(order_id: int) -> Dict[str, Any]:
     rows = [
-        [btn('در انتظار', f'o:ps:{order_id}:pending'), btn('پردازش', f'o:ps:{order_id}:processing')],
-        [btn('پرداخت‌شده', f'o:ps:{order_id}:paid'), btn('ناموفق', f'o:ps:{order_id}:failed')],
-        [btn('لغو پرداخت', f'o:ps:{order_id}:cancelled')],
+        [
+            btn(payment_status_label('pending'), f'o:ps:{order_id}:pending'),
+            btn(payment_status_label('processing'), f'o:ps:{order_id}:processing'),
+        ],
+        [
+            btn(payment_status_label('paid'), f'o:ps:{order_id}:paid'),
+            btn(payment_status_label('failed'), f'o:ps:{order_id}:failed'),
+        ],
+        [btn(payment_status_label('cancelled'), f'o:ps:{order_id}:cancelled')],
         [btn('⬅️ جزئیات', f'o:v:{order_id}')],
     ]
     return inline_keyboard(rows)
